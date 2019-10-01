@@ -1,0 +1,19 @@
+Oct 01 08:52:53.276 HYPERVISOR: Release 0.2.17-x86/Windows (tag 2017072410)
+Oct 01 08:52:53.277 HYPERVISOR: Started on IP = 127.0.0.1, TCP port = 58160.
+Oct 01 08:52:53.761 HYPERVISOR: exec_cmd: hypervisor version 
+Oct 01 08:52:53.762 HYPERVISOR: exec_cmd: hypervisor working_dir C:\Users\Huawei\GNS3\projects\base_connection\project-files\dynamips 
+Oct 01 08:52:53.762 GENERAL: working_dir=C:\Users\Huawei\GNS3\projects\base_connection\project-files\dynamips
+Oct 01 08:52:53.763 HYPERVISOR: exec_cmd: ethsw create Ethernetswitch-1 
+Oct 01 08:52:55.217 HYPERVISOR: exec_cmd: nio create_udp udp-06a439c4-509e-4bf1-a49c-018189b4417e 10014 127.0.0.1 10015 
+Oct 01 08:52:55.219 HYPERVISOR: exec_cmd: ethsw add_nio Ethernetswitch-1 udp-06a439c4-509e-4bf1-a49c-018189b4417e 
+Oct 01 08:52:55.227 HYPERVISOR: exec_cmd: ethsw set_access_port Ethernetswitch-1 udp-06a439c4-509e-4bf1-a49c-018189b4417e 1 
+Oct 01 08:52:55.303 HYPERVISOR: exec_cmd: nio create_udp udp-67e57dc7-d4dd-4786-a93a-4332b971debc 10017 127.0.0.1 10016 
+Oct 01 08:52:55.306 HYPERVISOR: exec_cmd: ethsw add_nio Ethernetswitch-1 udp-67e57dc7-d4dd-4786-a93a-4332b971debc 
+Oct 01 08:52:55.315 HYPERVISOR: exec_cmd: ethsw set_access_port Ethernetswitch-1 udp-67e57dc7-d4dd-4786-a93a-4332b971debc 1 
+Oct 01 08:52:55.367 HYPERVISOR: exec_cmd: nio create_udp udp-0b506611-442c-477e-b886-edc00091304a 10020 127.0.0.1 10021 
+Oct 01 08:52:55.367 HYPERVISOR: exec_cmd: ethsw add_nio Ethernetswitch-1 udp-0b506611-442c-477e-b886-edc00091304a 
+Oct 01 08:52:55.378 HYPERVISOR: exec_cmd: ethsw set_access_port Ethernetswitch-1 udp-0b506611-442c-477e-b886-edc00091304a 1 
+Oct 01 12:44:21.998 HYPERVISOR: exec_cmd: ethsw delete Ethernetswitch-1 
+Oct 01 12:44:22.045 HYPERVISOR: exec_cmd: hypervisor stop 
+Oct 01 12:44:22.379 HYPERVISOR: Stopped.
+Oct 01 12:44:22.379 GENERAL: reset done.
