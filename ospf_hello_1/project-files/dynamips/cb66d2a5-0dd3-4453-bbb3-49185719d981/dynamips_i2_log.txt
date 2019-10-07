@@ -1,0 +1,21 @@
+Oct 01 16:15:12.965 HYPERVISOR: Release 0.2.17-x86/Windows (tag 2017072410)
+Oct 01 16:15:12.966 HYPERVISOR: Started on IP = 127.0.0.1, TCP port = 63818.
+Oct 01 16:15:13.425 HYPERVISOR: exec_cmd: hypervisor version 
+Oct 01 16:15:13.426 HYPERVISOR: exec_cmd: hypervisor working_dir C:\Users\Huawei\GNS3\projects\ospf_hello_1\project-files\dynamips 
+Oct 01 16:15:13.427 GENERAL: working_dir=C:\Users\Huawei\GNS3\projects\ospf_hello_1\project-files\dynamips
+Oct 01 16:15:13.428 HYPERVISOR: exec_cmd: ethsw create Ethernetswitch-1 
+Oct 01 16:15:15.681 HYPERVISOR: exec_cmd: nio create_udp udp-b46ba1cf-544a-4f4b-9706-889c8a7a56d4 10014 127.0.0.1 10015 
+Oct 01 16:15:15.687 HYPERVISOR: exec_cmd: ethsw add_nio Ethernetswitch-1 udp-b46ba1cf-544a-4f4b-9706-889c8a7a56d4 
+Oct 01 16:15:15.707 HYPERVISOR: exec_cmd: ethsw set_access_port Ethernetswitch-1 udp-b46ba1cf-544a-4f4b-9706-889c8a7a56d4 1 
+Oct 01 16:15:15.778 HYPERVISOR: exec_cmd: nio create_udp udp-e86d7c7d-1a6a-464d-82e2-3738626a7411 10017 127.0.0.1 10016 
+Oct 01 16:15:15.779 HYPERVISOR: exec_cmd: ethsw add_nio Ethernetswitch-1 udp-e86d7c7d-1a6a-464d-82e2-3738626a7411 
+Oct 01 16:15:15.789 HYPERVISOR: exec_cmd: ethsw set_access_port Ethernetswitch-1 udp-e86d7c7d-1a6a-464d-82e2-3738626a7411 1 
+Oct 01 16:15:15.867 HYPERVISOR: exec_cmd: nio create_udp udp-c166b1c5-b3ef-41fe-a85b-9f0567f6e1db 10020 127.0.0.1 10021 
+Oct 01 16:15:15.868 HYPERVISOR: exec_cmd: ethsw add_nio Ethernetswitch-1 udp-c166b1c5-b3ef-41fe-a85b-9f0567f6e1db 
+Oct 01 16:15:15.872 HYPERVISOR: exec_cmd: ethsw set_access_port Ethernetswitch-1 udp-c166b1c5-b3ef-41fe-a85b-9f0567f6e1db 1 
+Oct 01 16:19:06.364 HYPERVISOR: exec_cmd: nio bind_filter udp-c166b1c5-b3ef-41fe-a85b-9f0567f6e1db 2 capture 
+Oct 01 16:19:06.365 HYPERVISOR: exec_cmd: nio setup_filter udp-c166b1c5-b3ef-41fe-a85b-9f0567f6e1db 2 en10mb C:\Users\Huawei\GNS3\projects\ospf_hello_1\tmp\captures\Ethernetswitch-1_Ethernet1_to_Tese-1_Ethernet0.pcap 
+Oct 01 17:51:46.276 HYPERVISOR: exec_cmd: ethsw delete Ethernetswitch-1 
+Oct 01 17:51:46.329 HYPERVISOR: exec_cmd: hypervisor stop 
+Oct 01 17:51:46.679 HYPERVISOR: Stopped.
+Oct 01 17:51:46.687 GENERAL: reset done.
