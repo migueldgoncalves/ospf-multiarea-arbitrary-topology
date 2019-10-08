@@ -1,9 +1,13 @@
 import socket
 
+'''
+Short program to experiment on sending TCP packets to a router and receiving replies from it
+This program must be run as superuser
+'''
+
 ROUTER_1_F1_0 = '222.222.1.1'
 PORT = 80
 MTU = 1500
-
 
 
 with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:

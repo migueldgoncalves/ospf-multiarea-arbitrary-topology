@@ -2,7 +2,8 @@ import socket
 import os
 
 '''
-Short program to experiment on sending and receiving packets over a network
+Short program to experiment on sending and receiving Ethernet packets over a network
+This program must be run as superuser
 '''
 
 ROUTER_INT_IP = '222.222.1.1'
