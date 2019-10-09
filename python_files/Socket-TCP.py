@@ -2,17 +2,18 @@ import socket
 
 '''
 Short program to experiment on sending TCP packets to a router and receiving replies from it
+Requires router to act as HTTP server
 This program must be run as superuser
 '''
 
-ROUTER_1_F1_0 = '222.222.1.1'
+ROUTER_INT_IP = '222.222.1.1'
 PORT = 80
 MTU = 1500
 
 
 with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
     print("Hello World")
-    s.connect((ROUTER_1_F1_0, PORT))
+    s.connect((ROUTER_INT_IP, PORT))
     print("Hello World 2")
     s.sendall(b'GET / HTTP/1.1\r\nHost: 222.222.1.1\r\n\r\n')
     print("Hello World 3")
