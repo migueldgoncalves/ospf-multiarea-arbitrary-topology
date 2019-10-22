@@ -1,2 +1,2 @@
-# gns3-tese
-Projectos do GNS3 para a tese
+# ospf-multiarea-arbitrary-topology
+OSPF extension for creating multiarea networks with arbitrary topology
