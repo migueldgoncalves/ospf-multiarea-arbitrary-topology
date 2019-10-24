@@ -13,11 +13,14 @@ OSPF_PROTOCOL_NUMBER = 89
 DATA_TO_SEND = b'11111111111111'
 PACKETS_TO_WAIT = 5  # Program will wait for 5 packets
 PORT = 0  # Has no effect and should be 0 - Still must be included
-MULTICAST_STRING_FORMAT = "4sL"  # Required when joining multicast groups
+MULTICAST_STRING_FORMAT = "4sL"  # Required for the struct.pack method (4s - 4 letter string; L - signed long)
+INTERFACE_NAME = "ens33"
+ENCODING = "UTF-8"
 
 
 #  Send a packet to the router - Default TTL is 1 and it is what is required, so it remains unchanged
 s = socket.socket(socket.AF_INET, socket.SOCK_RAW, OSPF_PROTOCOL_NUMBER)
+s.setsockopt(socket.SOL_SOCKET, socket.SO_BINDTODEVICE, str(INTERFACE_NAME + '\0').encode(ENCODING))
 s.sendto(DATA_TO_SEND, (ALL_OSPF_ROUTERS, PORT))
 
 #  Join a multicast group
