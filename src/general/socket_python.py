@@ -89,6 +89,7 @@ class Socket:
                 pipeline.put(data[0])
         s.close()
 
+    #  Sends the supplied IPv4 packet to the supplied address through the supplied interface
     def send_ipv4(self, packet, destination_address, interface):
         if packet is None:
             raise ValueError("No data to send provided")
@@ -111,6 +112,7 @@ class Socket:
         s.sendto(packet, (destination_address, PORT))
         s.close()
 
+    #  Sends the supplied IPv6 packet to the supplied address through the supplied interface
     def send_ipv6(self, packet, destination_address, interface):
         if packet is None:
             raise ValueError("No data to send provided")
@@ -132,4 +134,3 @@ class Socket:
         #  Send packet
         s.sendto(packet, (destination_address, PORT))
         s.close()
-

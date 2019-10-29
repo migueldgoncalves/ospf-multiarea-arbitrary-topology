@@ -5,6 +5,10 @@ import queue
 
 import general.socket_python as socket_python
 
+'''
+This class tests the socket operations in the router
+'''
+
 TIMEOUT_SECONDS = 30
 DATA_TO_SEND = b'11111111111111'
 OSPF_ALL_PACKETS_IPV4 = "224.0.0.5"

@@ -2,8 +2,7 @@ import unittest
 import os
 
 '''
-Set of tests to ensure correctness of addresses and connectivity between host and router
-This set of tests must be run as superuser
+This class tests connection with the GNS3 network elements
 '''
 
 PING_SUCCESSFUL = 0  # Ping command returns 0 if successful
@@ -15,6 +14,7 @@ ROUTER_INT_IPV6 = '2001:db8:cafe:1::1'
 HOST_INT_IPV6 = '2001:db8:cafe:1::2'
 
 
+#  Full successful run - Instant
 class PingTest(unittest.TestCase):
 
     def test_host_ping_ipv4(self):
