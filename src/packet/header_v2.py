@@ -27,10 +27,9 @@ class HeaderV2:
     auth_type = 0  # 2 bytes
     authentication = 0  # 8 bytes
 
-    def __init__(self, version, packet_type, length, router_id, area_id, auth_type, authentication):
+    def __init__(self, version, packet_type, router_id, area_id, auth_type, authentication):
         self.version = version
         self.packet_type = packet_type
-        self.length = length
         self.router_id = router_id
         self.area_id = area_id
         self.auth_type = auth_type
@@ -39,12 +38,21 @@ class HeaderV2:
     def set_checksum(self, checksum):
         self.checksum = checksum
 
+    def set_length(self, length):
+        self.length = length
+
     #  Converts set of parameters to a byte object suitable to be sent and recognized as the header of an OSPF packet
     def pack_header(self):
         decimal_router_id = self.utils.ipv4_to_decimal(self.router_id)
         decimal_area_id = self.utils.ipv4_to_decimal(self.area_id)
         return struct.pack(FORMAT_STRING, self.version, self.packet_type, self.length, decimal_router_id,
                            decimal_area_id, self.checksum, self.auth_type, self.authentication)
+
+    #  Cleans packet checksum, authentication type and authentication fields for checksum calculation
+    def prepare_packet_checksum(self):
+        self.checksum = 0
+        self.auth_type = 0
+        self.authentication = 0
 
     def print_header_packet(self):
         print(self.pack_header())

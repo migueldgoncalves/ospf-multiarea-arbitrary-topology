@@ -6,6 +6,10 @@ import general.utils as utils
 This class tests utility functions used throughout the router code
 '''
 
+INTERFACE_NAME = 'ens33'
+INTERFACE_IP = '222.222.1.2'  # Must be changed if IP address of interface is changed for tests to pass
+NETWORK_MASK = '255.255.255.0'  # Must be changed if network mask of interface is changed for tests to pass
+
 
 #  Full successful run - Instant
 class UtilsTest(unittest.TestCase):
@@ -52,3 +56,11 @@ class UtilsTest(unittest.TestCase):
                  b'\xff\xff\x00\x00\n\x00\x00\x00\x00\x00(\x00\x00\x00\x00\x00\x00\x00\x00\x01\x01\x01\x01'
         checksum = self.utils.create_checksum_ipv4(packet)
         self.assertEqual(63123, checksum)
+
+    #  Successful run - Instant
+    def test_get_ipv4_address_from_interface_name(self):
+        self.assertEqual(INTERFACE_IP, self.utils.get_ipv4_address_from_interface_name(INTERFACE_NAME))
+
+    #  Successful run - Instant
+    def test_get_ipv4_network_mask_from_interface_name(self):
+        self.assertEqual(NETWORK_MASK, self.utils.get_ipv4_network_mask_from_interface_name(INTERFACE_NAME))

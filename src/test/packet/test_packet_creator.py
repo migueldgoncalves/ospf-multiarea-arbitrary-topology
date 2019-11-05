@@ -10,7 +10,6 @@ This class tests the interface to packet creation
 #  Header data
 VERSION = 2
 PACKET_TYPE = 1
-LENGTH = 48
 ROUTER_ID = '3.3.3.3'
 AREA_ID = '0.0.0.0'
 AUTH_TYPE = 0
@@ -36,7 +35,7 @@ class PacketCreatorTest(unittest.TestCase):
     socket = None
 
     def setUp(self):
-        parameters = [VERSION, PACKET_TYPE, LENGTH, ROUTER_ID, AREA_ID, AUTH_TYPE, AUTHENTICATION]
+        parameters = [VERSION, PACKET_TYPE, ROUTER_ID, AREA_ID, AUTH_TYPE, AUTHENTICATION]
         self.packet_creator = packet_creator.PacketCreator(parameters)
         self.socket = socket_python.Socket()
 
