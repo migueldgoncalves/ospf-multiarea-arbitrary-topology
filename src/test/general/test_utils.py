@@ -64,3 +64,28 @@ class UtilsTest(unittest.TestCase):
     #  Successful run - Instant
     def test_get_ipv4_network_mask_from_interface_name(self):
         self.assertEqual(NETWORK_MASK, self.utils.get_ipv4_network_mask_from_interface_name(INTERFACE_NAME))
+
+    #  Successful run - Instant
+    def test_is_ipv4_address_successful(self):
+        self.assertTrue(self.utils.is_ipv4_address('0.0.0.0'))
+        self.assertTrue(self.utils.is_ipv4_address('0.0.0.1'))
+        self.assertTrue(self.utils.is_ipv4_address('0.0.0.255'))
+        self.assertTrue(self.utils.is_ipv4_address('0.0.1.0'))
+        self.assertTrue(self.utils.is_ipv4_address('0.0.255.255'))
+        self.assertTrue(self.utils.is_ipv4_address('0.1.0.0'))
+        self.assertTrue(self.utils.is_ipv4_address('0.1.0.0'))
+        self.assertTrue(self.utils.is_ipv4_address('0.255.255.255'))
+        self.assertTrue(self.utils.is_ipv4_address('1.0.0.0'))
+        self.assertTrue(self.utils.is_ipv4_address('255.255.255.255'))
+
+    #  Successful run - Instant
+    def test_is_ipv4_address_invalid_ip(self):
+        self.assertFalse(self.utils.is_ipv4_address(''))
+        self.assertFalse(self.utils.is_ipv4_address('        '))
+        self.assertFalse(self.utils.is_ipv4_address('An invalid IP address'))
+        self.assertFalse(self.utils.is_ipv4_address('0'))
+        self.assertFalse(self.utils.is_ipv4_address('0.'))
+        self.assertFalse(self.utils.is_ipv4_address('0.0.0'))
+        self.assertFalse(self.utils.is_ipv4_address('0.0.0.'))
+        self.assertFalse(self.utils.is_ipv4_address('0.0.0.0.'))
+        self.assertFalse(self.utils.is_ipv4_address('0.0.0.0.0'))

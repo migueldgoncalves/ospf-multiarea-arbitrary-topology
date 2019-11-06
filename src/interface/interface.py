@@ -68,14 +68,14 @@ class Interface:
         self.timer_shutdown = threading.Event()
         self.timer_seconds = self.hello_interval
 
+    #  Interface main method
+    def interface_loop(self):
         #  Starts Hello timer
         self.hello_thread = threading.Thread(target=self.hello_timer.interval_timer,
                                              args=(self.offset, self.timeout, self.timer_shutdown, self.timer_seconds))
         self.hello_thread.start()
-
-    #  Interface main method
-    def interface_loop(self):
         self.timeout.set()  # If this thread reaches "if" below before losing CPU, it will immediately send Hello packet
+
         while not(self.interface_shutdown.is_set()):
             #  Sends Hello packet
             if self.timeout.is_set():
@@ -93,3 +93,4 @@ class Interface:
                                                           self.router_priority, self.router_dead_interval,
                                                           self.designated_router, self.backup_designated_router,
                                                           self.neighbors)
+

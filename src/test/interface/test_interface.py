@@ -16,6 +16,7 @@ PACKET_BYTES = b'\x02\x01\x00,\x03\x03\x03\x03\x00\x00\x00\x00\xf6\x99\x00\x00\x
                b'\xff\xff\x00\x00\n\x02\x00\x00\x00\x00(\x00\x00\x00\x00\x00\x00\x00\x00'
 
 
+#  Full successful run - 21-25 s, can be longer
 class InterfaceTest(unittest.TestCase):
     interface = None
 
@@ -38,6 +39,7 @@ class InterfaceTest(unittest.TestCase):
         self.interface = interface.Interface(self.interface_identifier, self.ip_address, self.network_mask,
                                              self.area_id, self.interface_pipeline, self.interface_shutdown)
 
+    #  Successful run - 21-25 s, can be longer
     def test_interface_loop_packet_sending_successful(self):
         socket = socket_python.Socket()
         socket_pipeline = queue.Queue()
@@ -53,13 +55,23 @@ class InterfaceTest(unittest.TestCase):
 
         thread_interface = threading.Thread(target=self.interface.interface_loop)
         thread_interface.start()
-        time.sleep(2 * conf.HELLO_INTERVAL+1)
+        time.sleep(2 * conf.HELLO_INTERVAL + 1)  # Allows for Hello packets to be sent
 
         self.interface_shutdown.set()
         socket_shutdown.set()
         thread_interface.join()
         thread_socket.join()
 
+    #  Successful run - Instant
     def test_create_packet_successful(self):
         packet = self.interface.create_packet()
         self.assertEqual(PACKET_BYTES, packet)
+
+    def tearDown(self):
+        self.interface_identifier = ''
+        self.ip_address = ''
+        self.network_mask = 0
+        self.area_id = ''
+        self.interface_pipeline = None
+        self.interface_shutdown = None
+        self.interface = None
