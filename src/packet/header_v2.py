@@ -1,6 +1,7 @@
 import struct
 
 import general.utils as utils
+import conf.conf as conf
 
 '''
 This class represents the OSPFv2 packet header and contains its operations
@@ -28,18 +29,17 @@ class HeaderV2:
     authentication = 0  # 8 bytes
 
     def __init__(self, version, packet_type, router_id, area_id, auth_type, authentication):
+        is_valid, message = self.parameter_validation(version, packet_type, router_id, area_id, auth_type,
+                                                      authentication)
+        if not is_valid:  # At least one of the parameters failed validation
+            raise ValueError(message)
+
         self.version = version
         self.packet_type = packet_type
         self.router_id = router_id
         self.area_id = area_id
         self.auth_type = auth_type
         self.authentication = authentication
-
-    def set_checksum(self, checksum):
-        self.checksum = checksum
-
-    def set_length(self, length):
-        self.length = length
 
     #  Converts set of parameters to a byte object suitable to be sent and recognized as the header of an OSPF packet
     def pack_header(self):
@@ -53,6 +53,33 @@ class HeaderV2:
         self.checksum = 0
         self.auth_type = 0
         self.authentication = 0
+
+    #  Validates constructor parameters - Returns error message in case of failed validation
+    def parameter_validation(self, version, packet_type, router_id, area_id, auth_type, authentication):
+        if version != conf.VERSION_IPV4:
+            return False, "Invalid OSPF version"
+        if packet_type not in [conf.PACKET_TYPE_HELLO, conf.PACKET_TYPE_DB_DESCRIPTION, conf.PACKET_TYPE_LS_REQUEST,
+                               conf.PACKET_TYPE_LS_UPDATE, conf.PACKET_TYPE_LS_ACKNOWLEDGMENT]:
+            return False, "Invalid packet type"
+        if not self.utils.is_ipv4_address(router_id):
+            return False, "Invalid router ID"
+        if not self.utils.is_ipv4_address(area_id):
+            return False, "Invalid area ID"
+        if auth_type not in [conf.NULL_AUTHENTICATION, conf.SIMPLE_PASSWORD, conf.CRYPTOGRAPHIC_AUTHENTICATION]:
+            return False, "Invalid authentication type"
+        if authentication < 0:
+            return False, "Invalid authentication field"
+        return True, ''  # No error message to return
+
+    def set_checksum(self, checksum):
+        if (checksum < 0) | (checksum > conf.MAX_VALUE_16_BITS):
+            raise ValueError("Checksum must be between 0 and", conf.MAX_VALUE_16_BITS, ", was:", checksum)
+        self.checksum = checksum
+
+    def set_length(self, length):
+        if length < conf.OSPFV2_HEADER_LENGTH:
+            raise ValueError("Packet length must be at least", conf.OSPFV2_HEADER_LENGTH, ", was:", length)
+        self.length = length
 
     def print_header_packet(self):
         print(self.pack_header())

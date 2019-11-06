@@ -12,11 +12,11 @@ import interface.interface as interface
 This class tests the interface operations in the router
 '''
 
-PACKET_BYTES = b'\x02\x01\x00,\x03\x03\x03\x03\x00\x00\x00\x00\xf6\x99\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\xff' \
-               b'\xff\xff\x00\x00\n\x02\x00\x00\x00\x00(\x00\x00\x00\x00\x00\x00\x00\x00'
+PACKET_BYTES = b'\x02\x01\x00,\x03\x03\x03\x03\x00\x00\x00\x00\xf6\x98\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\xff' \
+               b'\xff\xff\x00\x00\n\x02\x01\x00\x00\x00(\x00\x00\x00\x00\x00\x00\x00\x00'
 
 
-#  Full successful run - 21-25 s, can be longer
+#  Full successful run - 21-30 s, can be longer
 class InterfaceTest(unittest.TestCase):
     interface = None
 
@@ -39,7 +39,7 @@ class InterfaceTest(unittest.TestCase):
         self.interface = interface.Interface(self.interface_identifier, self.ip_address, self.network_mask,
                                              self.area_id, self.interface_pipeline, self.interface_shutdown)
 
-    #  Successful run - 21-25 s, can be longer
+    #  Successful run - 21-30 s, can be longer
     def test_interface_loop_packet_sending_successful(self):
         socket = socket_python.Socket()
         socket_pipeline = queue.Queue()

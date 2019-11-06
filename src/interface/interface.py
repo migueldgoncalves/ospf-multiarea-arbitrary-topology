@@ -60,7 +60,7 @@ class Interface:
         self.pipeline = pipeline
         self.interface_shutdown = interface_shutdown
         packet_creator_parameters = [conf.VERSION_IPV4, conf.PACKET_TYPE_HELLO, conf.ROUTER_ID, area_id,
-                                     conf.AUTH_TYPE, conf.AUTHENTICATION]
+                                     conf.NULL_AUTHENTICATION, conf.DEFAULT_AUTH]
         self.packet_creator = packet_creator.PacketCreator(packet_creator_parameters)
 
         self.hello_timer = timer.Timer()
