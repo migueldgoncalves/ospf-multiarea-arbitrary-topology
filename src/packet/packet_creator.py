@@ -18,8 +18,7 @@ class PacketCreator:
     #  Packet header is set on creation
     def __init__(self, parameters):
         if parameters[0] == OSPF_V2:
-            self.header = header_v2.HeaderV2(parameters[0], parameters[1], parameters[2], parameters[3], parameters[4],
-                                             parameters[5])
+            self.header = header_v2.HeaderV2(parameters[1], parameters[2], parameters[3], parameters[4], parameters[5])
 
     #  Creates a full OSPFv2 Hello packet
     def create_hello_v2_packet(self, network_mask, hello_interval, options, router_priority, router_dead_interval,

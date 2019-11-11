@@ -65,3 +65,28 @@ class Utils:
             return True
         except ValueError:
             return False
+
+    #  Return True if argument is a valid IPv4 network mask
+    @staticmethod
+    def is_ipv4_network_mask(network_mask):
+        if not Utils.is_ipv4_address(network_mask):
+            return False
+        if network_mask == '0.0.0.0':  # Method below will not work for address '0.0.0.0' since 2's complement of 0 is 0
+            return True
+
+        #  Creates 32-bit number from network mask
+        first, second, third, fourth = (int(octet) for octet in network_mask.split("."))
+        binary_mask = first << 24 | second << 16 | third << 8 | fourth
+
+        #  Iterates over the 0's at the right
+        #  https://wiki.python.org/moin/BitManipulation#lowestSet.28.29
+        lowest_set_bit = binary_mask & -binary_mask  # "0010" & "1110" = "0010"
+        zero_bits = -1  # If LSB is 1, cycle iterates once - There are 0 bits with value 0
+        while lowest_set_bit:  # Until first 1 at right is reached
+            lowest_set_bit >>= 1
+            zero_bits += 1
+
+        #  Verifies that all bits to the left are 1's
+        if binary_mask | ((1 << zero_bits) - 1) != conf.MAX_VALUE_32_BITS:  # "1100" | "0011" = "1111"
+            return False  # Bits to the left include 0's
+        return True

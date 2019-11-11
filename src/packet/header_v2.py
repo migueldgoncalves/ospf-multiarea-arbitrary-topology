@@ -28,13 +28,13 @@ class HeaderV2:
     auth_type = 0  # 2 bytes
     authentication = 0  # 8 bytes
 
-    def __init__(self, version, packet_type, router_id, area_id, auth_type, authentication):
-        is_valid, message = self.parameter_validation(version, packet_type, router_id, area_id, auth_type,
+    def __init__(self, packet_type, router_id, area_id, auth_type, authentication):
+        is_valid, message = self.parameter_validation(packet_type, router_id, area_id, auth_type,
                                                       authentication)
         if not is_valid:  # At least one of the parameters failed validation
             raise ValueError(message)
 
-        self.version = version
+        self.version = conf.VERSION_IPV4
         self.packet_type = packet_type
         self.router_id = router_id
         self.area_id = area_id
@@ -55,9 +55,7 @@ class HeaderV2:
         self.authentication = 0
 
     #  Validates constructor parameters - Returns error message in case of failed validation
-    def parameter_validation(self, version, packet_type, router_id, area_id, auth_type, authentication):
-        if version != conf.VERSION_IPV4:
-            return False, "Invalid OSPF version"
+    def parameter_validation(self, packet_type, router_id, area_id, auth_type, authentication):
         if packet_type not in [conf.PACKET_TYPE_HELLO, conf.PACKET_TYPE_DB_DESCRIPTION, conf.PACKET_TYPE_LS_REQUEST,
                                conf.PACKET_TYPE_LS_UPDATE, conf.PACKET_TYPE_LS_ACKNOWLEDGMENT]:
             return False, "Invalid packet type"
@@ -67,7 +65,7 @@ class HeaderV2:
             return False, "Invalid area ID"
         if auth_type not in [conf.NULL_AUTHENTICATION, conf.SIMPLE_PASSWORD, conf.CRYPTOGRAPHIC_AUTHENTICATION]:
             return False, "Invalid authentication type"
-        if authentication < 0:
+        if not (0 <= authentication <= conf.MAX_VALUE_64_BITS):
             return False, "Invalid authentication field"
         return True, ''  # No error message to return
 

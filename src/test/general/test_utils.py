@@ -49,6 +49,10 @@ class UtilsTest(unittest.TestCase):
             self.utils.ipv4_to_decimal('0.0.0.0.')
         with self.assertRaises(ValueError):
             self.utils.ipv4_to_decimal('0.0.0.0.0')
+        with self.assertRaises(ValueError):
+            self.utils.ipv4_to_decimal('-1.-1.-1.-1')
+        with self.assertRaises(ValueError):
+            self.utils.ipv4_to_decimal('256.256.256.256')
 
     #  Successful run - Instant
     def test_create_checksum_ipv4_successful(self):
@@ -89,3 +93,25 @@ class UtilsTest(unittest.TestCase):
         self.assertFalse(self.utils.is_ipv4_address('0.0.0.'))
         self.assertFalse(self.utils.is_ipv4_address('0.0.0.0.'))
         self.assertFalse(self.utils.is_ipv4_address('0.0.0.0.0'))
+
+    #  Successful run - Instant
+    def test_is_ipv4_network_mask_successful(self):
+        self.assertTrue(self.utils.is_ipv4_network_mask('0.0.0.0'))
+        self.assertTrue(self.utils.is_ipv4_network_mask('128.0.0.0'))
+        self.assertTrue(self.utils.is_ipv4_network_mask('255.0.0.0'))
+        self.assertTrue(self.utils.is_ipv4_network_mask('255.255.0.0'))
+        self.assertTrue(self.utils.is_ipv4_network_mask('255.255.255.0'))
+        self.assertTrue(self.utils.is_ipv4_network_mask('255.255.255.254'))
+        self.assertTrue(self.utils.is_ipv4_network_mask('255.255.255.255'))
+
+    #  Successful run - Instant
+    def test_is_ipv4_network_mask_invalid_mask(self):
+        self.assertFalse(self.utils.is_ipv4_network_mask(''))
+        self.assertFalse(self.utils.is_ipv4_network_mask('An invalid IP address'))
+        self.assertFalse(self.utils.is_ipv4_network_mask('127.0.0.1'))
+        self.assertFalse(self.utils.is_ipv4_network_mask('0.0.0.1'))
+        self.assertFalse(self.utils.is_ipv4_network_mask('255.255.255.253'))
+        self.assertFalse(self.utils.is_ipv4_network_mask('255.255.255.64'))
+        self.assertFalse(self.utils.is_ipv4_network_mask('255.255.64.0'))
+        self.assertFalse(self.utils.is_ipv4_network_mask('255.64.0.0'))
+        self.assertFalse(self.utils.is_ipv4_network_mask('64.0.0.0'))

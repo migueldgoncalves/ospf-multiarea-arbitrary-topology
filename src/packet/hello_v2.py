@@ -1,6 +1,7 @@
 import struct
 
 import general.utils as utils
+import conf.conf as conf
 
 '''
 This class represents the body of an OSPFv2 Hello packet and contains its operations
@@ -29,6 +30,12 @@ class HelloV2:
 
     def __init__(self, network_mask, hello_interval, options, router_priority, router_dead_interval,
                  designated_router, backup_designated_router, neighbors):
+        is_valid, message = self.parameter_validation(network_mask, hello_interval, options, router_priority,
+                                                      router_dead_interval, designated_router, backup_designated_router,
+                                                      neighbors)
+        if not is_valid:  # At least one of the parameters failed validation
+            raise ValueError(message)
+
         self.network_mask = network_mask
         self.hello_interval = hello_interval
         self.options = options
@@ -59,6 +66,30 @@ class HelloV2:
     def get_format_string(self):
         format_string = BASE_FORMAT_STRING
         #  Format string must receive 1 parameter for every new neighbor in the packet
-        for n in self.neighbors:
+        for _ in self.neighbors:
             format_string += EXTRA_FORMAT_STRING
-        return format_string[1:]  # Removes the first char -> ">"
+        return format_string
+
+    #  Validates constructor parameters - Returns error message in case of failed validation
+    def parameter_validation(self, network_mask, hello_interval, options, router_priority, router_dead_interval,
+                             designated_router, backup_designated_router, neighbors):
+        if not self.utils.is_ipv4_network_mask(network_mask):
+            return False, "Invalid network mask"
+        if not (0 <= hello_interval <= conf.MAX_VALUE_16_BITS):
+            return False, "Invalid Hello interval"
+        if not (0 <= options <= conf.MAX_VALUE_8_BITS):
+            return False, "Invalid packet options"
+        if not (0 <= router_priority <= conf.MAX_VALUE_8_BITS):
+            return False, "Invalid router priority"
+        if not (0 <= router_dead_interval <= conf.MAX_VALUE_32_BITS):
+            return False, "Invalid router dead interval"
+        if not self.utils.is_ipv4_address(designated_router):
+            return False, "Invalid Designated Router"
+        if not self.utils.is_ipv4_address(backup_designated_router):
+            return False, "Invalid Backup Designated Router"
+        if len(neighbors) > 0:
+            for neighbor_id in neighbors:
+                if not self.utils.is_ipv4_address(neighbor_id):
+                    return False, "Invalid Neighbor(s)"
+        return True, ''  # No error message to return
+
