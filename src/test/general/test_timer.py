@@ -57,7 +57,7 @@ class TimerTest(unittest.TestCase):
         self.shutdown.set()
         thread.join()
 
-    #  Succesful run - Instant
+    #  Successful run - Instant
     def test_one_shot_timer_invalid_parameters(self):
         with self.assertRaises(ValueError):
             self.timer.single_shot_timer(None, self.timeout, self.shutdown, TIMEOUT_SECONDS)
@@ -72,7 +72,7 @@ class TimerTest(unittest.TestCase):
         with self.assertRaises(ValueError):
             self.timer.single_shot_timer(self.reset, self.timeout, self.shutdown, -1)
 
-    #  Succesful run - 6 s
+    #  Successful run - 6 s
     @timeout_decorator.timeout(2*TIMEOUT_SECONDS+1)
     def test_interval_timer_successful(self):
         thread = threading.Thread(target=self.timer.interval_timer, args=(OFFSET, self.timeout, self.shutdown,
@@ -86,7 +86,7 @@ class TimerTest(unittest.TestCase):
         self.shutdown.set()
         thread.join()
 
-    #  Succesful run - Instant
+    #  Successful run - Instant
     def test_interval_timer_invalid_parameters(self):
         with self.assertRaises(ValueError):
             self.timer.interval_timer(-1, self.timeout, self.shutdown, TIMEOUT_SECONDS)

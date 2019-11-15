@@ -120,30 +120,47 @@ class TestHeaderV2(unittest.TestCase):
     #  Successful run - Instant
     def test_parameter_validation_invalid_parameters(self):
         #  Invalid packet type
-        self.assertFalse(self.header.parameter_validation(conf.PACKET_TYPE_HELLO - 1, self.router_id, self.area_id,
-                                                          self.auth_type, self.authentication)[0])
-        self.assertFalse(self.header.parameter_validation(conf.PACKET_TYPE_LS_ACKNOWLEDGMENT + 1, self.router_id,
-                                                          self.area_id, self.auth_type, self.authentication)[0])
+        self.assertEqual(self.header.parameter_validation(conf.PACKET_TYPE_HELLO - 1, self.router_id, self.area_id,
+                                                          self.auth_type, self.authentication),
+                         (False, "Invalid packet type"))
+        self.assertEqual(self.header.parameter_validation(conf.PACKET_TYPE_LS_ACKNOWLEDGMENT + 1, self.router_id,
+                                                          self.area_id, self.auth_type, self.authentication),
+                         (False, "Invalid packet type"))
+        self.assertEqual(self.header.parameter_validation('Invalid parameter', self.router_id, self.area_id,
+                                                          self.auth_type, self.authentication),
+                         (False, "Invalid packet type"))
 
         #  Incorrect router ID
-        self.assertFalse(self.header.parameter_validation(self.packet_type, '', self.area_id, self.auth_type,
-                                                          self.authentication)[0])
+        self.assertEqual(self.header.parameter_validation(self.packet_type, '', self.area_id, self.auth_type,
+                                                          self.authentication),
+                         (False, "Invalid router ID"))
 
         #  Incorrect area ID
-        self.assertFalse(self.header.parameter_validation(self.packet_type, self.router_id, '', self.auth_type,
-                                                          self.authentication)[0])
+        self.assertEqual(self.header.parameter_validation(self.packet_type, self.router_id, '', self.auth_type,
+                                                          self.authentication),
+                         (False, "Invalid area ID"))
 
         #  Incorrect authentication type
-        self.assertFalse(self.header.parameter_validation(self.packet_type, self.router_id, self.area_id,
-                                                          conf.NULL_AUTHENTICATION - 1, self.authentication)[0])
-        self.assertFalse(self.header.parameter_validation(self.packet_type, self.router_id, self.area_id,
-                                                        conf.CRYPTOGRAPHIC_AUTHENTICATION + 1, self.authentication)[0])
+        self.assertEqual(self.header.parameter_validation(self.packet_type, self.router_id, self.area_id,
+                                                          conf.NULL_AUTHENTICATION - 1, self.authentication),
+                         (False, "Invalid authentication type"))
+        self.assertEqual(self.header.parameter_validation(self.packet_type, self.router_id, self.area_id,
+                                                          conf.CRYPTOGRAPHIC_AUTHENTICATION + 1, self.authentication),
+                         (False, "Invalid authentication type"))
+        self.assertEqual(self.header.parameter_validation(self.packet_type, self.router_id, self.area_id,
+                                                          'Invalid parameter', self.authentication),
+                         (False, "Invalid authentication type"))
 
         #  Incorrect authentication field
-        self.assertFalse(self.header.parameter_validation(self.packet_type, self.router_id, self.area_id,
-                                                          self.auth_type, -1)[0])
-        self.assertFalse(self.header.parameter_validation(self.packet_type, self.router_id, self.area_id,
-                                                          self.auth_type, conf.MAX_VALUE_64_BITS + 1)[0])
+        self.assertEqual(self.header.parameter_validation(self.packet_type, self.router_id, self.area_id,
+                                                          self.auth_type, -1),
+                         (False, "Invalid authentication field"))
+        self.assertEqual(self.header.parameter_validation(self.packet_type, self.router_id, self.area_id,
+                                                          self.auth_type, conf.MAX_VALUE_64_BITS + 1),
+                         (False, "Invalid authentication field"))
+        self.assertEqual(self.header.parameter_validation(self.packet_type, self.router_id, self.area_id,
+                                                          self.auth_type, 'Invalid parameter'),
+                         (False, "Invalid parameter type"))
 
     #  Successful run - Instant
     def test_set_checksum(self):

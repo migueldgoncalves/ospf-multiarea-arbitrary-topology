@@ -56,18 +56,21 @@ class HeaderV2:
 
     #  Validates constructor parameters - Returns error message in case of failed validation
     def parameter_validation(self, packet_type, router_id, area_id, auth_type, authentication):
-        if packet_type not in [conf.PACKET_TYPE_HELLO, conf.PACKET_TYPE_DB_DESCRIPTION, conf.PACKET_TYPE_LS_REQUEST,
-                               conf.PACKET_TYPE_LS_UPDATE, conf.PACKET_TYPE_LS_ACKNOWLEDGMENT]:
-            return False, "Invalid packet type"
-        if not self.utils.is_ipv4_address(router_id):
-            return False, "Invalid router ID"
-        if not self.utils.is_ipv4_address(area_id):
-            return False, "Invalid area ID"
-        if auth_type not in [conf.NULL_AUTHENTICATION, conf.SIMPLE_PASSWORD, conf.CRYPTOGRAPHIC_AUTHENTICATION]:
-            return False, "Invalid authentication type"
-        if not (0 <= authentication <= conf.MAX_VALUE_64_BITS):
-            return False, "Invalid authentication field"
-        return True, ''  # No error message to return
+        try:
+            if packet_type not in [conf.PACKET_TYPE_HELLO, conf.PACKET_TYPE_DB_DESCRIPTION, conf.PACKET_TYPE_LS_REQUEST,
+                                   conf.PACKET_TYPE_LS_UPDATE, conf.PACKET_TYPE_LS_ACKNOWLEDGMENT]:
+                return False, "Invalid packet type"
+            if not self.utils.is_ipv4_address(router_id):
+                return False, "Invalid router ID"
+            if not self.utils.is_ipv4_address(area_id):
+                return False, "Invalid area ID"
+            if auth_type not in [conf.NULL_AUTHENTICATION, conf.SIMPLE_PASSWORD, conf.CRYPTOGRAPHIC_AUTHENTICATION]:
+                return False, "Invalid authentication type"
+            if not (0 <= authentication <= conf.MAX_VALUE_64_BITS):
+                return False, "Invalid authentication field"
+            return True, ''  # No error message to return
+        except (ValueError, TypeError):
+            return False, "Invalid parameter type"
 
     def set_checksum(self, checksum):
         if (checksum < 0) | (checksum > conf.MAX_VALUE_16_BITS):
