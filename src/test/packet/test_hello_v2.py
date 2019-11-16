@@ -101,34 +101,34 @@ class TestHelloV2(unittest.TestCase):
 
     #  Successful run - Instant
     def test_get_format_string(self):
-        format_string = hello_v2.BASE_FORMAT_STRING
+        format_string = hello_v2.BASE_FORMAT_STRING[2:]
         neighbors = ()
         packet_body = hello_v2.HelloV2(self.network_mask, self.hello_interval, self.options, self.router_priority,
                                        self.router_dead_interval, self.designated_router, self.backup_designated_router,
                                        neighbors)
-        self.assertEqual(format_string, packet_body.get_format_string())
+        self.assertEqual(format_string, packet_body.get_format_string(len(neighbors)))
 
-        format_string = hello_v2.BASE_FORMAT_STRING + hello_v2.EXTRA_FORMAT_STRING
+        format_string = hello_v2.BASE_FORMAT_STRING[2:] + hello_v2.EXTRA_FORMAT_STRING
         neighbors = ('1.1.1.1',)
         packet_body = hello_v2.HelloV2(self.network_mask, self.hello_interval, self.options, self.router_priority,
                                        self.router_dead_interval, self.designated_router, self.backup_designated_router,
                                        neighbors)
-        self.assertEqual(format_string, packet_body.get_format_string())
+        self.assertEqual(format_string, packet_body.get_format_string(len(neighbors)))
 
-        format_string = hello_v2.BASE_FORMAT_STRING + hello_v2.EXTRA_FORMAT_STRING + hello_v2.EXTRA_FORMAT_STRING
+        format_string = hello_v2.BASE_FORMAT_STRING[2:] + hello_v2.EXTRA_FORMAT_STRING + hello_v2.EXTRA_FORMAT_STRING
         neighbors = ('1.1.1.1', '2.2.2.2')
         packet_body = hello_v2.HelloV2(self.network_mask, self.hello_interval, self.options, self.router_priority,
                                        self.router_dead_interval, self.designated_router, self.backup_designated_router,
                                        neighbors)
-        self.assertEqual(format_string, packet_body.get_format_string())
+        self.assertEqual(format_string, packet_body.get_format_string(len(neighbors)))
 
-        format_string = hello_v2.BASE_FORMAT_STRING + hello_v2.EXTRA_FORMAT_STRING + hello_v2.EXTRA_FORMAT_STRING + \
-            hello_v2.EXTRA_FORMAT_STRING
+        format_string = hello_v2.BASE_FORMAT_STRING[2:] + hello_v2.EXTRA_FORMAT_STRING + \
+            hello_v2.EXTRA_FORMAT_STRING + hello_v2.EXTRA_FORMAT_STRING
         neighbors = ('1.1.1.1', '2.2.2.2', '4.4.4.4')
         packet_body = hello_v2.HelloV2(self.network_mask, self.hello_interval, self.options, self.router_priority,
                                        self.router_dead_interval, self.designated_router, self.backup_designated_router,
                                        neighbors)
-        self.assertEqual(format_string, packet_body.get_format_string())
+        self.assertEqual(format_string, packet_body.get_format_string(len(neighbors)))
 
     #  Successful run - Instant
     def test_parameter_validation_successful(self):
@@ -220,7 +220,8 @@ class TestHelloV2(unittest.TestCase):
             self.designated_router, self.backup_designated_router, self.neighbors),
             (False, "Invalid Hello interval"))
         self.assertEqual(self.packet_body.parameter_validation(
-            self.network_mask, conf.MAX_VALUE_16_BITS + 1, self.options, self.router_priority, self.router_dead_interval,
+            self.network_mask, conf.MAX_VALUE_16_BITS + 1, self.options, self.router_priority,
+            self.router_dead_interval,
             self.designated_router, self.backup_designated_router, self.neighbors),
             (False, "Invalid Hello interval"))
         self.assertEqual(self.packet_body.parameter_validation(

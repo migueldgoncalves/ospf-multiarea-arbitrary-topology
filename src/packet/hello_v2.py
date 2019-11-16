@@ -63,12 +63,13 @@ class HelloV2:
             packed_data += extra_packed_data
         return packed_data
 
-    def get_format_string(self):
+    @staticmethod
+    def get_format_string(neighbor_number):
         format_string = BASE_FORMAT_STRING
         #  Format string must receive 1 parameter for every new neighbor in the packet
-        for _ in self.neighbors:
+        for _ in range(neighbor_number):
             format_string += EXTRA_FORMAT_STRING
-        return format_string
+        return format_string[2:]
 
     #  Validates constructor parameters - Returns error message in case of failed validation
     def parameter_validation(self, network_mask, hello_interval, options, router_priority, router_dead_interval,
