@@ -6,7 +6,7 @@ import packet.hello_v2 as hello_v2
 import conf.conf as conf
 
 '''
-This class serves as an interface to packet creation, both for OSPFv2 and OSPFv3
+This class serves as an interface to packet creation, storage and manipulation, both for OSPFv2 and OSPFv3
 '''
 
 

@@ -7,6 +7,8 @@ import conf.conf as conf
 import general.utils as utils
 import general.socket_python as socket_python
 import interface.interface as interface
+import packet.packet_creator as packet_creator
+import packet.packet_reader as packet_reader
 
 '''
 This class tests the interface operations in the router
@@ -39,7 +41,7 @@ class InterfaceTest(unittest.TestCase):
         self.interface = interface.Interface(self.interface_identifier, self.ip_address, self.network_mask,
                                              self.area_id, self.interface_pipeline, self.interface_shutdown)
 
-    #  Successful run - 21-30 s, can be longer
+    #  Successful run - 22-36 s, can be longer
     def test_interface_loop_packet_sending_successful(self):
         socket = socket_python.Socket()
         socket_pipeline = queue.Queue()
@@ -57,6 +59,55 @@ class InterfaceTest(unittest.TestCase):
         thread_interface.start()
         time.sleep(2 * conf.HELLO_INTERVAL + 1)  # Allows for Hello packets to be sent
 
+        #  Shutdown
+        self.interface_shutdown.set()
+        socket_shutdown.set()
+        thread_interface.join()
+        thread_socket.join()
+
+    #  Successful run - 1-6 s
+    def test_interface_loop_incoming_packet_processing_successful(self):
+        socket = socket_python.Socket()
+        socket_pipeline = queue.Queue()
+        socket_shutdown = threading.Event()
+        accept_self_packets = False
+        is_dr = False
+        packet = packet_creator.PacketCreator([conf.VERSION_IPV4, conf.PACKET_TYPE_HELLO, '1.1.1.1', '0.0.0.0', 0, 0])
+        packet.create_hello_v2_packet('255.255.255.0', conf.HELLO_INTERVAL, 12, conf.ROUTER_PRIORITY,
+                                      conf.ROUTER_DEAD_INTERVAL, '222.222.1.1', conf.DEFAULT_DESIGNATED_ROUTER, ())
+
+        self.assertEqual(0, len(self.interface.neighbors))
+
+        #  Interface receives packet from neighbor not acknowledging router itself
+        thread_interface = threading.Thread(target=self.interface.interface_loop)
+        thread_interface.start()
+        self.interface_pipeline.put([packet, '222.222.1.1'])
+        time.sleep(1)
+
+        self.assertEqual(1, len(self.interface.neighbors))
+        self.assertEqual(conf.NEIGHBOR_STATE_INIT, self.interface.neighbors['1.1.1.1'].neighbor_state)
+
+        #  Creates thread with socket that listens for packets in the network
+        thread_socket = threading.Thread(target=socket.receive_ipv4,
+                                         args=(socket_pipeline, socket_shutdown, self.interface_identifier,
+                                               accept_self_packets, is_dr))
+        thread_socket.start()
+
+        #  Listens for a packet from the neighbor acknowledging the router itself
+        '''while True:
+            if not socket_pipeline.empty():
+                byte_array = socket_pipeline.get()
+                if (packet_reader.PacketReader.get_ospf_version(byte_array) == conf.VERSION_IPV4) & \
+                        (packet_reader.PacketReader.get_ospf_packet_type(byte_array) == conf.PACKET_TYPE_HELLO):
+                    packet = packet_reader.PacketReader.convert_bytes_to_packet(byte_array)
+                    self.interface_pipeline([packet, '222.222.1.1'])
+                    break
+
+        time.sleep(1)
+        self.assertEqual(1, len(self.interface.neighbors))
+        self.assertEqual(conf.NEIGHBOR_STATE_2_WAY, self.interface.neighbors['1.1.1.1'].neighbor_state)'''
+
+        #  Shutdown
         self.interface_shutdown.set()
         socket_shutdown.set()
         thread_interface.join()

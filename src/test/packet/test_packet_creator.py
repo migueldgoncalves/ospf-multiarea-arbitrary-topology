@@ -4,7 +4,7 @@ import packet.packet_creator as packet_creator
 import conf.conf as conf
 
 '''
-This class tests the interface to packet creation
+This class tests the interface to packet creation, storage and manipulation
 '''
 
 

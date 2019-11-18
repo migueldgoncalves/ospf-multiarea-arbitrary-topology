@@ -15,6 +15,7 @@ class Neighbor:
 
     neighbor_id = ''
     neighbor_options = 0
+    neighbor_state = conf.NEIGHBOR_STATE_DOWN  # Initial state
 
     reset = None
     timeout = None
@@ -29,6 +30,8 @@ class Neighbor:
 
         self.neighbor_id = neighbor_id
         self.neighbor_options = neighbor_options
+        self.neighbor_state = conf.NEIGHBOR_STATE_INIT  # Hello packet received from neighbor
+        print("Neighbor found with ID", self.neighbor_id)
 
         self.reset = threading.Event()
         self.timeout = threading.Event()
@@ -51,8 +54,16 @@ class Neighbor:
 
     #  Stops thread so that neighbor can be deleted
     def delete_neighbor(self):
+        self.set_neighbor_state(conf.NEIGHBOR_STATE_DOWN)
         self.shutdown.set()
         self.thread.join()
+
+    #  Changes neighbor state and prints a message
+    def set_neighbor_state(self, new_state):
+        old_state = self.neighbor_state
+        if new_state != old_state:
+            print("Neighbor", self.neighbor_id, "changed state from", old_state, "to", new_state)
+            self.neighbor_state = new_state
 
     #  Validates constructor parameters - Returns error message in case of failed validation
     def parameter_validation(self, neighbor_id, neighbor_options):

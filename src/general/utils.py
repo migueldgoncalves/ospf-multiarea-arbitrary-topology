@@ -18,6 +18,18 @@ class Utils:
         return (int(parts[0]) << 3 * conf.BYTE_SIZE) + (int(parts[1]) << 2 * conf.BYTE_SIZE) + \
                (int(parts[2]) << conf.BYTE_SIZE) + int(parts[3])
 
+    #  Converts numbers between 0 and 4294967295 to IPv4 addresses
+    @staticmethod
+    def decimal_to_ipv4(decimal):
+        if not (0 <= decimal <= conf.MAX_VALUE_32_BITS):
+            raise ValueError("Invalid IPv4 decimal")
+        first_octet = decimal >> 3 * conf.BYTE_SIZE
+        second_octet = (decimal >> 2 * conf.BYTE_SIZE) % (conf.MAX_VALUE_8_BITS + 1)
+        third_octet = (decimal >> conf.BYTE_SIZE) % (conf.MAX_VALUE_8_BITS + 1)
+        fourth_octet = decimal % (conf.MAX_VALUE_8_BITS + 1)
+        ip_address = str(first_octet) + "." + str(second_octet) + "." + str(third_octet) + "." + str(fourth_octet)
+        return ip_address
+
     #  Calculates the OSPFv2 packet checksum - Same as IPv4 header checksum
     #  It is assumed that checksum, authentication and authentication type fields are clear
     @staticmethod

@@ -50,7 +50,7 @@ class Interface:
         self.hello_interval = conf.HELLO_INTERVAL
         self.router_dead_interval = conf.ROUTER_DEAD_INTERVAL
         self.router_priority = conf.ROUTER_PRIORITY
-        self.neighbors = []
+        self.neighbors = {}
         self.designated_router = conf.DEFAULT_DESIGNATED_ROUTER
         self.backup_designated_router = conf.DEFAULT_DESIGNATED_ROUTER
         self.cost = conf.INTERFACE_COST
@@ -76,7 +76,36 @@ class Interface:
         self.hello_thread.start()
         self.timeout.set()  # If this thread reaches "if" below before losing CPU, it will immediately send Hello packet
 
-        while not(self.interface_shutdown.is_set()):
+        while not(self.interface_shutdown.is_set()):  # Until interface is signalled to shutdown
+            #  Deletes neighbors that reached timeout
+            for n in list(self.neighbors):
+                if self.neighbors[n].is_expired():  # Neighbors that reached timeout can be deleted
+                    self.delete_neighbor(n)
+
+            #  Processes incoming packets
+            if not self.pipeline.empty():
+                data_array = self.pipeline.get()
+                packet = data_array[0]
+                source_ip = data_array[1]
+                version = packet.header.version
+                packet_type = packet.header.packet_type
+
+                if version == conf.VERSION_IPV4:
+                    if packet_type == conf.PACKET_TYPE_HELLO:
+                        #  New neighbor
+                        neighbor_id = packet.header.router_id
+                        if neighbor_id not in self.neighbors:
+                            neighbor_options = packet.body.options
+                            new_neighbor = neighbor.Neighbor(neighbor_id, neighbor_options)  # Neighbor state is Init
+                            self.neighbors[neighbor_id] = new_neighbor
+
+                        #  Existing neighbors
+                        for n in self.neighbors:
+                            if conf.ROUTER_ID in packet.body.neighbors:  # Neighbor acknowledges this router as neighbor
+                                self.neighbors[n].set_neighbor_state(conf.NEIGHBOR_STATE_2_WAY)
+                            else:  # Neighbor does not, even if it did in the last packets
+                                self.neighbors[n].set_neighbor_state(conf.NEIGHBOR_STATE_INIT)
+
             #  Sends Hello packet
             if self.timeout.is_set():
                 packet = self.create_packet()
@@ -84,8 +113,7 @@ class Interface:
                 self.timeout.clear()
 
         #  Interface signalled to shutdown
-        self.timer_shutdown.set()
-        self.hello_thread.join()
+        self.shutdown_interface()
 
     #  Creates an OSPF packet to be sent
     def create_packet(self):
@@ -94,3 +122,16 @@ class Interface:
                                                           self.designated_router, self.backup_designated_router,
                                                           self.neighbors)
 
+    #  Deletes a neighbor from the list of active neighbors
+    def delete_neighbor(self, neighbor_id):
+        if neighbor_id in self.neighbors:
+            self.neighbors[neighbor_id].delete_neighbor()  # Stops neighbor timer thread
+            self.neighbors.pop(neighbor_id)
+
+    #  Performs shutdown operations on the interface
+    def shutdown_interface(self):
+        for n in self.neighbors:  # Stops timer thread in all neighbors
+            self.neighbors[n].delete_neighbor()
+        self.neighbors = {}  # Cleans neighbor list - It will be reconstructed if interface is reactivated
+        self.timer_shutdown.set()
+        self.hello_thread.join()

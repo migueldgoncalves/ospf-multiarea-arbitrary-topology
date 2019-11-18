@@ -4,6 +4,7 @@ import conf.conf as conf
 import packet.hello_v2 as hello_v2
 import packet.header_v2 as header_v2
 import packet.packet_creator as packet_creator
+import general.utils as utils
 
 '''
 This class serves as an interface to incoming packet processing, both for OSPFv2 and OSPFv3
@@ -16,6 +17,8 @@ This class serves as an interface to incoming packet processing, both for OSPFv2
 #  L - Unsigned long (4 bytes) - struct.unpack("> L", b'\x00\x00\x00\x01) -> 1
 #  Q - Unsigned long long (8 bytes) - struct.unpack("> Q", b'\x00\x00\x00\x00\x00\x00\x00\x01) -> 1
 FORMAT_STRING = "> B"
+
+PACKET_TUPLE_BASE_LENGTH = 15  # No neighbors - First neighbor IP is in 16th parameter (packet_tuple[15])
 
 
 class PacketReader:
@@ -41,20 +44,23 @@ class PacketReader:
 
                 #  From tuple, create packet
 
-                header_parameters = [packet_tuple[0], packet_tuple[1], packet_tuple[3], packet_tuple[4],
+                #  IP addresses and network masks need previous conversion from integers
+                router_id = utils.Utils.decimal_to_ipv4(packet_tuple[3])
+                area_id = utils.Utils.decimal_to_ipv4(packet_tuple[4])
+                network_mask = utils.Utils.decimal_to_ipv4(packet_tuple[8])
+                designated_router = utils.Utils.decimal_to_ipv4(packet_tuple[13])
+                backup_designated_router = utils.Utils.decimal_to_ipv4(packet_tuple[14])
+
+                header_parameters = [packet_tuple[0], packet_tuple[1], router_id, area_id,
                                      packet_tuple[6], packet_tuple[7]]
-                creator = packet_creator.PacketCreator(header_parameters)
+                packet = packet_creator.PacketCreator(header_parameters)
 
                 #  Each neighbor, if any, is a separate parameter in packet tuple - Must be put in single tuple
-                neighbors = []
-                for i in range(neighbor_number):
-                    neighbors.append(packet_tuple[15 + i])  # 1st neighbor is in 16th tuple parameter
+                neighbors = PacketReader.get_hello_packet_neighbors(packet_tuple)
 
-                packet = creator.create_hello_v2_packet(
-                        packet_tuple[8], packet_tuple[9], packet_tuple[10], packet_tuple[11], packet_tuple[12],
-                        packet_tuple[13], packet_tuple[14], neighbors)
-
-                #  TODO: Implement conversion of decimal to IP address
+                packet.create_hello_v2_packet(
+                        network_mask, packet_tuple[9], packet_tuple[10], packet_tuple[11], packet_tuple[12],
+                        designated_router, backup_designated_router, neighbors)
 
         return packet
 
@@ -87,3 +93,14 @@ class PacketReader:
             raise ValueError("Invalid Hello packet")
         neighbor_number = int((len(packet_bytes) - conf.OSPFV2_BASE_HELLO_LENGTH) / 4)
         return neighbor_number
+
+    #  Given a OSPF Hello packet, returns its neighbors
+    @staticmethod
+    def get_hello_packet_neighbors(packet_tuple):
+        if len(packet_tuple) < PACKET_TUPLE_BASE_LENGTH:
+            raise ValueError("Packet tuple is too short")
+        neighbors = []
+        for i in range(len(packet_tuple) - PACKET_TUPLE_BASE_LENGTH):  # All neighbor parameters, if any
+            neighbor_ip = packet_tuple[PACKET_TUPLE_BASE_LENGTH + i]
+            neighbors.append(neighbor_ip)  # 1st neighbor is in 15th tuple parameter
+        return neighbors
