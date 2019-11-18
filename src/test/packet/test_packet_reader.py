@@ -41,16 +41,16 @@ class PacketReaderTest(unittest.TestCase):
         packet_tuple = (0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0)
         self.assertEqual(0, len(packet_reader.PacketReader.get_hello_packet_neighbors(packet_tuple)))
 
-        packet_tuple = (0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, '1.1.1.1')
+        packet_tuple = (0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 16843009)
         self.assertEqual(1, len(packet_reader.PacketReader.get_hello_packet_neighbors(packet_tuple)))
         self.assertEqual('1.1.1.1', packet_reader.PacketReader.get_hello_packet_neighbors(packet_tuple)[0])
 
-        packet_tuple = (0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, '1.1.1.1', '2.2.2.2')
+        packet_tuple = (0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 16843009, 33686018)
         self.assertEqual(2, len(packet_reader.PacketReader.get_hello_packet_neighbors(packet_tuple)))
         self.assertEqual('1.1.1.1', packet_reader.PacketReader.get_hello_packet_neighbors(packet_tuple)[0])
         self.assertEqual('2.2.2.2', packet_reader.PacketReader.get_hello_packet_neighbors(packet_tuple)[1])
 
-        packet_tuple = (0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, '1.1.1.1', '2.2.2.2', '4.4.4.4')
+        packet_tuple = (0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 16843009, 33686018, 67372036)
         self.assertEqual(3, len(packet_reader.PacketReader.get_hello_packet_neighbors(packet_tuple)))
         self.assertEqual('1.1.1.1', packet_reader.PacketReader.get_hello_packet_neighbors(packet_tuple)[0])
         self.assertEqual('2.2.2.2', packet_reader.PacketReader.get_hello_packet_neighbors(packet_tuple)[1])

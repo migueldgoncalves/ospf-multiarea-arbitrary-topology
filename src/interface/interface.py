@@ -75,6 +75,7 @@ class Interface:
                                              args=(self.offset, self.timeout, self.timer_shutdown, self.timer_seconds))
         self.hello_thread.start()
         self.timeout.set()  # If this thread reaches "if" below before losing CPU, it will immediately send Hello packet
+        self.interface_shutdown.clear()
 
         while not(self.interface_shutdown.is_set()):  # Until interface is signalled to shutdown
             #  Deletes neighbors that reached timeout

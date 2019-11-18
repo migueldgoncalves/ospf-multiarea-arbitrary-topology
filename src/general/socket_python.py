@@ -1,6 +1,9 @@
 import socket
 import struct
 
+import conf.conf as conf
+import general.utils as utils
+
 '''
 This class performs the socket operations in the router
 '''
@@ -50,9 +53,10 @@ class Socket:
         #  Listen to packets from the network
         while not shutdown.is_set():
             data = s.recvfrom(MTU)
+            array = Socket.process_ipv4_data(data[0])  # [packet_byte_stream, source_ip_address, destination_ip_address]
             #  If packet is not from itself OR if packets from itself are allowed
-            if (data[1][0] != socket.gethostbyname(socket.gethostname())) | accept_self_packets:
-                pipeline.put(data[0])
+            if (array[1] != socket.gethostbyname(socket.gethostname())) | accept_self_packets:
+                pipeline.put(array)
         s.close()
 
     #  Listen to IPv6 to packets in the network until signaled to stop
@@ -134,3 +138,20 @@ class Socket:
         #  Send packet
         s.sendto(packet, (destination_address, PORT))
         s.close()
+
+    #  Process incoming IPv4 data
+    @staticmethod
+    def process_ipv4_data(byte_stream):
+        if len(byte_stream) < conf.IP_HEADER_BASE_LENGTH:
+            return ValueError("Byte stream too short")
+        ospf_packet = byte_stream[conf.IP_HEADER_BASE_LENGTH:]  # First bytes in byte array are the IP header
+
+        #  Source and destination IP addresses start respectively at 13th and 17th bytes of IP header
+        source_ip_bytes = byte_stream[conf.SOURCE_IP_ADDRESS_1ST_BYTE:conf.SOURCE_IP_ADDRESS_1ST_BYTE +
+                                      conf.IP_ADDRESS_BYTE_LENGTH]
+        destination_ip_bytes = byte_stream[conf.DESTINATION_IP_ADDRESS_1ST_BYTE:conf.DESTINATION_IP_ADDRESS_1ST_BYTE +
+                                           conf.IP_ADDRESS_BYTE_LENGTH]
+        source_ip_address = utils.Utils.decimal_to_ipv4(int.from_bytes(source_ip_bytes, byteorder="big"))
+        destination_ip_address = utils.Utils.decimal_to_ipv4(int.from_bytes(destination_ip_bytes, byteorder="big"))
+
+        return [ospf_packet, source_ip_address, destination_ip_address]

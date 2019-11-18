@@ -101,6 +101,7 @@ class PacketReader:
             raise ValueError("Packet tuple is too short")
         neighbors = []
         for i in range(len(packet_tuple) - PACKET_TUPLE_BASE_LENGTH):  # All neighbor parameters, if any
-            neighbor_ip = packet_tuple[PACKET_TUPLE_BASE_LENGTH + i]
+            neighbor_decimal = packet_tuple[PACKET_TUPLE_BASE_LENGTH + i]
+            neighbor_ip = utils.Utils.decimal_to_ipv4(neighbor_decimal)
             neighbors.append(neighbor_ip)  # 1st neighbor is in 15th tuple parameter
         return neighbors
