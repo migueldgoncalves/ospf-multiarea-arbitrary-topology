@@ -4,7 +4,7 @@ This file contains the program constants
 
 #  OSPF-related constants
 
-ROUTER_ID = '3.3.3.3'
+ROUTER_ID = '4.4.4.4'
 ROUTER_PRIORITY = 1
 OPTIONS = 2  # External Routing enabled - For compatibility with Cisco routers used
 DEFAULT_DESIGNATED_ROUTER = '0.0.0.0'

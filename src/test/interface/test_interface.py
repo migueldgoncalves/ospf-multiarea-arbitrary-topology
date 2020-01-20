@@ -14,7 +14,7 @@ import packet.packet_reader as packet_reader
 This class tests the interface operations in the router
 '''
 
-PACKET_BYTES = b'\x02\x01\x00,\x03\x03\x03\x03\x00\x00\x00\x00\xf6\x98\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\xff' \
+PACKET_BYTES = b'\x02\x01\x00,\x04\x04\x04\x04\x00\x00\x00\x00\xf4\x96\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\xff' \
                b'\xff\xff\x00\x00\n\x02\x01\x00\x00\x00(\x00\x00\x00\x00\x00\x00\x00\x00'
 
 
@@ -108,8 +108,6 @@ class InterfaceTest(unittest.TestCase):
 
         #  Interface receives another packet from neighbor not acknowledging router itself
         #  Neighbor goes to INIT state
-        thread_interface = threading.Thread(target=self.interface.interface_loop)
-        thread_interface.start()
         self.interface_pipeline.put([one_way, '222.222.1.1'])
         time.sleep(1)
         self.assertEqual(1, len(self.interface.neighbors))
@@ -123,7 +121,7 @@ class InterfaceTest(unittest.TestCase):
         thread_interface = threading.Thread(target=self.interface.interface_loop)
         thread_interface.start()
 
-        #  Interface receives another packet from neighbor not acknowledging router itself
+        #  Interface receives another packet from neighbor acknowledging router itself
         #  Neighbor this time jumps to 2-WAY state
         self.interface_pipeline.put([two_way, '222.222.1.1'])
         time.sleep(1)

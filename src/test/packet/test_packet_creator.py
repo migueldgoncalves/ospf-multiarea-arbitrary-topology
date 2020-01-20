@@ -67,7 +67,7 @@ class PacketCreatorTest(unittest.TestCase):
         self.assertEqual(hello_packet, self.packet_creator_v2.header.pack_header() +
                          self.packet_creator_v2.body.pack_packet())
         self.assertEqual(44, self.packet_creator_v2.header.length)
-        self.assertEqual(62873, self.packet_creator_v2.header.checksum)
+        self.assertEqual(62359, self.packet_creator_v2.header.checksum)
         self.assertEqual(network_mask, self.packet_creator_v2.body.network_mask)
 
         #  Ensure checksum and length are updated when body parameters are updated
@@ -80,7 +80,7 @@ class PacketCreatorTest(unittest.TestCase):
         self.assertEqual(hello_packet, self.packet_creator_v2.header.pack_header() +
                          self.packet_creator_v2.body.pack_packet())
         self.assertEqual(48, self.packet_creator_v2.header.length)
-        self.assertEqual(62355, self.packet_creator_v2.header.checksum)
+        self.assertEqual(61841, self.packet_creator_v2.header.checksum)
         self.assertEqual(network_mask, self.packet_creator_v2.body.network_mask)
 
         neighbors = ('1.1.1.1', '2.2.2.2')
@@ -91,7 +91,7 @@ class PacketCreatorTest(unittest.TestCase):
         self.assertEqual(hello_packet, self.packet_creator_v2.header.pack_header() +
                          self.packet_creator_v2.body.pack_packet())
         self.assertEqual(52, self.packet_creator_v2.header.length)
-        self.assertEqual(61323, self.packet_creator_v2.header.checksum)
+        self.assertEqual(60809, self.packet_creator_v2.header.checksum)
         self.assertEqual(network_mask, self.packet_creator_v2.body.network_mask)
 
     #  Successful run - Instant

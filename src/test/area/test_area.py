@@ -14,7 +14,7 @@ INTERFACE_NAME = 'ens33'
 INVALID_INTERFACE_NAME = 'Invalid interface'
 
 
-#  Full successful run - 22 s
+#  Full successful run - 30 s
 class AreaTest(unittest.TestCase):
 
     area = None
@@ -22,7 +22,7 @@ class AreaTest(unittest.TestCase):
     def setUp(self):
         self.area = area.Area(AREA_ID, EXTERNAL_ROUTING_CAPABLE)
 
-    #  Successful run - 22 s
+    #  Successful run - 23 s
     #  This smaller tests conflicted with each other when separate - Therefore they are joined in a single larger test
     def test_area_creation(self):
 
@@ -91,37 +91,39 @@ class AreaTest(unittest.TestCase):
         with self.assertRaises(ValueError):
             area.Area('0.0.0.0.0', EXTERNAL_ROUTING_CAPABLE)
 
-    #  Successful run - Instant
+    #  Successful run - 1 s
     def test_create_interface_invalid_interface_id(self):
         with self.assertRaises(ValueError):
             self.area.create_interface(INVALID_INTERFACE_NAME)
 
-    #  Successful run - Instant
+    #  Successful run - 1 s
     def test_start_interface_twice(self):
         self.area.start_interface(INTERFACE_NAME)
         self.assertTrue(self.area.is_interface_operating(INTERFACE_NAME))
 
-    #  Successful run - Instant
+    #  Successful run - 1 s
     def test_start_interface_invalid_interface_id(self):
         with self.assertRaises(KeyError):
             self.area.start_interface(INVALID_INTERFACE_NAME)
 
-    #  Successful run - Instant
+    #  Successful run - 2 s
     def test_shutdown_interface_twice(self):
+        time.sleep(1)  # Required for successful interface shutdown
         self.area.shutdown_interface(INTERFACE_NAME)
         self.area.shutdown_interface(INTERFACE_NAME)
         self.assertFalse(self.area.is_interface_operating(INTERFACE_NAME))
 
-    #  Successful run - Instant
+    #  Successful run - 1 s
     def test_shutdown_interface_invalid_interface_id(self):
         with self.assertRaises(KeyError):
             self.area.shutdown_interface(INVALID_INTERFACE_NAME)
 
-    #  Successful run - Instant
+    #  Successful run - 1 s
     def test_is_interface_operating_invalid_interface_id(self):
         with self.assertRaises(KeyError):
             self.area.is_interface_operating(INVALID_INTERFACE_NAME)
 
     def tearDown(self):
+        time.sleep(1)  # Required for successful tear down
         self.area.shutdown_area()
         self.area = None
