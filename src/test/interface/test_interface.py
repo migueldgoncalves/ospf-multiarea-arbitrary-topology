@@ -18,7 +18,7 @@ PACKET_BYTES = b'\x02\x01\x00,\x04\x04\x04\x04\x00\x00\x00\x00\xf4\x96\x00\x00\x
                b'\xff\xff\x00\x00\n\x02\x01\x00\x00\x00(\x00\x00\x00\x00\x00\x00\x00\x00'
 
 
-#  Full successful run - 35-50 s, can be longer
+#  Full successful run - 129-156 s
 class InterfaceTest(unittest.TestCase):
     interface = None
 
@@ -41,7 +41,7 @@ class InterfaceTest(unittest.TestCase):
         self.interface = interface.Interface(self.interface_identifier, self.ip_address, self.network_mask,
                                              self.area_id, self.interface_pipeline, self.interface_shutdown)
 
-    #  Successful run - 22-36 s, can be longer
+    #  Successful run - 21-36 s, can be longer
     def test_interface_loop_packet_sending_successful(self):
         socket = socket_python.Socket()
         socket_pipeline = queue.Queue()
@@ -58,6 +58,7 @@ class InterfaceTest(unittest.TestCase):
         thread_interface = threading.Thread(target=self.interface.interface_loop)
         thread_interface.start()
         time.sleep(2 * conf.HELLO_INTERVAL + 1)  # Allows for Hello packets to be sent
+        self.assertFalse(socket_pipeline.empty())
 
         #  Shutdown
         self.interface_shutdown.set()
@@ -65,7 +66,7 @@ class InterfaceTest(unittest.TestCase):
         thread_interface.join()
         thread_socket.join()
 
-    #  Successful run - 12-18 s, can be longer
+    #  Successful run - 108-120 s
     def test_interface_loop_incoming_packet_processing_successful(self):
         socket = socket_python.Socket()
         socket_pipeline = queue.Queue()
@@ -82,8 +83,18 @@ class InterfaceTest(unittest.TestCase):
         thread_interface = threading.Thread(target=self.interface.interface_loop)
         thread_interface.start()
         self.interface_pipeline.put([one_way, '222.222.1.1'])
+        time.sleep(10)
+        self.assertEqual(1, len(self.interface.neighbors))  # Neighbor is recognized
+        self.assertEqual(conf.NEIGHBOR_STATE_INIT, self.interface.neighbors['1.1.1.1'].neighbor_state)
+        self.interface_pipeline.put([one_way, '222.222.1.1'])
+        time.sleep(conf.ROUTER_DEAD_INTERVAL - 5)  # More than 40 s will have passed since original Hello packet
+        self.assertEqual(1, len(self.interface.neighbors))  # New Hello packet resets neighbor timer
+        self.assertEqual(conf.NEIGHBOR_STATE_INIT, self.interface.neighbors['1.1.1.1'].neighbor_state)
+        time.sleep(6)
+        self.assertEqual(0, len(self.interface.neighbors))  # Neighbor timer expired
+        self.interface_pipeline.put([one_way, '222.222.1.1'])
         time.sleep(1)
-        self.assertEqual(1, len(self.interface.neighbors))
+        self.assertEqual(1, len(self.interface.neighbors))  # Neighbor is recognized again
         self.assertEqual(conf.NEIGHBOR_STATE_INIT, self.interface.neighbors['1.1.1.1'].neighbor_state)
 
         #  Creates thread with socket that listens for packets in the network
@@ -102,8 +113,18 @@ class InterfaceTest(unittest.TestCase):
                     two_way = packet_reader.PacketReader.convert_bytes_to_packet(byte_array)
                     self.interface_pipeline.put([two_way, '222.222.1.1'])
                     break
-        time.sleep(1)
+        time.sleep(10)
         self.assertEqual(1, len(self.interface.neighbors))
+        self.assertEqual(conf.NEIGHBOR_STATE_2_WAY, self.interface.neighbors['1.1.1.1'].neighbor_state)
+        self.interface_pipeline.put([two_way, '222.222.1.1'])
+        time.sleep(conf.ROUTER_DEAD_INTERVAL - 5)  # More than 40 s will have passed since original Hello packet
+        self.assertEqual(1, len(self.interface.neighbors))  # New Hello packet resets neighbor timer
+        self.assertEqual(conf.NEIGHBOR_STATE_2_WAY, self.interface.neighbors['1.1.1.1'].neighbor_state)
+        time.sleep(6)
+        self.assertEqual(0, len(self.interface.neighbors))  # Neighbor timer expired
+        self.interface_pipeline.put([two_way, '222.222.1.1'])
+        time.sleep(1)
+        self.assertEqual(1, len(self.interface.neighbors))  # Neighbor is recognized again
         self.assertEqual(conf.NEIGHBOR_STATE_2_WAY, self.interface.neighbors['1.1.1.1'].neighbor_state)
 
         #  Interface receives another packet from neighbor not acknowledging router itself

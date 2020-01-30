@@ -1,4 +1,5 @@
 import threading
+import time
 
 import neighbor.neighbor as neighbor
 import packet.packet_creator as packet_creator
@@ -93,19 +94,21 @@ class Interface:
 
                 if version == conf.VERSION_IPV4:
                     if packet_type == conf.PACKET_TYPE_HELLO:
-                        #  New neighbor
+
                         neighbor_id = packet.header.router_id
+                        #  New neighbor
                         if neighbor_id not in self.neighbors:
                             neighbor_options = packet.body.options
                             new_neighbor = neighbor.Neighbor(neighbor_id, neighbor_options)  # Neighbor state is Init
                             self.neighbors[neighbor_id] = new_neighbor
 
-                        #  Existing neighbors
-                        for n in self.neighbors:
-                            if conf.ROUTER_ID in packet.body.neighbors:  # Neighbor acknowledges this router as neighbor
-                                self.neighbors[n].set_neighbor_state(conf.NEIGHBOR_STATE_2_WAY)
-                            else:  # Neighbor does not, even if it did in the last packets
-                                self.neighbors[n].set_neighbor_state(conf.NEIGHBOR_STATE_INIT)
+                        # Existing neighbor
+                        self.neighbors[neighbor_id].reset_timer()
+                        time.sleep(0.1)
+                        if conf.ROUTER_ID in packet.body.neighbors:  # Neighbor acknowledges this router as neighbor
+                            self.neighbors[neighbor_id].set_neighbor_state(conf.NEIGHBOR_STATE_2_WAY)
+                        else:  # Neighbor does not, even if it did in the last packets
+                            self.neighbors[neighbor_id].set_neighbor_state(conf.NEIGHBOR_STATE_INIT)
 
             #  Sends Hello packet
             if self.timeout.is_set():
