@@ -1,6 +1,6 @@
 import unittest
 
-import packet.header_v2 as header_v2
+import packet.header as header
 import conf.conf as conf
 
 '''
@@ -23,8 +23,8 @@ class TestHeaderV2(unittest.TestCase):
         self.area_id = conf.BACKBONE_AREA
         self.auth_type = conf.NULL_AUTHENTICATION
         self.authentication = conf.DEFAULT_AUTH
-        self.header = header_v2.HeaderV2(self.packet_type, self.router_id, self.area_id, self.auth_type,
-                                         self.authentication)
+        self.header = header.Header(self.packet_type, self.router_id, self.area_id, self.auth_type,
+                                    self.authentication)
 
     #  Successful run - Instant
     def test_header_constructor_successful(self):
@@ -41,19 +41,19 @@ class TestHeaderV2(unittest.TestCase):
     def test_header_constructor_invalid_parameters(self):
         invalid_packet_type = -1
         with self.assertRaises(ValueError):
-            header_v2.HeaderV2(invalid_packet_type, self.router_id, self.area_id, self.auth_type, self.authentication)
+            header.Header(invalid_packet_type, self.router_id, self.area_id, self.auth_type, self.authentication)
         invalid_router_id = ''
         with self.assertRaises(ValueError):
-            header_v2.HeaderV2(self.packet_type, invalid_router_id, self.area_id, self.auth_type, self.authentication)
+            header.Header(self.packet_type, invalid_router_id, self.area_id, self.auth_type, self.authentication)
         invalid_area_id = ''
         with self.assertRaises(ValueError):
-            header_v2.HeaderV2(self.packet_type, self.router_id, invalid_area_id, self.auth_type, self.authentication)
+            header.Header(self.packet_type, self.router_id, invalid_area_id, self.auth_type, self.authentication)
         invalid_auth_type = -1
         with self.assertRaises(ValueError):
-            header_v2.HeaderV2(self.packet_type, self.router_id, self.area_id, invalid_auth_type, self.authentication)
+            header.Header(self.packet_type, self.router_id, self.area_id, invalid_auth_type, self.authentication)
         invalid_authentication = -1
         with self.assertRaises(ValueError):
-            header_v2.HeaderV2(self.packet_type, self.router_id, self.area_id, self.auth_type, invalid_authentication)
+            header.Header(self.packet_type, self.router_id, self.area_id, self.auth_type, invalid_authentication)
 
     #  Successful run - Instant
     def test_pack_header(self):

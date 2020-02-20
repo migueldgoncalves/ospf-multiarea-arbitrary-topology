@@ -5,7 +5,7 @@ import time
 
 import conf.conf as conf
 import general.utils as utils
-import general.socket_python as socket_python
+import general.sock as sock
 import interface.interface as interface
 import packet.packet_creator as packet_creator
 import packet.packet_reader as packet_reader
@@ -43,7 +43,7 @@ class InterfaceTest(unittest.TestCase):
 
     #  Successful run - 21-36 s, can be longer
     def test_interface_loop_packet_sending_successful(self):
-        socket = socket_python.Socket()
+        socket = sock.Socket()
         socket_pipeline = queue.Queue()
         socket_shutdown = threading.Event()
         accept_self_packets = True
@@ -68,7 +68,7 @@ class InterfaceTest(unittest.TestCase):
 
     #  Successful run - 108-120 s
     def test_interface_loop_incoming_packet_processing_successful(self):
-        socket = socket_python.Socket()
+        socket = sock.Socket()
         socket_pipeline = queue.Queue()
         socket_shutdown = threading.Event()
         accept_self_packets = False

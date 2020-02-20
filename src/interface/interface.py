@@ -5,7 +5,7 @@ import neighbor.neighbor as neighbor
 import packet.packet_creator as packet_creator
 import conf.conf as conf
 import general.timer as timer
-import general.socket_python as socket_python
+import general.sock as sock
 
 '''
 This class represents the OSPF interface and contains its data and operations
@@ -57,7 +57,7 @@ class Interface:
         self.cost = conf.INTERFACE_COST
         self.max_ip_datagram = conf.MTU
 
-        self.socket = socket_python.Socket()
+        self.socket = sock.Socket()
         self.pipeline = pipeline
         self.interface_shutdown = interface_shutdown
         packet_creator_parameters = [conf.VERSION_IPV4, conf.PACKET_TYPE_HELLO, conf.ROUTER_ID, area_id,

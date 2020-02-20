@@ -2,7 +2,7 @@ import struct
 
 import conf.conf as conf
 import packet.hello_v2 as hello_v2
-import packet.header_v2 as header_v2
+import packet.header as header
 import packet.packet_creator as packet_creator
 import general.utils as utils
 
@@ -39,7 +39,7 @@ class PacketReader:
         if packet_version == conf.VERSION_IPV4:
             if packet_type == conf.PACKET_TYPE_HELLO:
                 neighbor_number = PacketReader.get_hello_packet_neighbor_number(packet_bytes)
-                format_string_hello = header_v2.FORMAT_STRING + hello_v2.HelloV2.get_format_string(neighbor_number)
+                format_string_hello = header.FORMAT_STRING + hello_v2.HelloV2.get_format_string(neighbor_number)
                 packet_tuple = struct.unpack(format_string_hello, packet_bytes)
 
                 #  From tuple, create packet

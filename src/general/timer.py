@@ -49,6 +49,5 @@ class Timer:
             if shutdown.is_set():  # Times is signalled to shutdown
                 break
 
-
     def reset_timer(self):
         self.initial_time = int(time.perf_counter())  # Sets initial time with current system time in seconds

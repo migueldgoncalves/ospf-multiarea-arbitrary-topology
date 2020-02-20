@@ -1,7 +1,7 @@
 import traceback
 
 import general.utils as utils
-import packet.header_v2 as header_v2
+import packet.header as header
 import packet.hello_v2 as hello_v2
 import conf.conf as conf
 
@@ -18,7 +18,7 @@ class PacketCreator:
     #  Packet header is set on creation
     def __init__(self, parameters):
         if parameters[0] == conf.VERSION_IPV4:
-            self.header = header_v2.HeaderV2(parameters[1], parameters[2], parameters[3], parameters[4], parameters[5])
+            self.header = header.Header(parameters[1], parameters[2], parameters[3], parameters[4], parameters[5])
         elif parameters[0] == conf.VERSION_IPV6:
             pass
         else:
