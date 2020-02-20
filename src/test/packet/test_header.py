@@ -4,12 +4,12 @@ import packet.header as header
 import conf.conf as conf
 
 '''
-This class tests the OSPFv2 packet header class and its operations
+This class tests the OSPF packet header class and its operations
 '''
 
 
 #  Full successful run - Instant
-class TestHeaderV2(unittest.TestCase):
+class TestHeader(unittest.TestCase):
     packet_type = 0
     router_id = ''
     area_id = ''
@@ -57,8 +57,8 @@ class TestHeaderV2(unittest.TestCase):
 
     #  Successful run - Instant
     def test_pack_header(self):
-        header = b'\x02\x01\x00\x00\x04\x04\x04\x04\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00'
-        self.assertEqual(header, self.header.pack_header())
+        new_header = b'\x02\x01\x00\x00\x04\x04\x04\x04\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00'
+        self.assertEqual(new_header, self.header.pack_header())
 
     #  Successful run - Instant
     def test_prepare_packet_checksum(self):

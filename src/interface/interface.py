@@ -2,7 +2,7 @@ import threading
 import time
 
 import neighbor.neighbor as neighbor
-import packet.packet_creator as packet_creator
+import packet.packet as packet
 import conf.conf as conf
 import general.timer as timer
 import general.sock as sock
@@ -32,7 +32,7 @@ class Interface:
     socket = None  # Socket that will send packets
     pipeline = None  # For receiving incoming packets
     interface_shutdown = None  # Signals interface thread to shutdown
-    packet_creator = None
+    packet_to_send = None
     hello_thread = None
 
     #  Hello timer and its parameters
@@ -60,9 +60,9 @@ class Interface:
         self.socket = sock.Socket()
         self.pipeline = pipeline
         self.interface_shutdown = interface_shutdown
-        packet_creator_parameters = [conf.VERSION_IPV4, conf.PACKET_TYPE_HELLO, conf.ROUTER_ID, area_id,
-                                     conf.NULL_AUTHENTICATION, conf.DEFAULT_AUTH]
-        self.packet_creator = packet_creator.PacketCreator(packet_creator_parameters)
+        packet_parameters = [conf.VERSION_IPV4, conf.PACKET_TYPE_HELLO, conf.ROUTER_ID, area_id,
+                             conf.NULL_AUTHENTICATION, conf.DEFAULT_AUTH]
+        self.packet_to_send = packet.Packet(packet_parameters)
 
         self.hello_timer = timer.Timer()
         self.timeout = threading.Event()
@@ -87,33 +87,33 @@ class Interface:
             #  Processes incoming packets
             if not self.pipeline.empty():
                 data_array = self.pipeline.get()
-                packet = data_array[0]
+                incoming_packet = data_array[0]
                 source_ip = data_array[1]
-                version = packet.header.version
-                packet_type = packet.header.packet_type
+                version = incoming_packet.header.version
+                packet_type = incoming_packet.header.packet_type
 
                 if version == conf.VERSION_IPV4:
                     if packet_type == conf.PACKET_TYPE_HELLO:
 
-                        neighbor_id = packet.header.router_id
+                        neighbor_id = incoming_packet.header.router_id
                         #  New neighbor
                         if neighbor_id not in self.neighbors:
-                            neighbor_options = packet.body.options
+                            neighbor_options = incoming_packet.body.options
                             new_neighbor = neighbor.Neighbor(neighbor_id, neighbor_options)  # Neighbor state is Init
                             self.neighbors[neighbor_id] = new_neighbor
 
                         # Existing neighbor
                         self.neighbors[neighbor_id].reset_timer()
                         time.sleep(0.1)
-                        if conf.ROUTER_ID in packet.body.neighbors:  # Neighbor acknowledges this router as neighbor
+                        if conf.ROUTER_ID in incoming_packet.body.neighbors:  # Neighbor acknowledges router as neighbor
                             self.neighbors[neighbor_id].set_neighbor_state(conf.NEIGHBOR_STATE_2_WAY)
                         else:  # Neighbor does not, even if it did in the last packets
                             self.neighbors[neighbor_id].set_neighbor_state(conf.NEIGHBOR_STATE_INIT)
 
             #  Sends Hello packet
             if self.timeout.is_set():
-                packet = self.create_packet()
-                self.socket.send_ipv4(packet, conf.ALL_OSPF_ROUTERS_IPV4, self.identifier)
+                packet_bytes = self.create_packet()
+                self.socket.send_ipv4(packet_bytes, conf.ALL_OSPF_ROUTERS_IPV4, self.identifier)
                 self.timeout.clear()
 
         #  Interface signalled to shutdown
@@ -121,10 +121,9 @@ class Interface:
 
     #  Creates an OSPF packet to be sent
     def create_packet(self):
-        return self.packet_creator.create_hello_v2_packet(self.network_mask, self.hello_interval, conf.OPTIONS,
-                                                          self.router_priority, self.router_dead_interval,
-                                                          self.designated_router, self.backup_designated_router,
-                                                          self.neighbors)
+        return self.packet_to_send.create_hello_v2_packet(
+            self.network_mask, self.hello_interval, conf.OPTIONS, self.router_priority, self.router_dead_interval,
+            self.designated_router, self.backup_designated_router, self.neighbors)
 
     #  Deletes a neighbor from the list of active neighbors
     def delete_neighbor(self, neighbor_id):

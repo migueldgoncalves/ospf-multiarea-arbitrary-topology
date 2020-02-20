@@ -1,16 +1,16 @@
 import unittest
 
-import packet.hello_v2 as hello_v2
+import packet.hello as hello
 import conf.conf as conf
 import general.utils as utils
 
 '''
-This class tests the OSPFv2 Hello packet class and its operations
+This class tests the OSPF Hello packet class and its operations
 '''
 
 
 #  Full successful run - Instant
-class TestHelloV2(unittest.TestCase):
+class TestHello(unittest.TestCase):
     utils = utils.Utils()
     interface_name = conf.INTERFACE_NAMES[0]
 
@@ -34,9 +34,9 @@ class TestHelloV2(unittest.TestCase):
         self.backup_designated_router = conf.DEFAULT_DESIGNATED_ROUTER
         self.neighbors = ('1.1.1.1', '2.2.2.2')
 
-        self.packet_body = hello_v2.HelloV2(self.network_mask, self.hello_interval, self.options, self.router_priority,
-                                            self.router_dead_interval, self.designated_router,
-                                            self.backup_designated_router, self.neighbors)
+        self.packet_body = hello.Hello(self.network_mask, self.hello_interval, self.options, self.router_priority,
+                                       self.router_dead_interval, self.designated_router,
+                                       self.backup_designated_router, self.neighbors)
 
     #  Successful run - Instant
     def test_hello_constructor_successful(self):
@@ -54,44 +54,44 @@ class TestHelloV2(unittest.TestCase):
     def test_hello_constructor_invalid_parameters(self):
         invalid_network_mask = ''
         with self.assertRaises(ValueError):
-            hello_v2.HelloV2(invalid_network_mask, self.hello_interval, self.options, self.router_priority,
-                             self.router_dead_interval, self.designated_router, self.backup_designated_router,
-                             self.neighbors)
+            hello.Hello(invalid_network_mask, self.hello_interval, self.options, self.router_priority,
+                        self.router_dead_interval, self.designated_router, self.backup_designated_router,
+                        self.neighbors)
         invalid_hello_interval = -1
         with self.assertRaises(ValueError):
-            hello_v2.HelloV2(self.network_mask, invalid_hello_interval, self.options, self.router_priority,
-                             self.router_dead_interval, self.designated_router, self.backup_designated_router,
-                             self.neighbors)
+            hello.Hello(self.network_mask, invalid_hello_interval, self.options, self.router_priority,
+                        self.router_dead_interval, self.designated_router, self.backup_designated_router,
+                        self.neighbors)
         invalid_options = -1
         with self.assertRaises(ValueError):
-            hello_v2.HelloV2(self.network_mask, self.hello_interval, invalid_options, self.router_priority,
-                             self.router_dead_interval, self.designated_router, self.backup_designated_router,
-                             self.neighbors)
+            hello.Hello(self.network_mask, self.hello_interval, invalid_options, self.router_priority,
+                        self.router_dead_interval, self.designated_router, self.backup_designated_router,
+                        self.neighbors)
         invalid_router_priority = -1
         with self.assertRaises(ValueError):
-            hello_v2.HelloV2(self.network_mask, self.hello_interval, self.options, invalid_router_priority,
-                             self.router_dead_interval, self.designated_router, self.backup_designated_router,
-                             self.neighbors)
+            hello.Hello(self.network_mask, self.hello_interval, self.options, invalid_router_priority,
+                        self.router_dead_interval, self.designated_router, self.backup_designated_router,
+                        self.neighbors)
         invalid_router_dead_interval = -1
         with self.assertRaises(ValueError):
-            hello_v2.HelloV2(self.network_mask, self.hello_interval, self.options, self.router_priority,
-                             invalid_router_dead_interval, self.designated_router, self.backup_designated_router,
-                             self.neighbors)
+            hello.Hello(self.network_mask, self.hello_interval, self.options, self.router_priority,
+                        invalid_router_dead_interval, self.designated_router, self.backup_designated_router,
+                        self.neighbors)
         invalid_designated_router = ''
         with self.assertRaises(ValueError):
-            hello_v2.HelloV2(self.network_mask, self.hello_interval, self.options, self.router_priority,
-                             self.router_dead_interval, invalid_designated_router, self.backup_designated_router,
-                             self.neighbors)
+            hello.Hello(self.network_mask, self.hello_interval, self.options, self.router_priority,
+                        self.router_dead_interval, invalid_designated_router, self.backup_designated_router,
+                        self.neighbors)
         invalid_backup_designated_router = ''
         with self.assertRaises(ValueError):
-            hello_v2.HelloV2(self.network_mask, self.hello_interval, self.options, self.router_priority,
-                             self.router_dead_interval, self.designated_router, invalid_backup_designated_router,
-                             self.neighbors)
+            hello.Hello(self.network_mask, self.hello_interval, self.options, self.router_priority,
+                        self.router_dead_interval, self.designated_router, invalid_backup_designated_router,
+                        self.neighbors)
         invalid_neighbors = ('', '')
         with self.assertRaises(ValueError):
-            hello_v2.HelloV2(self.network_mask, invalid_hello_interval, self.options, self.router_priority,
-                             self.router_dead_interval, self.designated_router, self.backup_designated_router,
-                             invalid_neighbors)
+            hello.Hello(self.network_mask, invalid_hello_interval, self.options, self.router_priority,
+                        self.router_dead_interval, self.designated_router, self.backup_designated_router,
+                        invalid_neighbors)
 
     #  Successful run - Instant
     def test_pack_packet(self):
@@ -101,33 +101,33 @@ class TestHelloV2(unittest.TestCase):
 
     #  Successful run - Instant
     def test_get_format_string(self):
-        format_string = hello_v2.BASE_FORMAT_STRING[2:]
+        format_string = hello.BASE_FORMAT_STRING[2:]
         neighbors = ()
-        packet_body = hello_v2.HelloV2(self.network_mask, self.hello_interval, self.options, self.router_priority,
-                                       self.router_dead_interval, self.designated_router, self.backup_designated_router,
-                                       neighbors)
+        packet_body = hello.Hello(self.network_mask, self.hello_interval, self.options, self.router_priority,
+                                  self.router_dead_interval, self.designated_router, self.backup_designated_router,
+                                  neighbors)
         self.assertEqual(format_string, packet_body.get_format_string(len(neighbors)))
 
-        format_string = hello_v2.BASE_FORMAT_STRING[2:] + hello_v2.EXTRA_FORMAT_STRING
+        format_string = hello.BASE_FORMAT_STRING[2:] + hello.EXTRA_FORMAT_STRING
         neighbors = ('1.1.1.1',)
-        packet_body = hello_v2.HelloV2(self.network_mask, self.hello_interval, self.options, self.router_priority,
-                                       self.router_dead_interval, self.designated_router, self.backup_designated_router,
-                                       neighbors)
+        packet_body = hello.Hello(self.network_mask, self.hello_interval, self.options, self.router_priority,
+                                  self.router_dead_interval, self.designated_router, self.backup_designated_router,
+                                  neighbors)
         self.assertEqual(format_string, packet_body.get_format_string(len(neighbors)))
 
-        format_string = hello_v2.BASE_FORMAT_STRING[2:] + hello_v2.EXTRA_FORMAT_STRING + hello_v2.EXTRA_FORMAT_STRING
+        format_string = hello.BASE_FORMAT_STRING[2:] + hello.EXTRA_FORMAT_STRING + hello.EXTRA_FORMAT_STRING
         neighbors = ('1.1.1.1', '2.2.2.2')
-        packet_body = hello_v2.HelloV2(self.network_mask, self.hello_interval, self.options, self.router_priority,
-                                       self.router_dead_interval, self.designated_router, self.backup_designated_router,
-                                       neighbors)
+        packet_body = hello.Hello(self.network_mask, self.hello_interval, self.options, self.router_priority,
+                                  self.router_dead_interval, self.designated_router, self.backup_designated_router,
+                                  neighbors)
         self.assertEqual(format_string, packet_body.get_format_string(len(neighbors)))
 
-        format_string = hello_v2.BASE_FORMAT_STRING[2:] + hello_v2.EXTRA_FORMAT_STRING + \
-            hello_v2.EXTRA_FORMAT_STRING + hello_v2.EXTRA_FORMAT_STRING
+        format_string = hello.BASE_FORMAT_STRING[2:] + hello.EXTRA_FORMAT_STRING + hello.EXTRA_FORMAT_STRING + \
+            hello.EXTRA_FORMAT_STRING
         neighbors = ('1.1.1.1', '2.2.2.2', '4.4.4.4')
-        packet_body = hello_v2.HelloV2(self.network_mask, self.hello_interval, self.options, self.router_priority,
-                                       self.router_dead_interval, self.designated_router, self.backup_designated_router,
-                                       neighbors)
+        packet_body = hello.Hello(self.network_mask, self.hello_interval, self.options, self.router_priority,
+                                  self.router_dead_interval, self.designated_router, self.backup_designated_router,
+                                  neighbors)
         self.assertEqual(format_string, packet_body.get_format_string(len(neighbors)))
 
     #  Successful run - Instant

@@ -4,7 +4,7 @@ import general.utils as utils
 import conf.conf as conf
 
 '''
-This class represents the body of an OSPFv2 Hello packet and contains its operations
+This class represents the body of an OSPF Hello packet and contains its operations
 '''
 
 #  > - Big-endian
@@ -15,7 +15,7 @@ BASE_FORMAT_STRING = "> L H B B L L L"  # Determines the format of the byte obje
 EXTRA_FORMAT_STRING = " L"  # Must be added to the base format string for every neighbor
 
 
-class HelloV2:
+class Hello:
 
     utils = utils.Utils()
 

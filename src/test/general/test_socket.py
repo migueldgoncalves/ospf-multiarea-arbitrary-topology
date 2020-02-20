@@ -4,7 +4,7 @@ import threading
 import queue
 
 import general.sock as sock
-import packet.packet_reader as packer_reader
+import packet.packet as packet
 import conf.conf as conf
 
 '''
@@ -44,11 +44,11 @@ class SocketTest(unittest.TestCase):
         packet_byte_stream = data_array[0]
         source_ip_address = data_array[1]
         destination_ip_address = data_array[2]
-        packet = packer_reader.PacketReader.convert_bytes_to_packet(packet_byte_stream)
+        received_packet = packet.Packet.convert_bytes_to_packet(packet_byte_stream)
 
-        self.assertEqual(conf.VERSION_IPV4, packet.header.version)
-        self.assertEqual(conf.PACKET_TYPE_HELLO, packet.header.packet_type)
-        self.assertEqual('222.222.1.1', packet.body.designated_router)
+        self.assertEqual(conf.VERSION_IPV4, received_packet.header.version)
+        self.assertEqual(conf.PACKET_TYPE_HELLO, received_packet.header.packet_type)
+        self.assertEqual('222.222.1.1', received_packet.body.designated_router)
         self.assertEqual('222.222.1.1', source_ip_address)
         self.assertEqual(conf.ALL_OSPF_ROUTERS_IPV4, destination_ip_address)
 

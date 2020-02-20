@@ -7,8 +7,7 @@ import conf.conf as conf
 import general.utils as utils
 import general.sock as sock
 import interface.interface as interface
-import packet.packet_creator as packet_creator
-import packet.packet_reader as packet_reader
+import packet.packet as packet
 
 '''
 This class tests the interface operations in the router
@@ -73,7 +72,7 @@ class InterfaceTest(unittest.TestCase):
         socket_shutdown = threading.Event()
         accept_self_packets = False
         is_dr = False
-        one_way = packet_creator.PacketCreator([conf.VERSION_IPV4, conf.PACKET_TYPE_HELLO, '1.1.1.1', '0.0.0.0', 0, 0])
+        one_way = packet.Packet([conf.VERSION_IPV4, conf.PACKET_TYPE_HELLO, '1.1.1.1', '0.0.0.0', 0, 0])
         one_way.create_hello_v2_packet('255.255.255.0', conf.HELLO_INTERVAL, 12, conf.ROUTER_PRIORITY,
                                        conf.ROUTER_DEAD_INTERVAL, '222.222.1.1', conf.DEFAULT_DESIGNATED_ROUTER, ())
         self.assertEqual(0, len(self.interface.neighbors))
@@ -108,9 +107,9 @@ class InterfaceTest(unittest.TestCase):
         while True:
             if not socket_pipeline.empty():
                 byte_array = socket_pipeline.get()[0]
-                if (packet_reader.PacketReader.get_ospf_version(byte_array) == conf.VERSION_IPV4) & \
-                        (packet_reader.PacketReader.get_ospf_packet_type(byte_array) == conf.PACKET_TYPE_HELLO):
-                    two_way = packet_reader.PacketReader.convert_bytes_to_packet(byte_array)
+                if (packet.Packet.get_ospf_version(byte_array) == conf.VERSION_IPV4) & \
+                        (packet.Packet.get_ospf_packet_type(byte_array) == conf.PACKET_TYPE_HELLO):
+                    two_way = packet.Packet.convert_bytes_to_packet(byte_array)
                     self.interface_pipeline.put([two_way, '222.222.1.1'])
                     break
         time.sleep(10)
@@ -158,8 +157,8 @@ class InterfaceTest(unittest.TestCase):
 
     #  Successful run - Instant
     def test_create_packet_successful(self):
-        packet = self.interface.create_packet()
-        self.assertEqual(PACKET_BYTES, packet)
+        new_packet = self.interface.create_packet()
+        self.assertEqual(PACKET_BYTES, new_packet)
 
     def tearDown(self):
         self.interface_identifier = ''
