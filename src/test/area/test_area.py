@@ -39,7 +39,7 @@ class AreaTest(unittest.TestCase):
         interface_objects = interfaces[INTERFACE_NAME]
         self.assertTrue(4, len(interface_objects))
         interface = interface_objects[area.INTERFACE_OBJECT]
-        self.assertEqual(INTERFACE_NAME, interface.identifier)
+        self.assertEqual(INTERFACE_NAME, interface.physical_identifier)
         thread = interface_objects[area.INTERFACE_THREAD]
         self.assertTrue(thread.isAlive())
         shutdown_event = interface_objects[area.SHUTDOWN_EVENT]

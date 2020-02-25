@@ -55,7 +55,7 @@ class Packet:
         if packet_version == conf.VERSION_IPV4:
             if packet_type == conf.PACKET_TYPE_HELLO:
                 neighbor_number = Packet.get_hello_packet_neighbor_number(packet_bytes)
-                format_string_hello = header.FORMAT_STRING + hello.Hello.get_format_string(neighbor_number)
+                format_string_hello = header.OSPFV2_FORMAT_STRING + hello.Hello.get_format_string(neighbor_number)
                 packet_tuple = struct.unpack(format_string_hello, packet_bytes)
 
                 #  From tuple, create packet

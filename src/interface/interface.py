@@ -13,26 +13,32 @@ This class represents the OSPF interface and contains its data and operations
 
 
 class Interface:
+    #  TODO: Allow interface to operate with both OSPF versions at the same time
+    version = 0
+
     #  OSPF interface parameters
     type = 0
-    identifier = ''  # Ex: ens33
-    ip_address = ''
-    network_mask = ''
-    area_id = ''
+    physical_identifier = ''  # Ex: ens33 - Identifier given by the OS
+    ospf_identifier = 0  # Just for OSPFv3
+    ip_address = ''  # Link-local address in OSPFv3
+    network_mask = ''  # Just for OSPFv2
+    link_prefixes = []  # Just for OSPFv3
+    area_id = '0.0.0.0'  # 0.0.0.0 - Backbone area
     hello_interval = 0
     router_dead_interval = 0
     router_priority = 0
     neighbors = None
-    designated_router = ''
-    backup_designated_router = ''
+    designated_router = '0.0.0.0'  # 0.0.0.0 - No DR known
+    backup_designated_router = '0.0.0.0'
     cost = 0
     max_ip_datagram = 0
+    instance_id = 0  # Just for OSPFv3 - Default is 0
 
     #  Implementation-specific parameters
     socket = None  # Socket that will send packets
     pipeline = None  # For receiving incoming packets
     interface_shutdown = None  # Signals interface thread to shutdown
-    packet_to_send = None
+    hello_packet_to_send = None
     hello_thread = None
 
     #  Hello timer and its parameters
@@ -42,9 +48,12 @@ class Interface:
     timer_shutdown = None
     timer_seconds = 0
 
-    def __init__(self, identifier, ip_address, network_mask, area_id, pipeline, interface_shutdown):
+    def __init__(self, version, physical_identifier, ip_address, network_mask, area_id, pipeline, interface_shutdown):
+        self.version = version
+
         self.type = conf.BROADCAST_INTERFACE
-        self.identifier = identifier
+        self.physical_identifier = physical_identifier
+        self.ospf_identifier = Interface.ospf_identifier_generator(self.physical_identifier, conf.INTERFACE_NAMES)
         self.ip_address = ip_address
         self.network_mask = network_mask
         self.area_id = area_id
@@ -62,7 +71,7 @@ class Interface:
         self.interface_shutdown = interface_shutdown
         packet_parameters = [conf.VERSION_IPV4, conf.PACKET_TYPE_HELLO, conf.ROUTER_ID, area_id,
                              conf.NULL_AUTHENTICATION, conf.DEFAULT_AUTH]
-        self.packet_to_send = packet.Packet(packet_parameters)
+        self.hello_packet_to_send = packet.Packet(packet_parameters)
 
         self.hello_timer = timer.Timer()
         self.timeout = threading.Event()
@@ -113,7 +122,7 @@ class Interface:
             #  Sends Hello packet
             if self.timeout.is_set():
                 packet_bytes = self.create_packet()
-                self.socket.send_ipv4(packet_bytes, conf.ALL_OSPF_ROUTERS_IPV4, self.identifier)
+                self.socket.send_ipv4(packet_bytes, conf.ALL_OSPF_ROUTERS_IPV4, self.physical_identifier)
                 self.timeout.clear()
 
         #  Interface signalled to shutdown
@@ -121,7 +130,7 @@ class Interface:
 
     #  Creates an OSPF packet to be sent
     def create_packet(self):
-        return self.packet_to_send.create_hello_v2_packet(
+        return self.hello_packet_to_send.create_hello_v2_packet(
             self.network_mask, self.hello_interval, conf.OPTIONS, self.router_priority, self.router_dead_interval,
             self.designated_router, self.backup_designated_router, self.neighbors)
 
@@ -138,3 +147,14 @@ class Interface:
         self.neighbors = {}  # Cleans neighbor list - It will be reconstructed if interface is reactivated
         self.timer_shutdown.set()
         self.hello_thread.join()
+
+    #  Given interface physical identifier, returns OSPF interface identifier
+    @staticmethod
+    def ospf_identifier_generator(physical_identifier, identifiers_tuple):
+        if physical_identifier in identifiers_tuple:
+            i = 1
+            for identifier in identifiers_tuple:
+                if identifier == physical_identifier:
+                    return i
+                i += 1
+        return 0

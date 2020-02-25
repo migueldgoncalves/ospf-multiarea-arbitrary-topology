@@ -45,8 +45,8 @@ class Area:
         network_mask = self.utils.get_ipv4_network_mask_from_interface_name(interface_id)
         pipeline = queue.Queue()
         shutdown = threading.Event()
-        new_interface = interface.Interface(interface_id, ip_address, network_mask, self.area_id, pipeline,
-                                            shutdown)
+        new_interface = interface.Interface(conf.VERSION_IPV4, interface_id, ip_address, network_mask, self.area_id,
+                                            pipeline, shutdown)
         interface_thread = threading.Thread(target=new_interface.interface_loop)
 
         #  Adds data and objects to the interfaces dictionary

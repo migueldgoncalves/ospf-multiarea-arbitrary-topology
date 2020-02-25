@@ -11,28 +11,30 @@ This class represents the body of an OSPF Hello packet and contains its operatio
 #  B - Unsigned char (1 byte) - struct.pack("> B", 1) -> b'\x01
 #  H - Unsigned short (2 bytes) - struct.pack("> H", 1) -> b'\x00\x01
 #  L - Unsigned long (4 bytes) - struct.pack("> L", 1) -> b'\x00\x00\x00\x01
-BASE_FORMAT_STRING = "> L H B B L L L"  # Determines the format of the byte object to be created
-EXTRA_FORMAT_STRING = " L"  # Must be added to the base format string for every neighbor
+OSPFV2_BASE_FORMAT_STRING = "> L H B B L L L"  # Determines the format of the byte object to be created
+OSPFV3_BASE_FORMAT_STRING = "> L L H H L L"
+EXTRA_FORMAT_STRING = " L"  # Must be added to the base format string for every neighbor, for every OSPF version
 
 
 class Hello:
 
     utils = utils.Utils()
 
-    network_mask = ''  # 4 bytes
+    interface_id = 0  # 4 bytes - Only for OSPFv3
+    network_mask = ''  # 4 bytes - Only for OSPFv2
     hello_interval = 0  # 2 bytes
-    options = 0  # 1 byte
+    options = 0  # 1 byte in OSPFv2, 3 bytes in OSPFv3
     router_priority = 0  # 1 byte
-    router_dead_interval = 0  # 4 bytes
+    router_dead_interval = 0  # 4 bytes in OSPFv2, 2 bytes in OSPFv3
     designated_router = ''  # 4 bytes
     backup_designated_router = ''  # 4 bytes
     neighbors = ()  # 4 bytes / neighbor
 
     def __init__(self, network_mask, hello_interval, options, router_priority, router_dead_interval,
                  designated_router, backup_designated_router, neighbors):
-        is_valid, message = self.parameter_validation(network_mask, hello_interval, options, router_priority,
-                                                      router_dead_interval, designated_router, backup_designated_router,
-                                                      neighbors)
+        is_valid, message = self.parameter_validation(
+            network_mask, hello_interval, options, router_priority, router_dead_interval, designated_router,
+            backup_designated_router, neighbors)
         if not is_valid:  # At least one of the parameters failed validation
             raise ValueError(message)
 
@@ -51,7 +53,7 @@ class Hello:
         decimal_designated_router = self.utils.ipv4_to_decimal(self.designated_router)
         decimal_backup_designated_router = self.utils.ipv4_to_decimal(self.backup_designated_router)
 
-        base_packed_data = struct.pack(BASE_FORMAT_STRING, decimal_network_mask, self.hello_interval, self.options,
+        base_packed_data = struct.pack(OSPFV2_BASE_FORMAT_STRING, decimal_network_mask, self.hello_interval, self.options,
                                        self.router_priority, self.router_dead_interval, decimal_designated_router,
                                        decimal_backup_designated_router)
 
@@ -65,7 +67,7 @@ class Hello:
 
     @staticmethod
     def get_format_string(neighbor_number):
-        format_string = BASE_FORMAT_STRING
+        format_string = OSPFV2_BASE_FORMAT_STRING
         #  Format string must receive 1 parameter for every new neighbor in the packet
         for _ in range(neighbor_number):
             format_string += EXTRA_FORMAT_STRING

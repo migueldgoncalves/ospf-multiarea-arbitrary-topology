@@ -37,8 +37,9 @@ class InterfaceTest(unittest.TestCase):
         self.area_id = conf.INTERFACE_AREAS[0]
         self.interface_pipeline = queue.Queue()
         self.interface_shutdown = threading.Event()
-        self.interface = interface.Interface(self.interface_identifier, self.ip_address, self.network_mask,
-                                             self.area_id, self.interface_pipeline, self.interface_shutdown)
+        self.interface = interface.Interface(
+            conf.VERSION_IPV4, self.interface_identifier, self.ip_address, self.network_mask, self.area_id,
+            self.interface_pipeline, self.interface_shutdown)
 
     #  Successful run - 21-36 s, can be longer
     def test_interface_loop_packet_sending_successful(self):
@@ -159,6 +160,23 @@ class InterfaceTest(unittest.TestCase):
     def test_create_packet_successful(self):
         new_packet = self.interface.create_packet()
         self.assertEqual(PACKET_BYTES, new_packet)
+
+    #  Successful run - Instant
+    def test_ospf_identifier_generator(self):
+        identifiers_tuple = ()
+        self.assertEqual(0, interface.Interface.ospf_identifier_generator(self.interface_identifier, identifiers_tuple))
+        identifiers_tuple = (self.interface_identifier,)
+        self.assertEqual(1, interface.Interface.ospf_identifier_generator(self.interface_identifier, identifiers_tuple))
+        identifiers_tuple = ("An interface",)
+        self.assertEqual(0, interface.Interface.ospf_identifier_generator(self.interface_identifier, identifiers_tuple))
+        identifiers_tuple = (self.interface_identifier, "Another interface",)
+        self.assertEqual(1, interface.Interface.ospf_identifier_generator(self.interface_identifier, identifiers_tuple))
+        identifiers_tuple = ("An interface", self.interface_identifier,)
+        self.assertEqual(2, interface.Interface.ospf_identifier_generator(self.interface_identifier, identifiers_tuple))
+        identifiers_tuple = ("An interface", "Another interface",)
+        self.assertEqual(0, interface.Interface.ospf_identifier_generator(self.interface_identifier, identifiers_tuple))
+        identifiers_tuple = (self.interface_identifier, self.interface_identifier,)
+        self.assertEqual(1, interface.Interface.ospf_identifier_generator(self.interface_identifier, identifiers_tuple))
 
     def tearDown(self):
         self.interface_identifier = ''

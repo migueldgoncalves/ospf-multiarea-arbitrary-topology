@@ -12,7 +12,8 @@ This class represents the OSPF packet header and contains its operations
 #  H - Unsigned short (2 bytes) - struct.pack("> H", 1) -> b'\x00\x01
 #  L - Unsigned long (4 bytes) - struct.pack("> L", 1) -> b'\x00\x00\x00\x01
 #  Q - Unsigned long long (8 bytes) - struct.pack("> Q", 1) -> b'\x00\x00\x00\x00\x00\x00\x00\x01
-FORMAT_STRING = "> B B H L L H H Q"  # Determines the format of the byte object to be created
+OSPFV2_FORMAT_STRING = "> B B H L L H H Q"  # Determines the format of the byte object to be created
+OSPFV3_FORMAT_STRING = "> B B H L L H B B"
 
 
 class Header:  # OSPFv2 - 24 bytes; OSPFv3 - 16 bytes
@@ -48,7 +49,7 @@ class Header:  # OSPFv2 - 24 bytes; OSPFv3 - 16 bytes
     def pack_header(self):
         decimal_router_id = self.utils.ipv4_to_decimal(self.router_id)
         decimal_area_id = self.utils.ipv4_to_decimal(self.area_id)
-        return struct.pack(FORMAT_STRING, self.version, self.packet_type, self.length, decimal_router_id,
+        return struct.pack(OSPFV2_FORMAT_STRING, self.version, self.packet_type, self.length, decimal_router_id,
                            decimal_area_id, self.checksum, self.auth_type, self.authentication)
 
     #  Cleans packet checksum, authentication type and authentication fields for checksum calculation
@@ -98,4 +99,4 @@ class Header:  # OSPFv2 - 24 bytes; OSPFv3 - 16 bytes
 
     @staticmethod
     def get_format_string():
-        return FORMAT_STRING
+        return OSPFV2_FORMAT_STRING
