@@ -13,7 +13,7 @@ This class tests the neighbor operations in the router
 
 #  Full successful run - 90 s
 class TestNeighbor(unittest.TestCase):
-    neighbor_id = ''
+    neighbor_id = '0.0.0.0'
     neighbor_options = 0
     neighbor = None
 

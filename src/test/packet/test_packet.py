@@ -11,8 +11,8 @@ This class tests the interface to packet creation, storage and manipulation
 #  Full successful run - Instant
 class PacketTest(unittest.TestCase):
     packet_type = 0
-    router_id = ''
-    area_id = ''
+    router_id = '0.0.0.0'
+    area_id = '0.0.0.0'
     auth_type = 0
     authentication = 0
     packet_creator_v2 = None

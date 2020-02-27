@@ -7,9 +7,11 @@ import conf.conf as conf
 This class tests utility functions used throughout the router code
 '''
 
-INTERFACE_NAME = 'ens33'
-INTERFACE_IP = '222.222.1.2'  # Must be changed if IP address of interface is changed for tests to pass
-NETWORK_MASK = '255.255.255.0'  # Must be changed if network mask of interface is changed for tests to pass
+INTERFACE_NAME = conf.INTERFACE_NAMES[0]
+INTERFACE_IPV4 = '222.222.1.2'  # Must be changed if IPv4 address of interface is changed for tests to pass
+INTERFACE_IPV6 = '2001:db8:cafe:1::2'  # Must be changed if IPv6 address of interface is changed for tests to pass
+NETWORK_MASK_IPV4 = '255.255.255.0'  # Must be changed if IPv4 network mask of interface is changed for tests to pass
+NETWORK_MASK_IPV6 = 'ffff:ffff:ffff:ffff::'  # Must be changed if IPv6 network mask of interface is changed
 
 
 #  Full successful run - Instant
@@ -82,11 +84,27 @@ class UtilsTest(unittest.TestCase):
 
     #  Successful run - Instant
     def test_get_ipv4_address_from_interface_name(self):
-        self.assertEqual(INTERFACE_IP, self.utils.get_ipv4_address_from_interface_name(INTERFACE_NAME))
+        self.assertEqual(INTERFACE_IPV4, self.utils.get_ipv4_address_from_interface_name(INTERFACE_NAME))
+
+    #  Successful run - Instant
+    def test_get_ipv6_global_address_from_interface_name(self):
+        self.assertEqual(INTERFACE_IPV6, self.utils.get_ipv6_global_address_from_interface_name(INTERFACE_NAME))
+
+    #  Successful run - Instant
+    def test_get_ipv6_link_local_address_from_interface_name(self):
+        link_local_address = self.utils.get_ipv6_link_local_address_from_interface_name(INTERFACE_NAME)
+        self.assertEqual("fe80", link_local_address[0:4])
+        self.assertFalse('%' in link_local_address)
+        self.assertFalse(INTERFACE_NAME in link_local_address)
+        self.assertTrue(self.utils.is_ipv6_address(link_local_address))
 
     #  Successful run - Instant
     def test_get_ipv4_network_mask_from_interface_name(self):
-        self.assertEqual(NETWORK_MASK, self.utils.get_ipv4_network_mask_from_interface_name(INTERFACE_NAME))
+        self.assertEqual(NETWORK_MASK_IPV4, self.utils.get_ipv4_network_mask_from_interface_name(INTERFACE_NAME))
+
+    #  Successful run - Instant
+    def test_get_ipv6_network_mask_from_interface_name(self):
+        self.assertEqual(NETWORK_MASK_IPV6, self.utils.get_ipv6_network_mask_from_interface_name(INTERFACE_NAME))
 
     #  Successful run - Instant
     def test_is_ipv4_address_successful(self):
@@ -102,16 +120,79 @@ class UtilsTest(unittest.TestCase):
         self.assertTrue(self.utils.is_ipv4_address('255.255.255.255'))
 
     #  Successful run - Instant
+    def test_is_ipv6_address_successful(self):
+        self.assertTrue(self.utils.is_ipv6_address('::'))
+        self.assertTrue(self.utils.is_ipv6_address('0::'))
+        self.assertTrue(self.utils.is_ipv6_address('ffff::'))
+        self.assertTrue(self.utils.is_ipv6_address('::0'))
+        self.assertTrue(self.utils.is_ipv6_address('::ffff'))
+        self.assertTrue(self.utils.is_ipv6_address('0::0'))
+        self.assertTrue(self.utils.is_ipv6_address('ffff::ffff'))
+        self.assertTrue(self.utils.is_ipv6_address('ffff:0::0:ffff'))
+        self.assertTrue(self.utils.is_ipv6_address('ffff:ffff::ffff:ffff'))
+        self.assertTrue(self.utils.is_ipv6_address('0:0:0:0:0:0:0::'))
+        self.assertTrue(self.utils.is_ipv6_address('ffff:ffff:ffff:ffff:ffff:ffff:ffff::'))
+        self.assertTrue(self.utils.is_ipv6_address('::0:0:0:0:0:0:0'))
+        self.assertTrue(self.utils.is_ipv6_address('::ffff:ffff:ffff:ffff:ffff:ffff:ffff'))
+        self.assertTrue(self.utils.is_ipv6_address('0:0:0:0:0:0:0:0'))
+        self.assertTrue(self.utils.is_ipv6_address('ffff:ffff:ffff:ffff:ffff:ffff:ffff:ffff'))
+
+    #  Successful run - Instant
     def test_is_ipv4_address_invalid_ip(self):
         self.assertFalse(self.utils.is_ipv4_address(''))
         self.assertFalse(self.utils.is_ipv4_address('        '))
         self.assertFalse(self.utils.is_ipv4_address('An invalid IP address'))
+        self.assertFalse(self.utils.is_ipv4_address('0::0'))
         self.assertFalse(self.utils.is_ipv4_address('0'))
         self.assertFalse(self.utils.is_ipv4_address('0.'))
+        self.assertFalse(self.utils.is_ipv4_address('.0'))
         self.assertFalse(self.utils.is_ipv4_address('0.0.0'))
         self.assertFalse(self.utils.is_ipv4_address('0.0.0.'))
         self.assertFalse(self.utils.is_ipv4_address('0.0.0.0.'))
         self.assertFalse(self.utils.is_ipv4_address('0.0.0.0.0'))
+        self.assertFalse(self.utils.is_ipv4_address('256.0.0.0'))
+        self.assertFalse(self.utils.is_ipv4_address('-1.0.0.0'))
+        self.assertFalse(self.utils.is_ipv4_address('256.256.256.256'))
+        self.assertFalse(self.utils.is_ipv4_address('-1.-1.-1.-1'))
+        self.assertFalse(self.utils.is_ipv4_address(' 0.0.0.0'))
+        self.assertFalse(self.utils.is_ipv4_address('0 .0.0.0'))
+        self.assertFalse(self.utils.is_ipv4_address('0. 0.0.0'))
+        self.assertFalse(self.utils.is_ipv4_address('0.0.0 .0'))
+        self.assertFalse(self.utils.is_ipv4_address('0.0.0. 0'))
+        self.assertFalse(self.utils.is_ipv4_address('0.0.0.0 '))
+
+    #  Successful run - Instant
+    def test_is_ipv6_address_invalid_ip(self):
+        self.assertFalse(self.utils.is_ipv6_address(''))
+        self.assertFalse(self.utils.is_ipv6_address('    '))
+        self.assertFalse(self.utils.is_ipv6_address('An invalid IP address'))
+        self.assertFalse(self.utils.is_ipv6_address('0.0.0.0'))
+        self.assertFalse(self.utils.is_ipv6_address('0'))
+        self.assertFalse(self.utils.is_ipv6_address('00000000'))
+        self.assertFalse(self.utils.is_ipv6_address('0:'))
+        self.assertFalse(self.utils.is_ipv6_address(':0'))
+        self.assertFalse(self.utils.is_ipv6_address('0:0:0:0:0:0:0:'))
+        self.assertFalse(self.utils.is_ipv6_address(':0:0:0:0:0:0:0'))
+        self.assertFalse(self.utils.is_ipv6_address('0:0:0:0:0:0:0:0::'))
+        self.assertFalse(self.utils.is_ipv6_address('::0:0:0:0:0:0:0:0'))
+        self.assertFalse(self.utils.is_ipv6_address('0:0:0:0::0:0:0:0'))
+        self.assertFalse(self.utils.is_ipv6_address('0:0:0:0:0:0:0:0:0'))
+        self.assertFalse(self.utils.is_ipv6_address('0:0:0:0:0:0:0'))
+        self.assertFalse(self.utils.is_ipv6_address(' 0::0'))
+        self.assertFalse(self.utils.is_ipv6_address('0 ::0'))
+        self.assertFalse(self.utils.is_ipv6_address('0: :0'))
+        self.assertFalse(self.utils.is_ipv6_address('0:: 0'))
+        self.assertFalse(self.utils.is_ipv6_address('0::0 '))
+        self.assertFalse(self.utils.is_ipv6_address('0:0::0:0::0:0'))
+        self.assertFalse(self.utils.is_ipv6_address('-1::0'))
+        self.assertFalse(self.utils.is_ipv6_address('-1::-1'))
+        self.assertFalse(self.utils.is_ipv6_address('-1:-1:-1:-1:-1:-1:-1:-1'))
+        self.assertFalse(self.utils.is_ipv6_address('fffg::0'))
+        self.assertFalse(self.utils.is_ipv6_address('fffg::fffg'))
+        self.assertFalse(self.utils.is_ipv6_address('fffg:fffg:fffg:fffg:fffg:fffg:fffg:fffg'))
+        self.assertFalse(self.utils.is_ipv6_address('10000::0'))
+        self.assertFalse(self.utils.is_ipv6_address('10000::10000'))
+        self.assertFalse(self.utils.is_ipv6_address('10000:10000:10000:10000:10000:10000:10000:10000'))
 
     #  Successful run - Instant
     def test_is_ipv4_network_mask_successful(self):

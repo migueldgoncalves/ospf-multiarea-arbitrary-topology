@@ -13,7 +13,7 @@ class Neighbor:
     inactivity_timer = None
     thread = None
 
-    neighbor_id = ''
+    neighbor_id = '0.0.0.0'
     neighbor_options = 0
     neighbor_state = conf.NEIGHBOR_STATE_DOWN  # Initial state
 

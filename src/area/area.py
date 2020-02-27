@@ -9,7 +9,7 @@ import general.utils as utils
 This class represents the OSPF area and contains its data and operations, from the point of view of a router
 '''
 
-#  Elements of the list stored in the interfaces dictionary - The key is their identifier
+#  Elements of the list stored in the interfaces dictionary - The key is the interface identifier (Ex: ens33)
 INTERFACE_OBJECT = 0
 INTERFACE_THREAD = 1
 PIPELINE = 2
@@ -17,13 +17,17 @@ SHUTDOWN_EVENT = 3
 
 
 class Area:
-    area_id = ''
+    #  TODO: Allow router to operate with both OSPF versions at the same time
+    version = 0
+
+    area_id = '0.0.0.0'  # 0.0.0.0 - Backbone area
     interfaces = {}  # Contains as key their identifier, and as value the list above mentioned
     external_routing_capable = False
 
     utils = utils.Utils()
 
-    def __init__(self, area_id, external_routing_capable):
+    def __init__(self, version, area_id, external_routing_capable):
+        self.version = version
         if not self.utils.is_ipv4_address(area_id):
             raise ValueError("Invalid Area ID")
         self.area_id = area_id
@@ -41,12 +45,18 @@ class Area:
         if interface_id in self.interfaces:
             print("Interface", interface_id, "is already created")
             return
-        ip_address = self.utils.get_ipv4_address_from_interface_name(interface_id)
-        network_mask = self.utils.get_ipv4_network_mask_from_interface_name(interface_id)
+
         pipeline = queue.Queue()
         shutdown = threading.Event()
-        new_interface = interface.Interface(conf.VERSION_IPV4, interface_id, ip_address, network_mask, self.area_id,
-                                            pipeline, shutdown)
+        if self.version == conf.VERSION_IPV4:
+            ip_address = self.utils.get_ipv4_address_from_interface_name(interface_id)
+            network_mask = self.utils.get_ipv4_network_mask_from_interface_name(interface_id)
+            new_interface = interface.Interface(conf.VERSION_IPV4, interface_id, ip_address, network_mask, self.area_id,
+                                                pipeline, shutdown)
+        else:
+            pass
+            #  TODO
+
         interface_thread = threading.Thread(target=new_interface.interface_loop)
 
         #  Adds data and objects to the interfaces dictionary
@@ -77,13 +87,13 @@ class Area:
             interface_data[PIPELINE].queue.clear()
             print("Interface", interface_id, "successfully shutdown")
         else:
-            print("Interface", interface_id, "is already shutdown")
+            print("Interface", interface_id, "is already down")
 
     #  Shutdown event is set when interface should stop operating
     def is_interface_operating(self, interface_id):
         return not self.interfaces[interface_id][SHUTDOWN_EVENT].is_set()
 
-    #  Shutdowns area, and with it all of its interfaces
+    #  Ensures area is down, and with it all of its interfaces
     def shutdown_area(self):
         for i in self.interfaces:
             self.shutdown_interface(i)

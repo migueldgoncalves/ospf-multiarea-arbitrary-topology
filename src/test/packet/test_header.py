@@ -11,8 +11,8 @@ This class tests the OSPF packet header class and its operations
 #  Full successful run - Instant
 class TestHeader(unittest.TestCase):
     packet_type = 0
-    router_id = ''
-    area_id = ''
+    router_id = '0.0.0.0'
+    area_id = '0.0.0.0'
     auth_type = 0
     authentication = 0
     header = None

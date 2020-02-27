@@ -23,8 +23,8 @@ class Header:  # OSPFv2 - 24 bytes; OSPFv3 - 16 bytes
     version = 0  # 1 byte
     packet_type = 0  # 1 byte
     length = 0  # 2 bytes
-    router_id = ''  # 4 bytes
-    area_id = ''  # 4 bytes
+    router_id = '0.0.0.0'  # 4 bytes
+    area_id = '0.0.0.0'  # 4 bytes
     checksum = 0  # 2 bytes
     auth_type = 0  # 2 bytes - Only for OSPFv2
     authentication = 0  # 8 bytes - Only for OSPFv2

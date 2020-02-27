@@ -18,6 +18,12 @@ class Utils:
         return (int(parts[0]) << 3 * conf.BYTE_SIZE) + (int(parts[1]) << 2 * conf.BYTE_SIZE) + \
                (int(parts[2]) << conf.BYTE_SIZE) + int(parts[3])
 
+    #  Converts IPv6 addresses to numbers between 0 and 340282366920938463463374607431768211455
+    '''@staticmethod
+    def ipv6_to_decimal(ip_address):
+        if not Utils.is_ipv6_address(ip_address):
+            raise ValueError("Invalid IPv6 address")'''
+
     #  Converts numbers between 0 and 4294967295 to IPv4 addresses
     @staticmethod
     def decimal_to_ipv4(decimal):
@@ -39,7 +45,7 @@ class Utils:
         content_chunk_sum = 0
         for i in range(len(message) // 2):  # len() returns byte size - Chunks of 2 bytes are required
             value = int(message.hex()[conf.HEX_DIGIT_BIT_SIZE * i:conf.HEX_DIGIT_BIT_SIZE * i +
-                        conf.HEX_DIGIT_BIT_SIZE], conf.BASE_16)
+                                                                  conf.HEX_DIGIT_BIT_SIZE], conf.BASE_16)
             content_chunk_sum += value
 
         #  2 - If sum exceeds 16 bits, carry value (the remainder) is added to the 16-bit sum
@@ -54,19 +60,45 @@ class Utils:
         checksum = result ^ conf.MAX_VALUE_16_BITS
         return checksum
 
-    #  Returns the IP address of an interface given its name (ex: ens33)
+    #  Returns the IPv4 address of an interface given its name (ex: ens33)
     @staticmethod
     def get_ipv4_address_from_interface_name(interface_name):
         return netifaces.ifaddresses(interface_name)[netifaces.AF_INET][0]['addr']
 
-    #  Returns the network mask of an interface given its name (ex: ens33)
+    #  Returns the IPv6 global address of an interface given its name (ex: ens33)
+    @staticmethod
+    def get_ipv6_global_address_from_interface_name(interface_name):
+        return netifaces.ifaddresses(interface_name)[netifaces.AF_INET6][0]['addr']
+
+    #  Returns the IPv6 link-local address of an interface given its name (ex: ens33)
+    @staticmethod
+    def get_ipv6_link_local_address_from_interface_name(interface_name):
+        return netifaces.ifaddresses(interface_name)[netifaces.AF_INET6][1]['addr'].split('%')[0]
+
+    #  Returns the IPv4 network mask of an interface given its name (ex: ens33)
     @staticmethod
     def get_ipv4_network_mask_from_interface_name(interface_name):
         return netifaces.ifaddresses(interface_name)[netifaces.AF_INET][0]['netmask']
 
+    #  TODO: Consider the case where more than one IPv6 prefix is configured
+    #  Returns the IPv6 network mask of an interface given its name (ex: ens33)
+    @staticmethod
+    def get_ipv6_network_mask_from_interface_name(interface_name):
+        return netifaces.ifaddresses(interface_name)[netifaces.AF_INET6][0]['netmask']
+
+    #  Returns the IPv6 prefix of an interface given its name (ex: ens33)
+    @staticmethod
+    def get_ipv6_prefix_from_interface_name(interface_name):
+        global_ipv6_address = Utils.get_ipv6_global_address_from_interface_name(interface_name)
+        network_mask = Utils.get_ipv6_network_mask_from_interface_name(interface_name)
+        network_mask = network_mask.split("::")[0]
+        hextets = network_mask.split(":")
+
     #  Returns True if argument is a valid IPv4 address
     @staticmethod
     def is_ipv4_address(ip_address):
+        if ' ' in ip_address:
+            return False
         try:
             parts = ip_address.split('.')
             if len(parts) != 4:
@@ -75,6 +107,41 @@ class Utils:
                 if (int(part) < 0) | (int(part) > conf.MAX_VALUE_8_BITS):
                     return False
             return True
+        except ValueError:
+            return False
+
+    #  Returns True if argument is a valid IPv6 address
+    @staticmethod
+    def is_ipv6_address(ip_address):
+        if ' ' in ip_address:
+            return False
+        try:
+            if ip_address == '::':
+                return True
+            if ':' not in ip_address:
+                return False
+            parts = ip_address.split('::')
+            if len(parts) > 2:  # 2001::db8::1 -> Invalid IPv6 address
+                return False
+            number_hextets = 0
+            for part in parts:
+                if part != '':  # '0::'.split('::') -> ['0', '']
+                    hextets = part.split(':')
+                    if '' in hextets:
+                        hextets.remove('')
+                    for hextet in hextets:
+                        number_hextets += 1
+                        if number_hextets > 8:
+                            return False
+                        hextet = int(hextet, conf.BASE_16)
+                        if (hextet < 0) | (hextet > conf.MAX_VALUE_16_BITS):
+                            return False
+            if (len(parts) == 2) & (number_hextets == 8):  # 2001:1:1:1::1:1:1:1 -> Invalid address
+                return False
+            elif (len(parts) == 1) & (number_hextets < 8):  # 2001:1:1:1 -> Invalid address
+                return False
+            return True
+
         except ValueError:
             return False
 

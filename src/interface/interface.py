@@ -13,7 +13,7 @@ This class represents the OSPF interface and contains its data and operations
 
 
 class Interface:
-    #  TODO: Allow interface to operate with both OSPF versions at the same time
+    #  TODO: Allow router to operate with both OSPF versions at the same time
     version = 0
 
     #  OSPF interface parameters
@@ -21,7 +21,7 @@ class Interface:
     physical_identifier = ''  # Ex: ens33 - Identifier given by the OS
     ospf_identifier = 0  # Just for OSPFv3
     ip_address = ''  # Link-local address in OSPFv3
-    network_mask = ''  # Just for OSPFv2
+    network_mask = '0.0.0.0'  # Just for OSPFv2
     link_prefixes = []  # Just for OSPFv3
     area_id = '0.0.0.0'  # 0.0.0.0 - Backbone area
     hello_interval = 0

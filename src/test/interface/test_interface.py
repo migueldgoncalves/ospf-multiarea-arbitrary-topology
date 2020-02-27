@@ -22,9 +22,9 @@ class InterfaceTest(unittest.TestCase):
     interface = None
 
     interface_identifier = ''
-    ip_address = ''
+    ip_address = '0.0.0.0'
     network_mask = 0
-    area_id = ''
+    area_id = '0.0.0.0'
     interface_pipeline = None
     interface_shutdown = None
 

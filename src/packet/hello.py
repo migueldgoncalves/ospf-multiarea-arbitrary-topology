@@ -21,13 +21,13 @@ class Hello:
     utils = utils.Utils()
 
     interface_id = 0  # 4 bytes - Only for OSPFv3
-    network_mask = ''  # 4 bytes - Only for OSPFv2
+    network_mask = '0.0.0.0'  # 4 bytes - Only for OSPFv2
     hello_interval = 0  # 2 bytes
     options = 0  # 1 byte in OSPFv2, 3 bytes in OSPFv3
     router_priority = 0  # 1 byte
     router_dead_interval = 0  # 4 bytes in OSPFv2, 2 bytes in OSPFv3
-    designated_router = ''  # 4 bytes
-    backup_designated_router = ''  # 4 bytes
+    designated_router = '0.0.0.0'  # 4 bytes
+    backup_designated_router = '0.0.0.0'  # 4 bytes
     neighbors = ()  # 4 bytes / neighbor
 
     def __init__(self, network_mask, hello_interval, options, router_priority, router_dead_interval,

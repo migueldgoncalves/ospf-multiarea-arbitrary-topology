@@ -14,13 +14,13 @@ class TestHello(unittest.TestCase):
     utils = utils.Utils()
     interface_name = conf.INTERFACE_NAMES[0]
 
-    network_mask = ''
+    network_mask = '0.0.0.0'
     hello_interval = 0
     options = 0
     router_priority = 0
     router_dead_interval = 0
-    designated_router = ''
-    backup_designated_router = ''
+    designated_router = '0.0.0.0'
+    backup_designated_router = '0.0.0.0'
     neighbors = ()
     packet_body = None
 
