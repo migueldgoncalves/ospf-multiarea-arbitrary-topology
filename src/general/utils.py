@@ -1,4 +1,6 @@
 import netifaces
+import ipaddress
+import struct
 
 import conf.conf as conf
 
@@ -12,53 +14,69 @@ class Utils:
     #  Converts IPv4 addresses to numbers between 0 and 4294967295
     @staticmethod
     def ipv4_to_decimal(ip_address):
-        if not Utils.is_ipv4_address(ip_address):
-            raise ValueError("Invalid IPv4 address")
-        parts = ip_address.split('.')
-        return (int(parts[0]) << 3 * conf.BYTE_SIZE) + (int(parts[1]) << 2 * conf.BYTE_SIZE) + \
-               (int(parts[2]) << conf.BYTE_SIZE) + int(parts[3])
+        return int(ipaddress.IPv4Address(ip_address))
 
     #  Converts IPv6 addresses to numbers between 0 and 340282366920938463463374607431768211455
-    '''@staticmethod
+    @staticmethod
     def ipv6_to_decimal(ip_address):
-        if not Utils.is_ipv6_address(ip_address):
-            raise ValueError("Invalid IPv6 address")'''
+        return int(ipaddress.IPv6Address(ip_address))
 
     #  Converts numbers between 0 and 4294967295 to IPv4 addresses
     @staticmethod
     def decimal_to_ipv4(decimal):
-        if not (0 <= decimal <= conf.MAX_VALUE_32_BITS):
-            raise ValueError("Invalid IPv4 decimal")
-        first_octet = decimal >> 3 * conf.BYTE_SIZE
-        second_octet = (decimal >> 2 * conf.BYTE_SIZE) % (conf.MAX_VALUE_8_BITS + 1)
-        third_octet = (decimal >> conf.BYTE_SIZE) % (conf.MAX_VALUE_8_BITS + 1)
-        fourth_octet = decimal % (conf.MAX_VALUE_8_BITS + 1)
-        ip_address = str(first_octet) + "." + str(second_octet) + "." + str(third_octet) + "." + str(fourth_octet)
-        return ip_address
+        return str(ipaddress.IPv4Address(decimal))
+
+    #  Converts numbers between 0 and 340282366920938463463374607431768211455 to IPv6 addresses
+    @staticmethod
+    def decimal_to_ipv6(decimal):
+        return str(ipaddress.IPv6Address(decimal))
 
     #  Calculates the OSPFv2 packet checksum - Same as IPv4 header checksum
     #  It is assumed that checksum, authentication and authentication type fields are clear
     @staticmethod
-    def create_checksum_ipv4(message):
+    def create_checksum_ospfv2(message):
+        #  1 - If the message has an odd number of bytes, append a empty byte at the end
+        if (len(message) % 2) != 0:
+            message += b'\x00'
 
-        #  1 - Get all 16-bit blocks of the message, and sum them
+        #  2 - Get all 16-bit blocks of the message, and sum them
         content_chunk_sum = 0
         for i in range(len(message) // 2):  # len() returns byte size - Chunks of 2 bytes are required
             value = int(message.hex()[conf.HEX_DIGIT_BIT_SIZE * i:conf.HEX_DIGIT_BIT_SIZE * i +
-                                                                  conf.HEX_DIGIT_BIT_SIZE], conf.BASE_16)
+                        conf.HEX_DIGIT_BIT_SIZE], conf.BASE_16)
             content_chunk_sum += value
 
-        #  2 - If sum exceeds 16 bits, carry value (the remainder) is added to the 16-bit sum
+        #  3 - If sum exceeds 16 bits, carry value (the remainder) is added to the 16-bit sum
         quotient, remainder = divmod(content_chunk_sum, conf.MAX_VALUE_16_BITS + 1)
         result = quotient + remainder
 
-        #  3 - If another carry happens, another 1 is added to the 16-bit result
+        #  4 - If another carry happens, another 1 is added to the 16-bit result
         if result > conf.MAX_VALUE_16_BITS:
             result = divmod(result, conf.MAX_VALUE_16_BITS + 1)[0] + 1
 
-        #  4 - The checksum is the 1's complement (all bits are inverted) of the previous result
+        #  5 - The checksum is the 1's complement (all bits are inverted) of the previous result
         checksum = result ^ conf.MAX_VALUE_16_BITS
         return checksum
+
+    #  Calculates the OSPFv3 packet checksum
+    #  It is assumed that the checksum field is clear
+    @staticmethod
+    def create_checksum_ospfv3(message, source_address, destination_address):
+        source_address_bytes = ipaddress.IPv6Address(source_address).packed
+        destination_address_bytes = ipaddress.IPv6Address(destination_address).packed
+
+        #  Format strings indicate the format of the byte objects to be created, or converted to other object types
+        #  > - Big-endian
+        #  B - Unsigned char (1 byte) - struct.unpack("> B", b'\x01) -> 1
+        #  L - Unsigned long (4 bytes) - struct.unpack("> L", b'\x00\x00\x00\x01) -> 1
+
+        upper_layer_packet_length = struct.pack("> L", len(message))
+        next_header = struct.pack("> B", conf.OSPF_PROTOCOL_NUMBER)
+
+        #  Attaching a "pseudo-header" to the OSPFv3 packet is required since IPv6 does not include a packet checksum
+        pseudo_header = source_address_bytes + destination_address_bytes + upper_layer_packet_length + b'\x00\x00\x00'\
+            + next_header
+        return Utils.create_checksum_ospfv2(pseudo_header + message)  # Bitwise operations are the same as in OSPFv2
 
     #  Returns the IPv4 address of an interface given its name (ex: ens33)
     @staticmethod
@@ -91,58 +109,25 @@ class Utils:
     def get_ipv6_prefix_from_interface_name(interface_name):
         global_ipv6_address = Utils.get_ipv6_global_address_from_interface_name(interface_name)
         network_mask = Utils.get_ipv6_network_mask_from_interface_name(interface_name)
-        network_mask = network_mask.split("::")[0]
-        hextets = network_mask.split(":")
+        network_mask_length = bin(int(ipaddress.IPv6Address(network_mask)))[2:].count('1')  # '0b1111'[2:] -> '1111'
+        return str(ipaddress.IPv6Interface((global_ipv6_address, network_mask_length)).network).split("/")[0]
 
     #  Returns True if argument is a valid IPv4 address
     @staticmethod
     def is_ipv4_address(ip_address):
-        if ' ' in ip_address:
-            return False
         try:
-            parts = ip_address.split('.')
-            if len(parts) != 4:
-                return False
-            for part in parts:
-                if (int(part) < 0) | (int(part) > conf.MAX_VALUE_8_BITS):
-                    return False
+            ipaddress.IPv4Address(ip_address)
             return True
-        except ValueError:
+        except ipaddress.AddressValueError:
             return False
 
     #  Returns True if argument is a valid IPv6 address
     @staticmethod
     def is_ipv6_address(ip_address):
-        if ' ' in ip_address:
-            return False
         try:
-            if ip_address == '::':
-                return True
-            if ':' not in ip_address:
-                return False
-            parts = ip_address.split('::')
-            if len(parts) > 2:  # 2001::db8::1 -> Invalid IPv6 address
-                return False
-            number_hextets = 0
-            for part in parts:
-                if part != '':  # '0::'.split('::') -> ['0', '']
-                    hextets = part.split(':')
-                    if '' in hextets:
-                        hextets.remove('')
-                    for hextet in hextets:
-                        number_hextets += 1
-                        if number_hextets > 8:
-                            return False
-                        hextet = int(hextet, conf.BASE_16)
-                        if (hextet < 0) | (hextet > conf.MAX_VALUE_16_BITS):
-                            return False
-            if (len(parts) == 2) & (number_hextets == 8):  # 2001:1:1:1::1:1:1:1 -> Invalid address
-                return False
-            elif (len(parts) == 1) & (number_hextets < 8):  # 2001:1:1:1 -> Invalid address
-                return False
+            ipaddress.IPv6Address(ip_address)
             return True
-
-        except ValueError:
+        except ipaddress.AddressValueError:
             return False
 
     #  Return True if argument is a valid IPv4 network mask
@@ -152,12 +137,23 @@ class Utils:
             return False
         if network_mask == '0.0.0.0':  # Method below will not work for address '0.0.0.0' since 2's complement of 0 is 0
             return True
+        binary_mask = Utils.ipv4_to_decimal(network_mask)
+        return Utils.is_network_mask(binary_mask, conf.MAX_VALUE_32_BITS)
 
-        #  Creates 32-bit number from network mask
-        first, second, third, fourth = (int(octet) for octet in network_mask.split("."))
-        binary_mask = first << 24 | second << 16 | third << 8 | fourth
+    #  Return True if argument is a valid IPv6 network mask
+    @staticmethod
+    def is_ipv6_network_mask(network_mask):
+        if not Utils.is_ipv6_address(network_mask):
+            return False
+        if network_mask == '::':  # Method below will not work for address '::' since 2's complement of 0 is 0
+            return True
+        binary_mask = Utils.ipv6_to_decimal(network_mask)
+        return Utils.is_network_mask(binary_mask, conf.MAX_VALUE_128_BITS)
 
-        #  Iterates over the 0's at the right
+    #  Given a binary IP address (IPv4 or IPv6), returns True if it is a valid network mask
+    @staticmethod
+    def is_network_mask(binary_mask, max_value):
+        #  Iterates over the 0's at the right of the binary network mask
         #  https://wiki.python.org/moin/BitManipulation#lowestSet.28.29
         lowest_set_bit = binary_mask & -binary_mask  # "0010" & "1110" = "0010"
         zero_bits = -1  # If LSB is 1, cycle iterates once - There are 0 bits with value 0
@@ -166,6 +162,6 @@ class Utils:
             zero_bits += 1
 
         #  Verifies that all bits to the left are 1's
-        if binary_mask | ((1 << zero_bits) - 1) != conf.MAX_VALUE_32_BITS:  # "1100" | "0011" = "1111"
+        if binary_mask | ((1 << zero_bits) - 1) != max_value:  # "1100" | "0011" = "1111"
             return False  # Bits to the left include 0's
         return True

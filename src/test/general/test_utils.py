@@ -12,6 +12,7 @@ INTERFACE_IPV4 = '222.222.1.2'  # Must be changed if IPv4 address of interface i
 INTERFACE_IPV6 = '2001:db8:cafe:1::2'  # Must be changed if IPv6 address of interface is changed for tests to pass
 NETWORK_MASK_IPV4 = '255.255.255.0'  # Must be changed if IPv4 network mask of interface is changed for tests to pass
 NETWORK_MASK_IPV6 = 'ffff:ffff:ffff:ffff::'  # Must be changed if IPv6 network mask of interface is changed
+PREFIX_IPV6 = '2001:db8:cafe:1::'  # Must be changed if IPv6 network prefix of interface is changed
 
 
 #  Full successful run - Instant
@@ -69,18 +70,74 @@ class UtilsTest(unittest.TestCase):
         self.assertEqual('255.255.255.255', self.utils.decimal_to_ipv4(4294967295))
 
     #  Successful run - Instant
+    def test_decimal_to_ipv6_successful(self):
+        self.assertEqual('::', self.utils.decimal_to_ipv6(0))
+        self.assertEqual('::1', self.utils.decimal_to_ipv6(1))
+        self.assertEqual('::ffff', self.utils.decimal_to_ipv6(65535))
+        self.assertEqual('::1:0', self.utils.decimal_to_ipv6(65536))
+        self.assertEqual('::ffff:ffff', self.utils.decimal_to_ipv6(4294967295))
+        self.assertEqual('::1:0:0', self.utils.decimal_to_ipv6(4294967296))
+        self.assertEqual('::ffff:ffff:ffff', self.utils.decimal_to_ipv6(281474976710655))
+        self.assertEqual('::1:0:0:0', self.utils.decimal_to_ipv6(281474976710656))
+        self.assertEqual('::ffff:ffff:ffff:ffff', self.utils.decimal_to_ipv6(18446744073709551615))
+        self.assertEqual('0:0:0:1::', self.utils.decimal_to_ipv6(18446744073709551616))
+        self.assertEqual('::ffff:ffff:ffff:ffff:ffff', self.utils.decimal_to_ipv6(1208925819614629174706175))
+        self.assertEqual('0:0:1::', self.utils.decimal_to_ipv6(1208925819614629174706176))
+        self.assertEqual('0:ffff:ffff:ffff:ffff:ffff:ffff:ffff',
+                         self.utils.decimal_to_ipv6(5192296858534827628530496329220095))
+        self.assertEqual('1::', self.utils.decimal_to_ipv6(5192296858534827628530496329220096))
+        self.assertEqual('ffff:ffff:ffff:ffff:ffff:ffff:ffff:ffff',
+                         self.utils.decimal_to_ipv6(340282366920938463463374607431768211455))
+
+    #  Successful run - Instant
     def test_decimal_to_ipv4_invalid_decimal(self):
+        with self.assertRaises(ValueError):
+            self.utils.decimal_to_ipv4('Invalid address')
         with self.assertRaises(ValueError):
             self.utils.decimal_to_ipv4(-1)
         with self.assertRaises(ValueError):
             self.utils.decimal_to_ipv4(conf.MAX_VALUE_32_BITS + 1)
 
     #  Successful run - Instant
-    def test_create_checksum_ipv4_successful(self):
-        packet = b'\x02\x01\x000\x03\x03\x03\x03\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\xff' \
-                 b'\xff\xff\x00\x00\n\x00\x00\x00\x00\x00(\x00\x00\x00\x00\x00\x00\x00\x00\x01\x01\x01\x01'
-        checksum = self.utils.create_checksum_ipv4(packet)
-        self.assertEqual(63123, checksum)
+    def test_decimal_to_ipv6_invalid_decimal(self):
+        with self.assertRaises(ValueError):
+            self.utils.decimal_to_ipv6('Invalid address')
+        with self.assertRaises(ValueError):
+            self.utils.decimal_to_ipv6(-1)
+        with self.assertRaises(ValueError):
+            self.utils.decimal_to_ipv6(conf.MAX_VALUE_128_BITS + 1)
+
+    #  Successful run - Instant
+    def test_create_checksum_ospfv2_successful(self):
+        self.assertEqual(65535, self.utils.create_checksum_ospfv2(b'\x00'))
+        self.assertEqual(65535, self.utils.create_checksum_ospfv2(b'\x00\x00'))
+        self.assertEqual(65279, self.utils.create_checksum_ospfv2(b'\x01\x00'))
+        self.assertEqual(65534, self.utils.create_checksum_ospfv2(b'\x00\x01'))
+        self.assertEqual(65535, self.utils.create_checksum_ospfv2(b'\x00\x00\x00'))
+        self.assertEqual(65279, self.utils.create_checksum_ospfv2(b'\x01\x00\x00'))
+        self.assertEqual(65534, self.utils.create_checksum_ospfv2(b'\x00\x01\x00'))
+        self.assertEqual(65279, self.utils.create_checksum_ospfv2(b'\x00\x00\x01'))
+        self.assertEqual(65279, self.utils.create_checksum_ospfv2(b'\x01\x00\x00\x00'))
+        self.assertEqual(65534, self.utils.create_checksum_ospfv2(b'\x00\x01\x00\x00'))
+        self.assertEqual(65279, self.utils.create_checksum_ospfv2(b'\x00\x00\x01\x00'))
+        self.assertEqual(65534, self.utils.create_checksum_ospfv2(b'\x00\x00\x00\x01'))
+        self.assertEqual(0, self.utils.create_checksum_ospfv2(b'\xff\xff\xff\xff'))
+        self.assertEqual(63123, self.utils.create_checksum_ospfv2(
+            b'\x02\x01\x000\x03\x03\x03\x03\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\xff\xff\xff'
+            b'\x00\x00\n\x00\x00\x00\x00\x00(\x00\x00\x00\x00\x00\x00\x00\x00\x01\x01\x01\x01'))
+        self.assertEqual(2749, self.utils.create_checksum_ospfv2(
+            b'\x02\x01\x00,\x01\x01\x01\x01\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\xff\xff\xff'
+            b'\x00\x00\n\x12\x01\x00\x00\x00(\xde\xde\x01\x01\x00\x00\x00\x00\xff\xf6\x00\x03\x00\x01\x00\x04\x00\x00'
+            b'\x00\x01'))
+
+    #  Successful run - Instant
+    def test_create_checksum_ospfv3_successful(self):
+        source_address = 'fe80::c001:18ff:fe34:10'
+        destination_address = 'ff02::5'
+        self.assertEqual(8768, self.utils.create_checksum_ospfv3(
+            b'\x03\x01\x00$\x01\x01\x01\x01\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x06\x01\x00\x00\x13\x00\n\x00('
+            b'\x01\x01\x01\x01\x00\x00\x00\x00',
+            source_address, destination_address))
 
     #  Successful run - Instant
     def test_get_ipv4_address_from_interface_name(self):
@@ -105,6 +162,10 @@ class UtilsTest(unittest.TestCase):
     #  Successful run - Instant
     def test_get_ipv6_network_mask_from_interface_name(self):
         self.assertEqual(NETWORK_MASK_IPV6, self.utils.get_ipv6_network_mask_from_interface_name(INTERFACE_NAME))
+
+    #  Successful run - Instant
+    def test_get_ipv6_prefix_from_interface_name(self):
+        self.assertEqual(PREFIX_IPV6, self.utils.get_ipv6_prefix_from_interface_name(INTERFACE_NAME))
 
     #  Successful run - Instant
     def test_is_ipv4_address_successful(self):
@@ -208,6 +269,7 @@ class UtilsTest(unittest.TestCase):
     def test_is_ipv4_network_mask_invalid_mask(self):
         self.assertFalse(self.utils.is_ipv4_network_mask(''))
         self.assertFalse(self.utils.is_ipv4_network_mask('An invalid IP address'))
+        self.assertFalse(self.utils.is_ipv4_network_mask('222.222.1.0'))
         self.assertFalse(self.utils.is_ipv4_network_mask('127.0.0.1'))
         self.assertFalse(self.utils.is_ipv4_network_mask('0.0.0.1'))
         self.assertFalse(self.utils.is_ipv4_network_mask('255.255.255.253'))
@@ -215,3 +277,37 @@ class UtilsTest(unittest.TestCase):
         self.assertFalse(self.utils.is_ipv4_network_mask('255.255.64.0'))
         self.assertFalse(self.utils.is_ipv4_network_mask('255.64.0.0'))
         self.assertFalse(self.utils.is_ipv4_network_mask('64.0.0.0'))
+
+    #  Successful run - Instant
+    def test_is_ipv6_network_mask_successful(self):
+        self.assertTrue(self.utils.is_ipv6_network_mask('::'))
+        self.assertTrue(self.utils.is_ipv6_network_mask('8000::'))
+        self.assertTrue(self.utils.is_ipv6_network_mask('ff00::'))
+        self.assertTrue(self.utils.is_ipv6_network_mask('ffff::'))
+        self.assertTrue(self.utils.is_ipv6_network_mask('ffff:ffff::'))
+        self.assertTrue(self.utils.is_ipv6_network_mask('ffff:ffff:ffff::'))
+        self.assertTrue(self.utils.is_ipv6_network_mask('ffff:ffff:ffff:ffff::'))
+        self.assertTrue(self.utils.is_ipv6_network_mask('ffff:ffff:ffff:ffff:ffff::'))
+        self.assertTrue(self.utils.is_ipv6_network_mask('ffff:ffff:ffff:ffff:ffff:ffff::'))
+        self.assertTrue(self.utils.is_ipv6_network_mask('ffff:ffff:ffff:ffff:ffff:ffff:ffff::'))
+        self.assertTrue(self.utils.is_ipv6_network_mask('ffff:ffff:ffff:ffff:ffff:ffff:ffff:8000'))
+        self.assertTrue(self.utils.is_ipv6_network_mask('ffff:ffff:ffff:ffff:ffff:ffff:ffff:ff00'))
+        self.assertTrue(self.utils.is_ipv6_network_mask('ffff:ffff:ffff:ffff:ffff:ffff:ffff:fffe'))
+        self.assertTrue(self.utils.is_ipv6_network_mask('ffff:ffff:ffff:ffff:ffff:ffff:ffff:ffff'))
+
+    #  Successful run - Instant
+    def test_is_ipv6_network_mask_invalid_mask(self):
+        self.assertFalse(self.utils.is_ipv6_network_mask(''))
+        self.assertFalse(self.utils.is_ipv6_network_mask('An invalid IP address'))
+        self.assertFalse(self.utils.is_ipv6_network_mask('2001:db8:cafe:1::'))
+        self.assertFalse(self.utils.is_ipv6_network_mask('2001:db8:cafe:1::1'))
+        self.assertFalse(self.utils.is_ipv6_network_mask('::1'))
+        self.assertFalse(self.utils.is_ipv6_network_mask('ffff:ffff:ffff:ffff:ffff:ffff:ffff:fffd'))
+        self.assertFalse(self.utils.is_ipv6_network_mask('ffff:ffff:ffff:ffff:ffff:ffff:ffff:4000'))
+        self.assertFalse(self.utils.is_ipv6_network_mask('ffff:ffff:ffff:ffff:ffff:ffff:4000::'))
+        self.assertFalse(self.utils.is_ipv6_network_mask('ffff:ffff:ffff:ffff:ffff:4000::'))
+        self.assertFalse(self.utils.is_ipv6_network_mask('ffff:ffff:ffff:ffff:4000::'))
+        self.assertFalse(self.utils.is_ipv6_network_mask('ffff:ffff:ffff:4000::'))
+        self.assertFalse(self.utils.is_ipv6_network_mask('ffff:ffff:4000::'))
+        self.assertFalse(self.utils.is_ipv6_network_mask('ffff:4000::'))
+        self.assertFalse(self.utils.is_ipv6_network_mask('4000::'))

@@ -8,8 +8,6 @@ import general.utils as utils
 This class performs the socket operations in the router
 '''
 
-MTU = 65565  # Maximum transmission unit - In bytes
-OSPF_PROTOCOL_NUMBER = 89
 PORT = 0  # Has no effect and should be 0 - Still must be included
 MULTICAST_STRING_FORMAT_IPV4 = "4sL"  # Required when joining multicast groups (4s - 4 letter string; L - Signed long)
 MULTICAST_STRING_FORMAT_IPV6 = "=I"  # Required when joining multicast groups (= - Native byte order; I - Unsigned int)
@@ -33,7 +31,7 @@ class Socket:
 
         #  Creates socket and bind it to interface
         self.is_dr = is_dr
-        s = socket.socket(socket.AF_INET, socket.SOCK_RAW, OSPF_PROTOCOL_NUMBER)
+        s = socket.socket(socket.AF_INET, socket.SOCK_RAW, conf.OSPF_PROTOCOL_NUMBER)
         s.setsockopt(socket.SOL_SOCKET, socket.SO_BINDTODEVICE, str(interface + '\0').encode(ENCODING))
 
         #  Joins multicast group(s)
@@ -47,7 +45,7 @@ class Socket:
 
         #  Listens to packets from the network
         while not shutdown.is_set():
-            data = s.recvfrom(MTU)
+            data = s.recvfrom(conf.MTU)
             array = Socket.process_ipv4_data(data[0])  # [packet_byte_stream, source_ip_address, destination_ip_address]
             #  If packet is not from itself OR if packets from itself are allowed
             if (array[1] != socket.gethostbyname(socket.gethostname())) | accept_self_packets:
@@ -67,7 +65,7 @@ class Socket:
 
         #  Creates socket and binds it to interface
         self.is_dr = is_dr
-        s = socket.socket(socket.AF_INET6, socket.SOCK_RAW, OSPF_PROTOCOL_NUMBER)
+        s = socket.socket(socket.AF_INET6, socket.SOCK_RAW, conf.OSPF_PROTOCOL_NUMBER)
         s.setsockopt(socket.SOL_SOCKET, socket.SO_BINDTODEVICE, str(interface + '\0').encode(ENCODING))
 
         #  Joins multicast group(s)
@@ -81,7 +79,7 @@ class Socket:
 
         #  Listens to packets from the network
         while not shutdown.is_set():
-            data = s.recvfrom(MTU)
+            data = s.recvfrom(conf.MTU)
             #  If packet is not from itself OR if packets from itself are allowed
             if (data[1][0].split()[0] != socket.getaddrinfo(
                     socket.gethostname(), PORT, socket.AF_INET6)[0][4][0]) | accept_self_packets:
@@ -104,7 +102,7 @@ class Socket:
             raise ValueError("Empty interface to bind provided")
 
         #  Creates socket and binds it to interface - Default TTL is 1 and is the required TTL, so it remains unchanged
-        s = socket.socket(socket.AF_INET, socket.SOCK_RAW, OSPF_PROTOCOL_NUMBER)
+        s = socket.socket(socket.AF_INET, socket.SOCK_RAW, conf.OSPF_PROTOCOL_NUMBER)
         s.setsockopt(socket.SOL_SOCKET, socket.SO_BINDTODEVICE, str(interface + '\0').encode(ENCODING))
 
         #  Sends packet
@@ -127,7 +125,7 @@ class Socket:
             raise ValueError("Empty interface to bind provided")
 
         #  Creates socket and binds it to interface - Default TTL is 1 and is the required TTL, so it remains unchanged
-        s = socket.socket(socket.AF_INET6, socket.SOCK_RAW, OSPF_PROTOCOL_NUMBER)
+        s = socket.socket(socket.AF_INET6, socket.SOCK_RAW, conf.OSPF_PROTOCOL_NUMBER)
         s.setsockopt(socket.SOL_SOCKET, socket.SO_BINDTODEVICE, str(interface + '\0').encode(ENCODING))
 
         #  Sends packet

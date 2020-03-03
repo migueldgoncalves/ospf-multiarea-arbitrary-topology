@@ -108,7 +108,7 @@ class Packet:
             #  Calculates and sets packet checksum - It is set to 0 in the packet sent as argument
             header_bytes = self.header.pack_header()  # Without the checksum
             body_bytes = self.body.pack_packet()
-            checksum = self.utils.create_checksum_ipv4(header_bytes + body_bytes)
+            checksum = self.utils.create_checksum_ospfv2(header_bytes + body_bytes)
 
             self.header.set_checksum(checksum)
 

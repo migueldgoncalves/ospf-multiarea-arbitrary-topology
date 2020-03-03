@@ -10,7 +10,8 @@ OPTIONS = 2  # External Routing enabled - For compatibility with Cisco routers u
 DEFAULT_DESIGNATED_ROUTER = '0.0.0.0'
 DEFAULT_AUTH = 0
 INTERFACE_COST = 10
-MTU = 1500
+MTU = 1500  # Maximum transmission unit - In bytes
+OSPF_PROTOCOL_NUMBER = 89
 
 VERSION_IPV4 = 2
 VERSION_IPV6 = 3

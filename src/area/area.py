@@ -26,8 +26,8 @@ class Area:
 
     utils = utils.Utils()
 
-    def __init__(self, version, area_id, external_routing_capable):
-        self.version = version
+    def __init__(self, area_id, external_routing_capable):
+        self.version = conf.VERSION_IPV4
         if not self.utils.is_ipv4_address(area_id):
             raise ValueError("Invalid Area ID")
         self.area_id = area_id
