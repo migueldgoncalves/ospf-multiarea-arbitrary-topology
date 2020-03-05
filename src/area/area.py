@@ -18,7 +18,7 @@ SHUTDOWN_EVENT = 3
 
 class Area:
     #  TODO: Allow router to operate with both OSPF versions at the same time
-    version = 0
+    ospf_version = 0
 
     area_id = '0.0.0.0'  # 0.0.0.0 - Backbone area
     interfaces = {}  # Contains as key their identifier, and as value the list above mentioned
@@ -26,10 +26,12 @@ class Area:
 
     utils = utils.Utils()
 
-    def __init__(self, area_id, external_routing_capable):
-        self.version = conf.VERSION_IPV4
+    def __init__(self, ospf_version, area_id, external_routing_capable):
+        if ospf_version not in [conf.VERSION_IPV4, conf.VERSION_IPV6]:
+            raise ValueError("Invalid OSPF version")
         if not self.utils.is_ipv4_address(area_id):
             raise ValueError("Invalid Area ID")
+        self.ospf_version = ospf_version
         self.area_id = area_id
         self.external_routing_capable = external_routing_capable
 
@@ -48,14 +50,16 @@ class Area:
 
         pipeline = queue.Queue()
         shutdown = threading.Event()
-        if self.version == conf.VERSION_IPV4:
+        if self.ospf_version == conf.VERSION_IPV4:
             ip_address = self.utils.get_ipv4_address_from_interface_name(interface_id)
             network_mask = self.utils.get_ipv4_network_mask_from_interface_name(interface_id)
-            new_interface = interface.Interface(conf.VERSION_IPV4, interface_id, ip_address, network_mask, self.area_id,
-                                                pipeline, shutdown)
+            new_interface = interface.Interface(conf.VERSION_IPV4, interface_id, ip_address, network_mask, [],
+                                                self.area_id, pipeline, shutdown)
         else:
-            pass
-            #  TODO
+            ip_address = self.utils.get_ipv6_link_local_address_from_interface_name(interface_id)
+            link_prefix = self.utils.get_ipv6_prefix_from_interface_name(interface_id)
+            new_interface = interface.Interface(conf.VERSION_IPV6, interface_id, ip_address, '', [link_prefix],
+                                                self.area_id, pipeline, shutdown)
 
         interface_thread = threading.Thread(target=new_interface.interface_loop)
 

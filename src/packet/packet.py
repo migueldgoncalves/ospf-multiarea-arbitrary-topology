@@ -29,7 +29,8 @@ class Packet:
     #  Packet header is set on creation
     def __init__(self, parameters):
         if parameters[0] == conf.VERSION_IPV4:
-            self.header = header.Header(parameters[1], parameters[2], parameters[3], parameters[4], parameters[5])
+            self.header = header.Header(
+                parameters[0], parameters[1], parameters[2], parameters[3], parameters[4], parameters[5], parameters[6])
         elif parameters[0] == conf.VERSION_IPV6:
             pass
         else:
@@ -55,7 +56,8 @@ class Packet:
         if packet_version == conf.VERSION_IPV4:
             if packet_type == conf.PACKET_TYPE_HELLO:
                 neighbor_number = Packet.get_hello_packet_neighbor_number(packet_bytes)
-                format_string_hello = header.OSPFV2_FORMAT_STRING + hello.Hello.get_format_string(neighbor_number)
+                format_string_hello = header.OSPFV2_FORMAT_STRING +\
+                    hello.Hello.get_format_string(neighbor_number, packet_version)
                 packet_tuple = struct.unpack(format_string_hello, packet_bytes)
 
                 #  From tuple, create packet
@@ -68,7 +70,7 @@ class Packet:
                 backup_designated_router = utils.Utils.decimal_to_ipv4(packet_tuple[14])
 
                 header_parameters = [packet_tuple[0], packet_tuple[1], router_id, area_id,
-                                     packet_tuple[6], packet_tuple[7]]
+                                     packet_tuple[6], packet_tuple[7], 0]
                 packet = Packet(header_parameters)
 
                 #  Each neighbor, if any, is a separate parameter in packet tuple - Must be put in single tuple
@@ -85,7 +87,7 @@ class Packet:
                                designated_router, backup_designated_router, neighbors):
         try:
             self.body = hello.Hello(network_mask, hello_interval, options, router_priority, router_dead_interval,
-                                    designated_router, backup_designated_router, neighbors)
+                                    designated_router, backup_designated_router, neighbors, 0, conf.VERSION_IPV4)
             self.set_packet_length()  # Packet length must be set after body is created and before checksum is computed
             self.set_packet_checksum()
 

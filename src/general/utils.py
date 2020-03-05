@@ -104,13 +104,14 @@ class Utils:
     def get_ipv6_network_mask_from_interface_name(interface_name):
         return netifaces.ifaddresses(interface_name)[netifaces.AF_INET6][0]['netmask']
 
-    #  Returns the IPv6 prefix of an interface given its name (ex: ens33)
+    #  Returns the IPv6 prefix and respective length of an interface given its name (ex: ens33)
     @staticmethod
     def get_ipv6_prefix_from_interface_name(interface_name):
         global_ipv6_address = Utils.get_ipv6_global_address_from_interface_name(interface_name)
         network_mask = Utils.get_ipv6_network_mask_from_interface_name(interface_name)
         network_mask_length = bin(int(ipaddress.IPv6Address(network_mask)))[2:].count('1')  # '0b1111'[2:] -> '1111'
-        return str(ipaddress.IPv6Interface((global_ipv6_address, network_mask_length)).network).split("/")[0]
+        prefix = str(ipaddress.IPv6Interface((global_ipv6_address, network_mask_length)).network).split("/")[0]
+        return [prefix, network_mask_length]
 
     #  Returns True if argument is a valid IPv4 address
     @staticmethod

@@ -10,12 +10,18 @@ This class tests the neighbor operations in the router
 
 #  TODO: Implement validation and testing of None parameters
 
+NEIGHBOR_IPV6_ADDRESS = '1::1'
+
 
 #  Full successful run - 90 s
 class TestNeighbor(unittest.TestCase):
     neighbor_id = '0.0.0.0'
+    neighbor_interface_id = 0
+    neighbor_ipv6_address = '::'
     neighbor_options = 0
     neighbor = None
+    neighbor_dr = '0.0.0.0'
+    neighbor_bdr = '0.0.0.0'
 
     start_time = 0
 
@@ -24,8 +30,11 @@ class TestNeighbor(unittest.TestCase):
         time.sleep(1)  # Difference between current time of test and current time of neighbor timer will be 1 s
 
         self.neighbor_id = '1.1.1.1'
+        self.neighbor_interface_id = 1
+        self.neighbor_ipv6_address = NEIGHBOR_IPV6_ADDRESS
         self.neighbor_options = conf.OPTIONS
-        self.neighbor = neighbor.Neighbor(self.neighbor_id, self.neighbor_options)
+        self.neighbor = neighbor.Neighbor(self.neighbor_id, self.neighbor_interface_id, self.neighbor_ipv6_address,
+                                          self.neighbor_options, self.neighbor_dr, self.neighbor_bdr)
 
     #  Successful run - 1 s
     def test_constructor_successful(self):
@@ -44,9 +53,11 @@ class TestNeighbor(unittest.TestCase):
     #  Successful run - 1 s
     def test_constructor_invalid_parameters(self):
         with self.assertRaises(ValueError):
-            neighbor.Neighbor('', self.neighbor_options)
+            neighbor.Neighbor('', self.neighbor_interface_id, self.neighbor_ipv6_address, self.neighbor_options,
+                              self.neighbor_dr, self.neighbor_bdr)
         with self.assertRaises(ValueError):
-            neighbor.Neighbor(self.neighbor_id, -1)
+            neighbor.Neighbor(self.neighbor_id, self.neighbor_interface_id, self.neighbor_ipv6_address, -1,
+                              self.neighbor_dr, self.neighbor_bdr)
 
     #  Successful run - 42 s
     def test_is_expired(self):

@@ -8,6 +8,7 @@ import conf.conf as conf
 This class tests the area operations in the router
 '''
 
+OSPF_VERSION = conf.VERSION_IPV4
 AREA_ID = '0.0.0.0'
 EXTERNAL_ROUTING_CAPABLE = True
 INTERFACE_NAME = 'ens33'
@@ -20,7 +21,7 @@ class AreaTest(unittest.TestCase):
     area = None
 
     def setUp(self):
-        self.area = area.Area(AREA_ID, EXTERNAL_ROUTING_CAPABLE)
+        self.area = area.Area(OSPF_VERSION, AREA_ID, EXTERNAL_ROUTING_CAPABLE)
 
     #  Successful run - 23 s
     #  This smaller tests conflicted with each other when separate - Therefore they are joined in a single larger test
@@ -28,6 +29,7 @@ class AreaTest(unittest.TestCase):
 
         #  Class constructor arguments
 
+        self.assertEqual(conf.VERSION_IPV4, self.area.ospf_version)
         self.assertEqual(AREA_ID, self.area.area_id)
         self.assertEqual(EXTERNAL_ROUTING_CAPABLE, self.area.external_routing_capable)
 
@@ -70,26 +72,31 @@ class AreaTest(unittest.TestCase):
         self.area.create_interface(INTERFACE_NAME)  # Interface is already created on startup
         self.assertTrue(self.area.is_interface_operating(INTERFACE_NAME))
 
+        #  Invalid OSPF version
+
+        with self.assertRaises(ValueError):
+            area.Area(1, AREA_ID, EXTERNAL_ROUTING_CAPABLE)
+
         #  Invalid Area ID
 
         with self.assertRaises(ValueError):
-            area.Area('', EXTERNAL_ROUTING_CAPABLE)
+            area.Area(OSPF_VERSION, '', EXTERNAL_ROUTING_CAPABLE)
         with self.assertRaises(ValueError):
-            area.Area('        ', EXTERNAL_ROUTING_CAPABLE)
+            area.Area(OSPF_VERSION, '        ', EXTERNAL_ROUTING_CAPABLE)
         with self.assertRaises(ValueError):
-            area.Area('An invalid IP address', EXTERNAL_ROUTING_CAPABLE)
+            area.Area(OSPF_VERSION, 'An invalid IP address', EXTERNAL_ROUTING_CAPABLE)
         with self.assertRaises(ValueError):
-            area.Area('0', EXTERNAL_ROUTING_CAPABLE)
+            area.Area(OSPF_VERSION, '0', EXTERNAL_ROUTING_CAPABLE)
         with self.assertRaises(ValueError):
-            area.Area('0.', EXTERNAL_ROUTING_CAPABLE)
+            area.Area(OSPF_VERSION, '0.', EXTERNAL_ROUTING_CAPABLE)
         with self.assertRaises(ValueError):
-            area.Area('0.0.0', EXTERNAL_ROUTING_CAPABLE)
+            area.Area(OSPF_VERSION, '0.0.0', EXTERNAL_ROUTING_CAPABLE)
         with self.assertRaises(ValueError):
-            area.Area('0.0.0.', EXTERNAL_ROUTING_CAPABLE)
+            area.Area(OSPF_VERSION, '0.0.0.', EXTERNAL_ROUTING_CAPABLE)
         with self.assertRaises(ValueError):
-            area.Area('0.0.0.0.', EXTERNAL_ROUTING_CAPABLE)
+            area.Area(OSPF_VERSION, '0.0.0.0.', EXTERNAL_ROUTING_CAPABLE)
         with self.assertRaises(ValueError):
-            area.Area('0.0.0.0.0', EXTERNAL_ROUTING_CAPABLE)
+            area.Area(OSPF_VERSION, '0.0.0.0.0', EXTERNAL_ROUTING_CAPABLE)
 
     #  Successful run - 1 s
     def test_create_interface_invalid_interface_id(self):

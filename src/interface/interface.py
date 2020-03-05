@@ -18,8 +18,8 @@ class Interface:
 
     #  OSPF interface parameters
     type = 0
-    physical_identifier = ''  # Ex: ens33 - Identifier given by the OS
-    ospf_identifier = 0  # Just for OSPFv3
+    physical_identifier = ''  # Ex: ens33 - Interface identifier given by the OS
+    ospf_identifier = 0  # Just for OSPFv3 - Interface identifier given by OSPF
     ip_address = ''  # Link-local address in OSPFv3
     network_mask = '0.0.0.0'  # Just for OSPFv2
     link_prefixes = []  # Just for OSPFv3
@@ -32,7 +32,7 @@ class Interface:
     backup_designated_router = '0.0.0.0'
     cost = 0
     max_ip_datagram = 0
-    instance_id = 0  # Just for OSPFv3 - Default is 0
+    instance_id = 0  # Just for OSPFv3 - Default is 0 TODO: Allow router to operate more than one instance of OSPFv3
 
     #  Implementation-specific parameters
     socket = None  # Socket that will send packets
@@ -48,7 +48,8 @@ class Interface:
     timer_shutdown = None
     timer_seconds = 0
 
-    def __init__(self, version, physical_identifier, ip_address, network_mask, area_id, pipeline, interface_shutdown):
+    def __init__(self, version, physical_identifier, ip_address, network_mask, link_prefixes, area_id, pipeline,
+                 interface_shutdown):
         self.version = version
 
         self.type = conf.BROADCAST_INTERFACE
@@ -56,6 +57,7 @@ class Interface:
         self.ospf_identifier = Interface.ospf_identifier_generator(self.physical_identifier, conf.INTERFACE_NAMES)
         self.ip_address = ip_address
         self.network_mask = network_mask
+        self.link_prefixes = link_prefixes
         self.area_id = area_id
         self.hello_interval = conf.HELLO_INTERVAL
         self.router_dead_interval = conf.ROUTER_DEAD_INTERVAL
@@ -65,12 +67,13 @@ class Interface:
         self.backup_designated_router = conf.DEFAULT_DESIGNATED_ROUTER
         self.cost = conf.INTERFACE_COST
         self.max_ip_datagram = conf.MTU
+        self.instance_id = 0
 
         self.socket = sock.Socket()
         self.pipeline = pipeline
         self.interface_shutdown = interface_shutdown
         packet_parameters = [conf.VERSION_IPV4, conf.PACKET_TYPE_HELLO, conf.ROUTER_ID, area_id,
-                             conf.NULL_AUTHENTICATION, conf.DEFAULT_AUTH]
+                             conf.NULL_AUTHENTICATION, conf.DEFAULT_AUTH, self.instance_id]
         self.hello_packet_to_send = packet.Packet(packet_parameters)
 
         self.hello_timer = timer.Timer()
@@ -108,7 +111,8 @@ class Interface:
                         #  New neighbor
                         if neighbor_id not in self.neighbors:
                             neighbor_options = incoming_packet.body.options
-                            new_neighbor = neighbor.Neighbor(neighbor_id, neighbor_options)  # Neighbor state is Init
+                            new_neighbor = neighbor.Neighbor(neighbor_id, 0, '::', neighbor_options, '0.0.0.0',
+                                                             '0.0.0.0')  # Neighbor state is Init
                             self.neighbors[neighbor_id] = new_neighbor
 
                         # Existing neighbor
@@ -148,7 +152,7 @@ class Interface:
         self.timer_shutdown.set()
         self.hello_thread.join()
 
-    #  Given interface physical identifier, returns OSPF interface identifier
+    #  Given interface physical identifier, returns an unique OSPF interface identifier
     @staticmethod
     def ospf_identifier_generator(physical_identifier, identifiers_tuple):
         if physical_identifier in identifiers_tuple:

@@ -19,11 +19,14 @@ PACKET_BYTES = b'\x02\x01\x00,\x04\x04\x04\x04\x00\x00\x00\x00\xf4\x96\x00\x00\x
 
 #  Full successful run - 129-156 s
 class InterfaceTest(unittest.TestCase):
-    interface = None
+    interface_ospfv2 = None
+    interface_ospfv3 = None
 
     interface_identifier = ''
-    ip_address = '0.0.0.0'
+    ipv4_address = '0.0.0.0'
+    ipv6_address = '::'
     network_mask = 0
+    link_prefixes = []
     area_id = '0.0.0.0'
     interface_pipeline = None
     interface_shutdown = None
@@ -32,13 +35,15 @@ class InterfaceTest(unittest.TestCase):
 
     def setUp(self):
         self.interface_identifier = conf.INTERFACE_NAMES[0]
-        self.ip_address = self.utils.get_ipv4_address_from_interface_name(conf.INTERFACE_NAMES[0])
+        self.ipv4_address = self.utils.get_ipv4_address_from_interface_name(conf.INTERFACE_NAMES[0])
+        self.ipv6_address = self.utils.get_ipv6_link_local_address_from_interface_name(conf.INTERFACE_NAMES[0])
         self.network_mask = self.utils.get_ipv4_network_mask_from_interface_name(conf.INTERFACE_NAMES[0])
+        self.link_prefixes = self.utils.get_ipv6_prefix_from_interface_name(conf.INTERFACE_NAMES[0])
         self.area_id = conf.INTERFACE_AREAS[0]
         self.interface_pipeline = queue.Queue()
         self.interface_shutdown = threading.Event()
-        self.interface = interface.Interface(
-            conf.VERSION_IPV4, self.interface_identifier, self.ip_address, self.network_mask, self.area_id,
+        self.interface_ospfv2 = interface.Interface(
+            conf.VERSION_IPV4, self.interface_identifier, self.ipv4_address, self.network_mask, [], self.area_id,
             self.interface_pipeline, self.interface_shutdown)
 
     #  Successful run - 21-36 s, can be longer
@@ -55,7 +60,7 @@ class InterfaceTest(unittest.TestCase):
                                                accept_self_packets, is_dr))
         thread_socket.start()
 
-        thread_interface = threading.Thread(target=self.interface.interface_loop)
+        thread_interface = threading.Thread(target=self.interface_ospfv2.interface_loop)
         thread_interface.start()
         time.sleep(2 * conf.HELLO_INTERVAL + 1)  # Allows for Hello packets to be sent
         self.assertFalse(socket_pipeline.empty())
@@ -73,29 +78,29 @@ class InterfaceTest(unittest.TestCase):
         socket_shutdown = threading.Event()
         accept_self_packets = False
         is_dr = False
-        one_way = packet.Packet([conf.VERSION_IPV4, conf.PACKET_TYPE_HELLO, '1.1.1.1', '0.0.0.0', 0, 0])
+        one_way = packet.Packet([conf.VERSION_IPV4, conf.PACKET_TYPE_HELLO, '1.1.1.1', '0.0.0.0', 0, 0, 0])
         one_way.create_hello_v2_packet('255.255.255.0', conf.HELLO_INTERVAL, 12, conf.ROUTER_PRIORITY,
                                        conf.ROUTER_DEAD_INTERVAL, '222.222.1.1', conf.DEFAULT_DESIGNATED_ROUTER, ())
-        self.assertEqual(0, len(self.interface.neighbors))
+        self.assertEqual(0, len(self.interface_ospfv2.neighbors))
 
         #  Interface receives packet from neighbor not acknowledging router itself
         #  Neighbor is created and goes to INIT state
-        thread_interface = threading.Thread(target=self.interface.interface_loop)
+        thread_interface = threading.Thread(target=self.interface_ospfv2.interface_loop)
         thread_interface.start()
         self.interface_pipeline.put([one_way, '222.222.1.1'])
         time.sleep(10)
-        self.assertEqual(1, len(self.interface.neighbors))  # Neighbor is recognized
-        self.assertEqual(conf.NEIGHBOR_STATE_INIT, self.interface.neighbors['1.1.1.1'].neighbor_state)
+        self.assertEqual(1, len(self.interface_ospfv2.neighbors))  # Neighbor is recognized
+        self.assertEqual(conf.NEIGHBOR_STATE_INIT, self.interface_ospfv2.neighbors['1.1.1.1'].neighbor_state)
         self.interface_pipeline.put([one_way, '222.222.1.1'])
         time.sleep(conf.ROUTER_DEAD_INTERVAL - 5)  # More than 40 s will have passed since original Hello packet
-        self.assertEqual(1, len(self.interface.neighbors))  # New Hello packet resets neighbor timer
-        self.assertEqual(conf.NEIGHBOR_STATE_INIT, self.interface.neighbors['1.1.1.1'].neighbor_state)
+        self.assertEqual(1, len(self.interface_ospfv2.neighbors))  # New Hello packet resets neighbor timer
+        self.assertEqual(conf.NEIGHBOR_STATE_INIT, self.interface_ospfv2.neighbors['1.1.1.1'].neighbor_state)
         time.sleep(6)
-        self.assertEqual(0, len(self.interface.neighbors))  # Neighbor timer expired
+        self.assertEqual(0, len(self.interface_ospfv2.neighbors))  # Neighbor timer expired
         self.interface_pipeline.put([one_way, '222.222.1.1'])
         time.sleep(1)
-        self.assertEqual(1, len(self.interface.neighbors))  # Neighbor is recognized again
-        self.assertEqual(conf.NEIGHBOR_STATE_INIT, self.interface.neighbors['1.1.1.1'].neighbor_state)
+        self.assertEqual(1, len(self.interface_ospfv2.neighbors))  # Neighbor is recognized again
+        self.assertEqual(conf.NEIGHBOR_STATE_INIT, self.interface_ospfv2.neighbors['1.1.1.1'].neighbor_state)
 
         #  Creates thread with socket that listens for packets in the network
         thread_socket = threading.Thread(target=socket.receive_ipv4,
@@ -114,40 +119,40 @@ class InterfaceTest(unittest.TestCase):
                     self.interface_pipeline.put([two_way, '222.222.1.1'])
                     break
         time.sleep(10)
-        self.assertEqual(1, len(self.interface.neighbors))
-        self.assertEqual(conf.NEIGHBOR_STATE_2_WAY, self.interface.neighbors['1.1.1.1'].neighbor_state)
+        self.assertEqual(1, len(self.interface_ospfv2.neighbors))
+        self.assertEqual(conf.NEIGHBOR_STATE_2_WAY, self.interface_ospfv2.neighbors['1.1.1.1'].neighbor_state)
         self.interface_pipeline.put([two_way, '222.222.1.1'])
         time.sleep(conf.ROUTER_DEAD_INTERVAL - 5)  # More than 40 s will have passed since original Hello packet
-        self.assertEqual(1, len(self.interface.neighbors))  # New Hello packet resets neighbor timer
-        self.assertEqual(conf.NEIGHBOR_STATE_2_WAY, self.interface.neighbors['1.1.1.1'].neighbor_state)
+        self.assertEqual(1, len(self.interface_ospfv2.neighbors))  # New Hello packet resets neighbor timer
+        self.assertEqual(conf.NEIGHBOR_STATE_2_WAY, self.interface_ospfv2.neighbors['1.1.1.1'].neighbor_state)
         time.sleep(6)
-        self.assertEqual(0, len(self.interface.neighbors))  # Neighbor timer expired
+        self.assertEqual(0, len(self.interface_ospfv2.neighbors))  # Neighbor timer expired
         self.interface_pipeline.put([two_way, '222.222.1.1'])
         time.sleep(1)
-        self.assertEqual(1, len(self.interface.neighbors))  # Neighbor is recognized again
-        self.assertEqual(conf.NEIGHBOR_STATE_2_WAY, self.interface.neighbors['1.1.1.1'].neighbor_state)
+        self.assertEqual(1, len(self.interface_ospfv2.neighbors))  # Neighbor is recognized again
+        self.assertEqual(conf.NEIGHBOR_STATE_2_WAY, self.interface_ospfv2.neighbors['1.1.1.1'].neighbor_state)
 
         #  Interface receives another packet from neighbor not acknowledging router itself
         #  Neighbor goes to INIT state
         self.interface_pipeline.put([one_way, '222.222.1.1'])
         time.sleep(1)
-        self.assertEqual(1, len(self.interface.neighbors))
-        self.assertEqual(conf.NEIGHBOR_STATE_INIT, self.interface.neighbors['1.1.1.1'].neighbor_state)
+        self.assertEqual(1, len(self.interface_ospfv2.neighbors))
+        self.assertEqual(conf.NEIGHBOR_STATE_INIT, self.interface_ospfv2.neighbors['1.1.1.1'].neighbor_state)
 
         #  Shutdown and restart
         #  Neighbor goes to DOWN state and is deleted
         self.interface_shutdown.set()
         thread_interface.join()
-        self.assertEqual(0, len(self.interface.neighbors))
-        thread_interface = threading.Thread(target=self.interface.interface_loop)
+        self.assertEqual(0, len(self.interface_ospfv2.neighbors))
+        thread_interface = threading.Thread(target=self.interface_ospfv2.interface_loop)
         thread_interface.start()
 
         #  Interface receives another packet from neighbor acknowledging router itself
         #  Neighbor this time jumps to 2-WAY state
         self.interface_pipeline.put([two_way, '222.222.1.1'])
         time.sleep(1)
-        self.assertEqual(1, len(self.interface.neighbors))
-        self.assertEqual(conf.NEIGHBOR_STATE_2_WAY, self.interface.neighbors['1.1.1.1'].neighbor_state)
+        self.assertEqual(1, len(self.interface_ospfv2.neighbors))
+        self.assertEqual(conf.NEIGHBOR_STATE_2_WAY, self.interface_ospfv2.neighbors['1.1.1.1'].neighbor_state)
 
         #  Final shutdown
         #  Neighbor goes to DOWN state and is deleted
@@ -158,7 +163,7 @@ class InterfaceTest(unittest.TestCase):
 
     #  Successful run - Instant
     def test_create_packet_successful(self):
-        new_packet = self.interface.create_packet()
+        new_packet = self.interface_ospfv2.create_packet()
         self.assertEqual(PACKET_BYTES, new_packet)
 
     #  Successful run - Instant
@@ -180,9 +185,9 @@ class InterfaceTest(unittest.TestCase):
 
     def tearDown(self):
         self.interface_identifier = ''
-        self.ip_address = ''
+        self.ipv4_address = ''
         self.network_mask = 0
         self.area_id = ''
         self.interface_pipeline = None
         self.interface_shutdown = None
-        self.interface = None
+        self.interface_ospfv2 = None

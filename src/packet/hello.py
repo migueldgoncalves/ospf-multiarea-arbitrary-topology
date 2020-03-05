@@ -30,11 +30,13 @@ class Hello:
     backup_designated_router = '0.0.0.0'  # 4 bytes
     neighbors = ()  # 4 bytes / neighbor
 
+    version = 0
+
     def __init__(self, network_mask, hello_interval, options, router_priority, router_dead_interval,
-                 designated_router, backup_designated_router, neighbors):
+                 designated_router, backup_designated_router, neighbors, interface_id, version):
         is_valid, message = self.parameter_validation(
             network_mask, hello_interval, options, router_priority, router_dead_interval, designated_router,
-            backup_designated_router, neighbors)
+            backup_designated_router, neighbors, interface_id, version)
         if not is_valid:  # At least one of the parameters failed validation
             raise ValueError(message)
 
@@ -46,16 +48,26 @@ class Hello:
         self.designated_router = designated_router
         self.backup_designated_router = backup_designated_router
         self.neighbors = neighbors
+        self.interface_id = interface_id
+        self.version = version
 
     #  Converts set of parameters to byte object suitable to be sent and recognized as the body of an OSPF Hello packet
     def pack_packet(self):
-        decimal_network_mask = self.utils.ipv4_to_decimal(self.network_mask)
         decimal_designated_router = self.utils.ipv4_to_decimal(self.designated_router)
         decimal_backup_designated_router = self.utils.ipv4_to_decimal(self.backup_designated_router)
 
-        base_packed_data = struct.pack(OSPFV2_BASE_FORMAT_STRING, decimal_network_mask, self.hello_interval, self.options,
-                                       self.router_priority, self.router_dead_interval, decimal_designated_router,
-                                       decimal_backup_designated_router)
+        if self.version == conf.VERSION_IPV4:
+            decimal_network_mask = self.utils.ipv4_to_decimal(self.network_mask)
+            base_packed_data = struct.pack(
+                OSPFV2_BASE_FORMAT_STRING, decimal_network_mask, self.hello_interval, self.options,
+                self.router_priority, self.router_dead_interval, decimal_designated_router,
+                decimal_backup_designated_router)
+        else:
+            decimal_interface_id = self.utils.ipv4_to_decimal(self.interface_id)
+            base_packed_data = struct.pack(
+                OSPFV3_BASE_FORMAT_STRING, decimal_interface_id, (self.router_priority << 3) + self.options,
+                self.hello_interval, self.router_dead_interval, decimal_designated_router,
+                decimal_backup_designated_router)
 
         packed_data = base_packed_data
         #  Adds neighbors one by one to the Hello packet
@@ -66,8 +78,13 @@ class Hello:
         return packed_data
 
     @staticmethod
-    def get_format_string(neighbor_number):
-        format_string = OSPFV2_BASE_FORMAT_STRING
+    def get_format_string(neighbor_number, version):
+        if version == conf.VERSION_IPV4:
+            format_string = OSPFV2_BASE_FORMAT_STRING
+        elif version == conf.VERSION_IPV6:
+            format_string = OSPFV3_BASE_FORMAT_STRING
+        else:
+            raise ValueError("Invalid OSPF version")
         #  Format string must receive 1 parameter for every new neighbor in the packet
         for _ in range(neighbor_number):
             format_string += EXTRA_FORMAT_STRING
@@ -75,7 +92,7 @@ class Hello:
 
     #  Validates constructor parameters - Returns error message in case of failed validation
     def parameter_validation(self, network_mask, hello_interval, options, router_priority, router_dead_interval,
-                             designated_router, backup_designated_router, neighbors):
+                             designated_router, backup_designated_router, neighbors, interface_id, version):
         try:
             if not self.utils.is_ipv4_network_mask(network_mask):
                 return False, "Invalid network mask"
@@ -95,6 +112,10 @@ class Hello:
                 for neighbor_id in neighbors:
                     if not self.utils.is_ipv4_address(neighbor_id):
                         return False, "Invalid Neighbor(s)"
+            if interface_id < 0:
+                return False, "Invalid interface ID"
+            if version not in [conf.VERSION_IPV4, conf.VERSION_IPV6]:
+                return False, "Invalid OSPF version"
             return True, ''  # No error message to return
         except (ValueError, TypeError):
             return False, "Invalid parameter type"
