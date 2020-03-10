@@ -72,9 +72,9 @@ class Interface:
         self.socket = sock.Socket()
         self.pipeline = pipeline
         self.interface_shutdown = interface_shutdown
-        packet_parameters = [conf.VERSION_IPV4, conf.PACKET_TYPE_HELLO, conf.ROUTER_ID, area_id,
-                             conf.NULL_AUTHENTICATION, conf.DEFAULT_AUTH, self.instance_id]
-        self.hello_packet_to_send = packet.Packet(packet_parameters)
+        self.hello_packet_to_send = packet.Packet()
+        self.hello_packet_to_send.create_header_v2(conf.PACKET_TYPE_HELLO, conf.ROUTER_ID, area_id,
+                                                   conf.NULL_AUTHENTICATION, conf.DEFAULT_AUTH)
 
         self.hello_timer = timer.Timer()
         self.timeout = threading.Event()
@@ -134,7 +134,7 @@ class Interface:
 
     #  Creates an OSPF packet to be sent
     def create_packet(self):
-        return self.hello_packet_to_send.create_hello_v2_packet(
+        return self.hello_packet_to_send.create_hello_v2_packet_body(
             self.network_mask, self.hello_interval, conf.OPTIONS, self.router_priority, self.router_dead_interval,
             self.designated_router, self.backup_designated_router, self.neighbors)
 

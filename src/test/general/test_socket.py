@@ -44,7 +44,7 @@ class SocketTest(unittest.TestCase):
         packet_byte_stream = data_array[0]
         source_ip_address = data_array[1]
         destination_ip_address = data_array[2]
-        received_packet = packet.Packet.convert_bytes_to_packet(packet_byte_stream)
+        received_packet = packet.Packet.unpack_packet(packet_byte_stream)
 
         self.assertEqual(conf.VERSION_IPV4, received_packet.header.version)
         self.assertEqual(conf.PACKET_TYPE_HELLO, received_packet.header.packet_type)

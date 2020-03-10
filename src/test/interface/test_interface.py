@@ -78,9 +78,10 @@ class InterfaceTest(unittest.TestCase):
         socket_shutdown = threading.Event()
         accept_self_packets = False
         is_dr = False
-        one_way = packet.Packet([conf.VERSION_IPV4, conf.PACKET_TYPE_HELLO, '1.1.1.1', '0.0.0.0', 0, 0, 0])
-        one_way.create_hello_v2_packet('255.255.255.0', conf.HELLO_INTERVAL, 12, conf.ROUTER_PRIORITY,
-                                       conf.ROUTER_DEAD_INTERVAL, '222.222.1.1', conf.DEFAULT_DESIGNATED_ROUTER, ())
+        one_way = packet.Packet()
+        one_way.create_header_v2(conf.PACKET_TYPE_HELLO, '1.1.1.1', '0.0.0.0', 0, 0)
+        one_way.create_hello_v2_packet_body('255.255.255.0', conf.HELLO_INTERVAL, 12, conf.ROUTER_PRIORITY,
+                                            conf.ROUTER_DEAD_INTERVAL, '222.222.1.1', conf.DEFAULT_DESIGNATED_ROUTER, ())
         self.assertEqual(0, len(self.interface_ospfv2.neighbors))
 
         #  Interface receives packet from neighbor not acknowledging router itself
@@ -115,7 +116,7 @@ class InterfaceTest(unittest.TestCase):
                 byte_array = socket_pipeline.get()[0]
                 if (packet.Packet.get_ospf_version(byte_array) == conf.VERSION_IPV4) & \
                         (packet.Packet.get_ospf_packet_type(byte_array) == conf.PACKET_TYPE_HELLO):
-                    two_way = packet.Packet.convert_bytes_to_packet(byte_array)
+                    two_way = packet.Packet.unpack_packet(byte_array)
                     self.interface_pipeline.put([two_way, '222.222.1.1'])
                     break
         time.sleep(10)

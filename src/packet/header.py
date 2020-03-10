@@ -44,14 +44,41 @@ class Header:  # OSPFv2 - 24 bytes; OSPFv3 - 16 bytes
             self.auth_type = auth_type
             self.authentication = authentication
         else:
-            self.instance_id = 0
+            self.instance_id = instance_id
 
     #  Converts set of parameters to a byte object suitable to be sent and recognized as the header of an OSPF packet
     def pack_header(self):
         decimal_router_id = self.utils.ipv4_to_decimal(self.router_id)
         decimal_area_id = self.utils.ipv4_to_decimal(self.area_id)
-        return struct.pack(OSPFV2_FORMAT_STRING, self.version, self.packet_type, self.length, decimal_router_id,
-                           decimal_area_id, self.checksum, self.auth_type, self.authentication)
+        if self.version == conf.VERSION_IPV4:
+            return struct.pack(OSPFV2_FORMAT_STRING, self.version, self.packet_type, self.length, decimal_router_id,
+                               decimal_area_id, self.checksum, self.auth_type, self.authentication)
+        else:
+            return struct.pack(OSPFV3_FORMAT_STRING, self.version, self.packet_type, self.length, decimal_router_id,
+                               decimal_area_id, self.checksum, self.instance_id, 0)  # Last byte is set to 0
+
+    #  Converts byte object to an OSPF packet header
+    @staticmethod
+    def unpack_header(header_bytes, version):
+        format_string = Header.get_format_string(version)
+        header_tuple = struct.unpack(format_string, header_bytes)
+
+        version = header_tuple[0]
+        packet_type = header_tuple[1]
+        length = header_tuple[2]
+        router_id = utils.Utils.decimal_to_ipv4(header_tuple[3])
+        area_id = utils.Utils.decimal_to_ipv4(header_tuple[4])
+        checksum = header_tuple[5]
+        if version == conf.VERSION_IPV4:
+            auth_type = header_tuple[6]
+            authentication = header_tuple[7]
+            header = Header(version, packet_type, router_id, area_id, auth_type, authentication, 0)
+        else:
+            instance_id = header_tuple[6]
+            header = Header(version, packet_type, router_id, area_id, 0, 0, instance_id)
+        header.length = length
+        header.checksum = checksum
+        return header
 
     #  Cleans packet checksum, authentication type and authentication fields for checksum calculation
     def prepare_packet_checksum(self):
@@ -71,11 +98,12 @@ class Header:  # OSPFv2 - 24 bytes; OSPFv3 - 16 bytes
                 return False, "Invalid router ID"
             if not self.utils.is_ipv4_address(area_id):
                 return False, "Invalid area ID"
-            if auth_type not in [conf.NULL_AUTHENTICATION, conf.SIMPLE_PASSWORD, conf.CRYPTOGRAPHIC_AUTHENTICATION]:
+            if (auth_type not in [conf.NULL_AUTHENTICATION, conf.SIMPLE_PASSWORD, conf.CRYPTOGRAPHIC_AUTHENTICATION])\
+                    & (version == conf.VERSION_IPV4):
                 return False, "Invalid authentication type"
-            if not (0 <= authentication <= conf.MAX_VALUE_64_BITS):
+            if (not (0 <= authentication <= conf.MAX_VALUE_64_BITS)) & (version == conf.VERSION_IPV4):
                 return False, "Invalid authentication field"
-            if (instance_id < 0) | (instance_id > conf.MAX_VALUE_8_BITS):
+            if (not (0 <= instance_id <= conf.MAX_VALUE_8_BITS)) & (version == conf.VERSION_IPV6):
                 return False, "Invalid instance ID"
             return True, ''  # No error message to return
         except (ValueError, TypeError):
@@ -83,17 +111,27 @@ class Header:  # OSPFv2 - 24 bytes; OSPFv3 - 16 bytes
 
     def set_checksum(self, checksum):
         if (checksum < 0) | (checksum > conf.MAX_VALUE_16_BITS):
-            raise ValueError("Checksum must be between 0 and", conf.MAX_VALUE_16_BITS, ", was:", checksum)
+            error = "Checksum must be between 0 and " + str(conf.MAX_VALUE_16_BITS) + " bytes, was " + str(checksum)
+            raise ValueError(error)
         self.checksum = checksum
 
     def set_length(self, length):
-        if length < conf.OSPFV2_HEADER_LENGTH:
-            raise ValueError("Packet length must be at least", conf.OSPFV2_HEADER_LENGTH, ", was:", length)
+        if (length < conf.OSPFV2_HEADER_LENGTH) & (self.version == conf.VERSION_IPV4):
+            error = "Packet length must be at least " + str(conf.OSPFV2_HEADER_LENGTH) + " bytes, was " + str(length)
+            raise ValueError(error)
+        elif (length < conf.OSPFV3_HEADER_LENGTH) & (self.version == conf.VERSION_IPV6):
+            error = "Packet length must be at least " + str(conf.OSPFV3_HEADER_LENGTH) + " bytes, was " + str(length)
+            raise ValueError(error)
+        elif length > conf.MAX_VALUE_16_BITS:
+            error = "Packet length must be no larger than " + str(conf.MAX_VALUE_16_BITS) + " bytes, was" + str(length)
+            raise ValueError(error)
         self.length = length
 
-    def print_header_packet(self):
-        print(self.pack_header())
-
     @staticmethod
-    def get_format_string():
-        return OSPFV2_FORMAT_STRING
+    def get_format_string(version):
+        if version == conf.VERSION_IPV4:
+            return OSPFV2_FORMAT_STRING
+        elif version == conf.VERSION_IPV6:
+            return OSPFV3_FORMAT_STRING
+        else:
+            raise ValueError("Invalid OSPF version")
