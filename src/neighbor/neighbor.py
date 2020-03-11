@@ -15,11 +15,11 @@ class Neighbor:
 
     neighbor_id = '0.0.0.0'
     neighbor_interface_id = 0  # Only for OSPFv3
-    neighbor_ipv6_address = '::'  # Only for OSPFv3
+    neighbor_ip_address = ''  # Link-local address in OSPFv3
     neighbor_options = 0
     neighbor_state = conf.NEIGHBOR_STATE_DOWN  # Initial state
-    neighbor_dr = '0.0.0.0'  # 0.0.0.0 means no DR is known by the neighbor - Only for OSPFv3
-    neighbor_bdr = '0.0.0.0'  # Only for OSPFv3
+    neighbor_dr = '0.0.0.0'  # 0.0.0.0 means no DR is known by the neighbor
+    neighbor_bdr = '0.0.0.0'
 
     reset = None
     timeout = None
@@ -27,7 +27,7 @@ class Neighbor:
 
     utils = utils.Utils()
 
-    def __init__(self, neighbor_id, neighbor_interface_id, neighbor_ipv6_address, neighbor_options, neighbor_dr,
+    def __init__(self, neighbor_id, neighbor_interface_id, neighbor_ip_address, neighbor_options, neighbor_dr,
                  neighbor_bdr):
         is_valid, message = self.parameter_validation(neighbor_id, neighbor_options)
         if not is_valid:  # At least one of the parameters failed validation
@@ -35,7 +35,7 @@ class Neighbor:
 
         self.neighbor_id = neighbor_id
         self.neighbor_interface_id = neighbor_interface_id
-        self.neighbor_ipv6_address = neighbor_ipv6_address
+        self.neighbor_ip_address = neighbor_ip_address
         self.neighbor_options = neighbor_options
         self.neighbor_state = conf.NEIGHBOR_STATE_INIT  # Hello packet received from neighbor
         self.neighbor_dr = neighbor_dr
@@ -53,7 +53,7 @@ class Neighbor:
                                        args=(self.reset, self.timeout, self.shutdown, timeout_seconds))
         self.thread.start()
 
-    #  Returns True is timer has fired - No activity from neighbor was received lately
+    #  Returns True if timer has fired - No activity from neighbor was received lately
     def is_expired(self):
         return self.timeout.is_set()
 
@@ -61,7 +61,7 @@ class Neighbor:
     def reset_timer(self):
         self.reset.set()
 
-    #  Stops thread so that neighbor can be deleted
+    #  Stops timer thread so that neighbor can be deleted
     def delete_neighbor(self):
         self.set_neighbor_state(conf.NEIGHBOR_STATE_DOWN)
         self.shutdown.set()
@@ -74,8 +74,17 @@ class Neighbor:
             print("Neighbor", self.neighbor_id, "changed state from", old_state, "to", new_state)
             self.neighbor_state = new_state
 
+    #  Returns the version of the running OSPF protocol
+    def get_ospf_version(self):
+        if self.utils.is_ipv4_address(self.neighbor_ip_address):
+            return conf.VERSION_IPV4
+        elif self.utils.is_ipv6_address(self.neighbor_ip_address):
+            return conf.VERSION_IPV6
+        else:
+            raise ValueError("No valid neighbor IP address")
+
     #  Validates constructor parameters - Returns error message in case of failed validation
-    def parameter_validation(self, neighbor_id, neighbor_options):
+    def parameter_validation(self, neighbor_id, neighbor_options):  # TODO: Implement validation for rest of parameters
         try:
             if not self.utils.is_ipv4_address(neighbor_id):
                 return False, "Invalid neighbor ID"
