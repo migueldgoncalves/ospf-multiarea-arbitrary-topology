@@ -133,7 +133,7 @@ class Hello:  # OSPFv2 and OSPFv3 - 20 bytes + 4 bytes / neighbor
     #  Given the body of an OSPF Hello packet as a byte stream, returns the number of its neighbors
     @staticmethod
     def get_hello_packet_neighbor_number(body_bytes):
-        hello_body_base_length = conf.OSPFV2_BASE_HELLO_LENGTH - conf.OSPFV2_HEADER_LENGTH
+        hello_body_base_length = conf.OSPFV2_BASE_HELLO_LENGTH - conf.OSPFV2_HEADER_LENGTH  # Same for OSPFv2 and OSPFv3
         if len(body_bytes) < hello_body_base_length:
             raise ValueError("Invalid Hello packet body")
         neighbor_number = int((len(body_bytes) - hello_body_base_length) / conf.HELLO_NEIGHBOR_LENGTH)

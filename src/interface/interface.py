@@ -134,9 +134,10 @@ class Interface:
 
     #  Creates an OSPF packet to be sent
     def create_packet(self):
-        return self.hello_packet_to_send.create_hello_v2_packet_body(
+        self.hello_packet_to_send.create_hello_v2_packet_body(
             self.network_mask, self.hello_interval, conf.OPTIONS, self.router_priority, self.router_dead_interval,
             self.designated_router, self.backup_designated_router, self.neighbors)
+        return self.hello_packet_to_send.pack_packet()
 
     #  Deletes a neighbor from the list of active neighbors
     def delete_neighbor(self, neighbor_id):

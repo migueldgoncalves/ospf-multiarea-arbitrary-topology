@@ -136,10 +136,11 @@ class TestHeader(unittest.TestCase):
         self.assertEqual(new_checksum, self.header_ospfv2.checksum)
         self.assertEqual(new_auth_type, self.header_ospfv2.auth_type)
         self.assertEqual(new_authentication, self.header_ospfv2.authentication)
-        self.header_ospfv2.prepare_packet_checksum()
+        cleaned_parameters = self.header_ospfv2.prepare_packet_checksum()
         self.assertEqual(0, self.header_ospfv2.checksum)
         self.assertEqual(0, self.header_ospfv2.auth_type)
         self.assertEqual(0, self.header_ospfv2.authentication)
+        self.assertEqual([new_auth_type, new_authentication], cleaned_parameters)
 
         self.header_ospfv3.checksum = new_checksum
         self.header_ospfv3.auth_type = new_auth_type
@@ -147,10 +148,35 @@ class TestHeader(unittest.TestCase):
         self.assertEqual(new_checksum, self.header_ospfv3.checksum)
         self.assertEqual(new_auth_type, self.header_ospfv3.auth_type)
         self.assertEqual(new_authentication, self.header_ospfv3.authentication)
-        self.header_ospfv3.prepare_packet_checksum()
+        cleaned_parameters = self.header_ospfv3.prepare_packet_checksum()
         self.assertEqual(0, self.header_ospfv3.checksum)
         self.assertEqual(0, self.header_ospfv3.auth_type)
         self.assertEqual(0, self.header_ospfv3.authentication)
+        self.assertEqual([new_auth_type, new_authentication], cleaned_parameters)
+
+    #  Successful run - Instant
+    def test_finish_packet_checksum(self):
+        new_checksum = 10
+        new_auth_type = 10
+        new_authentication = 10
+
+        self.header_ospfv2.checksum = new_checksum
+        self.header_ospfv2.auth_type = new_auth_type
+        self.header_ospfv2.authentication = new_authentication
+        cleaned_parameters = self.header_ospfv2.prepare_packet_checksum()
+        self.header_ospfv2.finish_packet_checksum(cleaned_parameters)
+        self.assertEqual(0, self.header_ospfv2.checksum)
+        self.assertEqual(new_auth_type, self.header_ospfv2.auth_type)
+        self.assertEqual(new_authentication, self.header_ospfv2.authentication)
+
+        self.header_ospfv3.checksum = new_checksum
+        self.header_ospfv3.auth_type = new_auth_type
+        self.header_ospfv3.authentication = new_authentication
+        cleaned_parameters = self.header_ospfv3.prepare_packet_checksum()
+        self.header_ospfv3.finish_packet_checksum(cleaned_parameters)
+        self.assertEqual(0, self.header_ospfv3.checksum)
+        self.assertEqual(new_auth_type, self.header_ospfv3.auth_type)
+        self.assertEqual(new_authentication, self.header_ospfv3.authentication)
 
     #  Successful run - Instant
     def test_parameter_validation_successful(self):
@@ -273,7 +299,7 @@ class TestHeader(unittest.TestCase):
             conf.VERSION_IPV4, self.packet_type, self.router_id, self.area_id, self.auth_type, 'Invalid parameter',
             self.instance_id), (False, "Invalid parameter type"))
 
-        #  Correct instance ID
+        #  Incorrect instance ID
         self.assertEqual(self.header_ospfv3.parameter_validation(
             conf.VERSION_IPV6, self.packet_type, self.router_id, self.area_id, 0, 0, -1),
             (False, "Invalid instance ID"))

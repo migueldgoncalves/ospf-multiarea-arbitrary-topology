@@ -82,9 +82,16 @@ class Header:  # OSPFv2 - 24 bytes; OSPFv3 - 16 bytes
 
     #  Cleans packet checksum, authentication type and authentication fields for checksum calculation
     def prepare_packet_checksum(self):
+        parameters_to_restore = [self.auth_type, self.authentication]
         self.checksum = 0
         self.auth_type = 0
         self.authentication = 0
+        return parameters_to_restore
+
+    #  Restores packet authentication type and authentication fields after checksum calculation
+    def finish_packet_checksum(self, cleaned_parameters):
+        self.auth_type = cleaned_parameters[0]
+        self.authentication = cleaned_parameters[1]
 
     #  Validates constructor parameters - Returns error message in case of failed validation
     def parameter_validation(self, version, packet_type, router_id, area_id, auth_type, authentication, instance_id):

@@ -1,4 +1,3 @@
-import traceback
 import struct
 
 import general.utils as utils
@@ -22,6 +21,8 @@ FORMAT_STRING = "> B"
 class Packet:
     header = None
     body = None
+    source_ipv6_address = '::'  # Required for OSPFv3 packet checksum calculation
+    destination_ipv6_address = '::'
     utils = utils.Utils()
 
     #  #  #  #  #  #  #
@@ -34,9 +35,11 @@ class Packet:
         self.body = None
 
     #  Adds an OSPFv3 header to the packet with the provided arguments
-    def create_header_v3(self, packet_type, router_id, area_id, instance_id):
+    def create_header_v3(self, packet_type, router_id, area_id, instance_id, source_address, destination_address):
         self.header = header.Header(conf.VERSION_IPV6, packet_type, router_id, area_id, 0, 0, instance_id)
         self.body = None
+        self.source_ipv6_address = source_address
+        self.destination_ipv6_address = destination_address
 
     #  Converts an OSPF packet into a byte stream
     def pack_packet(self):
@@ -115,18 +118,22 @@ class Packet:
     #  Auxiliary methods  #
     #  #  #  #  #  #  #   #
 
-    #  Calculates packet checksum and inserts it on given packet header
+    #  Calculates packet checksum and inserts it on packet header
     def set_packet_checksum(self):
         if self.body is not None:  # Does nothing if there is no packet body
-            bogus_header = self.header
-            bogus_header.prepare_packet_checksum()  # Cleans required fields before checksum calculation
+            cleaned_parameters = self.header.prepare_packet_checksum()  # Cleans required fields before calculation
 
             #  Calculates and sets packet checksum - It is set to 0 in the packet sent as argument
-            header_bytes = bogus_header.pack_header()  # Without the checksum
+            header_bytes = self.header.pack_header()  # Without the checksum
             body_bytes = self.body.pack_packet_body()
-            checksum = self.utils.create_checksum_ospfv2(header_bytes + body_bytes)
+            if self.header.version == conf.VERSION_IPV4:
+                checksum = self.utils.create_checksum_ospfv2(header_bytes + body_bytes)
+            else:
+                checksum = self.utils.create_checksum_ospfv3(
+                    header_bytes + body_bytes, self.source_ipv6_address, self.destination_ipv6_address)
 
             self.header.set_checksum(checksum)
+            self.header.finish_packet_checksum(cleaned_parameters)  # Restores cleaned fields after checksum calculation
 
     #  Calculates packet length and inserts it on given packet header
     def set_packet_length(self):
