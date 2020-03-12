@@ -11,7 +11,7 @@ This class tests the neighbor operations in the router
 #  TODO: Implement validation and testing of None parameters
 
 
-#  Full successful run - 91 s
+#  Full successful run - 90 s
 class TestNeighbor(unittest.TestCase):
     neighbor_id = '0.0.0.0'
     neighbor_interface_id = 0
@@ -112,18 +112,6 @@ class TestNeighbor(unittest.TestCase):
         self.assertFalse(self.neighbor_v2.reset.is_set())
         self.assertTrue(self.neighbor_v2.timeout.is_set())
         self.assertTrue(self.neighbor_v2.shutdown.is_set())
-
-    #  Successful run - 1 s
-    def test_get_ospf_version(self):
-        self.assertEqual(conf.VERSION_IPV4, self.neighbor_v2.get_ospf_version())
-        self.assertEqual(conf.VERSION_IPV6, self.neighbor_v3.get_ospf_version())
-
-        self.neighbor_v2.neighbor_ip_address = ''
-        self.neighbor_v3.neighbor_ip_address = ''
-        with self.assertRaises(ValueError):
-            self.neighbor_v2.get_ospf_version()
-        with self.assertRaises(ValueError):
-            self.neighbor_v3.get_ospf_version()
 
     #  Successful run - 1 s
     def test_parameter_validation_successful(self):

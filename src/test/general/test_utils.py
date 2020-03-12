@@ -258,6 +258,13 @@ class UtilsTest(unittest.TestCase):
         self.assertFalse(self.utils.is_ipv6_address('10000:10000:10000:10000:10000:10000:10000:10000'))
 
     #  Successful run - Instant
+    def test_get_ospf_version(self):
+        self.assertEqual(conf.VERSION_IPV4, self.utils.get_ospf_version('0.0.0.0'))
+        self.assertEqual(conf.VERSION_IPV6, self.utils.get_ospf_version('::'))
+        with self.assertRaises(ValueError):
+            self.utils.get_ospf_version('')
+
+    #  Successful run - Instant
     def test_is_ipv4_network_mask_successful(self):
         self.assertTrue(self.utils.is_ipv4_network_mask('0.0.0.0'))
         self.assertTrue(self.utils.is_ipv4_network_mask('128.0.0.0'))

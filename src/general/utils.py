@@ -131,6 +131,16 @@ class Utils:
         except ipaddress.AddressValueError:
             return False
 
+    #  Returns the version of the running OSPF protocol given an IP address
+    @staticmethod
+    def get_ospf_version(ip_address):
+        if Utils.is_ipv4_address(ip_address):
+            return conf.VERSION_IPV4
+        elif Utils.is_ipv6_address(ip_address):
+            return conf.VERSION_IPV6
+        else:
+            raise ValueError("No valid IP address provided")
+
     #  Return True if argument is a valid IPv4 network mask
     @staticmethod
     def is_ipv4_network_mask(network_mask):

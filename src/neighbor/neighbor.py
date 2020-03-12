@@ -40,7 +40,8 @@ class Neighbor:
         self.neighbor_state = conf.NEIGHBOR_STATE_INIT  # Hello packet received from neighbor
         self.neighbor_dr = neighbor_dr
         self.neighbor_bdr = neighbor_bdr
-        print("Neighbor found with ID", self.neighbor_id)
+        print("OSPFv" + str(self.utils.get_ospf_version(self.neighbor_ip_address)),
+              "neighbor found with ID", self.neighbor_id)
 
         self.reset = threading.Event()
         self.timeout = threading.Event()
@@ -71,17 +72,9 @@ class Neighbor:
     def set_neighbor_state(self, new_state):
         old_state = self.neighbor_state
         if new_state != old_state:
-            print("Neighbor", self.neighbor_id, "changed state from", old_state, "to", new_state)
+            print("OSPFv" + str(self.utils.get_ospf_version(self.neighbor_ip_address)),
+                  "neighbor", self.neighbor_id, "changed state from", old_state, "to", new_state)
             self.neighbor_state = new_state
-
-    #  Returns the version of the running OSPF protocol
-    def get_ospf_version(self):
-        if self.utils.is_ipv4_address(self.neighbor_ip_address):
-            return conf.VERSION_IPV4
-        elif self.utils.is_ipv6_address(self.neighbor_ip_address):
-            return conf.VERSION_IPV6
-        else:
-            raise ValueError("No valid neighbor IP address")
 
     #  Validates constructor parameters - Returns error message in case of failed validation
     def parameter_validation(self, neighbor_id, neighbor_options):  # TODO: Implement validation for rest of parameters

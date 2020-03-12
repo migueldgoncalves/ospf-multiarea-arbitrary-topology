@@ -6,6 +6,7 @@ import packet.packet as packet
 import conf.conf as conf
 import general.timer as timer
 import general.sock as sock
+import general.utils as utils
 
 '''
 This class represents the OSPF interface and contains its data and operations
@@ -14,20 +15,20 @@ This class represents the OSPF interface and contains its data and operations
 
 class Interface:
     #  TODO: Allow router to operate with both OSPF versions at the same time
-    version = 0
 
     #  OSPF interface parameters
     type = 0
     physical_identifier = ''  # Ex: ens33 - Interface identifier given by the OS
     ospf_identifier = 0  # Just for OSPFv3 - Interface identifier given by OSPF
-    ip_address = ''  # Link-local address in OSPFv3
+    ipv4_address = '0.0.0.0'  # Just for OSPFv2
+    ipv6_address = '::'  # Just for OSPFv3 - Link-local address
     network_mask = '0.0.0.0'  # Just for OSPFv2
     link_prefixes = []  # Just for OSPFv3
     area_id = '0.0.0.0'  # 0.0.0.0 - Backbone area
     hello_interval = 0
     router_dead_interval = 0
     router_priority = 0
-    neighbors = None
+    neighbors = {}
     designated_router = '0.0.0.0'  # 0.0.0.0 - No DR known
     backup_designated_router = '0.0.0.0'
     cost = 0
@@ -48,14 +49,13 @@ class Interface:
     timer_shutdown = None
     timer_seconds = 0
 
-    def __init__(self, version, physical_identifier, ip_address, network_mask, link_prefixes, area_id, pipeline,
+    def __init__(self, physical_identifier, ipv4_address, ipv6_address, network_mask, link_prefixes, area_id, pipeline,
                  interface_shutdown):
-        self.version = version
-
-        self.type = conf.BROADCAST_INTERFACE
+        self.type = conf.BROADCAST_INTERFACE  # TODO: Create point-to-point interface
         self.physical_identifier = physical_identifier
         self.ospf_identifier = Interface.ospf_identifier_generator(self.physical_identifier, conf.INTERFACE_NAMES)
-        self.ip_address = ip_address
+        self.ipv4_address = ipv4_address
+        self.ipv6_address = ipv6_address
         self.network_mask = network_mask
         self.link_prefixes = link_prefixes
         self.area_id = area_id
@@ -73,8 +73,14 @@ class Interface:
         self.pipeline = pipeline
         self.interface_shutdown = interface_shutdown
         self.hello_packet_to_send = packet.Packet()
-        self.hello_packet_to_send.create_header_v2(conf.PACKET_TYPE_HELLO, conf.ROUTER_ID, area_id,
-                                                   conf.NULL_AUTHENTICATION, conf.DEFAULT_AUTH)
+        if self.ipv4_address != '':  # Running OSPFv2 protocol
+            self.hello_packet_to_send.create_header_v2(
+                conf.PACKET_TYPE_HELLO, conf.ROUTER_ID, area_id, conf.NULL_AUTHENTICATION, conf.DEFAULT_AUTH)
+        else:  # Running OSPFv3 protocol
+            source_address = utils.Utils.get_ipv6_link_local_address_from_interface_name(self.physical_identifier)
+            destination_address = conf.ALL_OSPF_ROUTERS_IPV6
+            self.hello_packet_to_send.create_header_v3(
+                conf.PACKET_TYPE_HELLO, conf.ROUTER_ID, area_id, self.instance_id, source_address, destination_address)
 
         self.hello_timer = timer.Timer()
         self.timeout = threading.Event()
@@ -104,29 +110,33 @@ class Interface:
                 version = incoming_packet.header.version
                 packet_type = incoming_packet.header.packet_type
 
-                if version == conf.VERSION_IPV4:
-                    if packet_type == conf.PACKET_TYPE_HELLO:
+                if packet_type == conf.PACKET_TYPE_HELLO:
+                    neighbor_id = incoming_packet.header.router_id
+                    #  New neighbor
+                    if neighbor_id not in self.neighbors:
+                        neighbor_interface_id = 0
+                        if version == conf.VERSION_IPV6:
+                            neighbor_interface_id = incoming_packet.body.interface_id
+                        neighbor_options = incoming_packet.body.options
+                        new_neighbor = neighbor.Neighbor(  # Neighbor state is Init
+                            neighbor_id, neighbor_interface_id, source_ip, neighbor_options, '0.0.0.0', '0.0.0.0')
+                        self.neighbors[neighbor_id] = new_neighbor
 
-                        neighbor_id = incoming_packet.header.router_id
-                        #  New neighbor
-                        if neighbor_id not in self.neighbors:
-                            neighbor_options = incoming_packet.body.options
-                            new_neighbor = neighbor.Neighbor(neighbor_id, 0, '::', neighbor_options, '0.0.0.0',
-                                                             '0.0.0.0')  # Neighbor state is Init
-                            self.neighbors[neighbor_id] = new_neighbor
-
-                        # Existing neighbor
-                        self.neighbors[neighbor_id].reset_timer()
-                        time.sleep(0.1)
-                        if conf.ROUTER_ID in incoming_packet.body.neighbors:  # Neighbor acknowledges router as neighbor
-                            self.neighbors[neighbor_id].set_neighbor_state(conf.NEIGHBOR_STATE_2_WAY)
-                        else:  # Neighbor does not, even if it did in the last packets
-                            self.neighbors[neighbor_id].set_neighbor_state(conf.NEIGHBOR_STATE_INIT)
+                    #  Existing neighbor
+                    self.neighbors[neighbor_id].reset_timer()
+                    time.sleep(0.1)  # Required to immediately give the CPU to the neighbor timer thread
+                    if conf.ROUTER_ID in incoming_packet.body.neighbors:  # Neighbor acknowledges router as neighbor
+                        self.neighbors[neighbor_id].set_neighbor_state(conf.NEIGHBOR_STATE_2_WAY)
+                    else:  # Neighbor does not, even if it did in the last packets
+                        self.neighbors[neighbor_id].set_neighbor_state(conf.NEIGHBOR_STATE_INIT)
 
             #  Sends Hello packet
             if self.timeout.is_set():
                 packet_bytes = self.create_packet()
-                self.socket.send_ipv4(packet_bytes, conf.ALL_OSPF_ROUTERS_IPV4, self.physical_identifier)
+                if self.ipv4_address != '':  # OSPFv2
+                    self.socket.send_ipv4(packet_bytes, conf.ALL_OSPF_ROUTERS_IPV4, self.physical_identifier)
+                else:  # OSPFv3
+                    self.socket.send_ipv6(packet_bytes, conf.ALL_OSPF_ROUTERS_IPV6, self.physical_identifier)
                 self.timeout.clear()
 
         #  Interface signalled to shutdown
@@ -134,9 +144,14 @@ class Interface:
 
     #  Creates an OSPF packet to be sent
     def create_packet(self):
-        self.hello_packet_to_send.create_hello_v2_packet_body(
-            self.network_mask, self.hello_interval, conf.OPTIONS, self.router_priority, self.router_dead_interval,
-            self.designated_router, self.backup_designated_router, self.neighbors)
+        if self.ipv4_address != '':  # OSPFv2
+            self.hello_packet_to_send.create_hello_v2_packet_body(
+                self.network_mask, self.hello_interval, conf.OPTIONS, self.router_priority, self.router_dead_interval,
+                self.designated_router, self.backup_designated_router, self.neighbors)
+        else:  # OSPFv3
+            self.hello_packet_to_send.create_hello_v3_packet_body(
+                self.ospf_identifier, self.hello_interval, conf.OPTIONS, self.router_priority,
+                self.router_dead_interval, self.designated_router, self.backup_designated_router, self.neighbors)
         return self.hello_packet_to_send.pack_packet()
 
     #  Deletes a neighbor from the list of active neighbors

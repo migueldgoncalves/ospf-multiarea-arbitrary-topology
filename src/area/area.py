@@ -53,12 +53,12 @@ class Area:
         if self.ospf_version == conf.VERSION_IPV4:
             ip_address = self.utils.get_ipv4_address_from_interface_name(interface_id)
             network_mask = self.utils.get_ipv4_network_mask_from_interface_name(interface_id)
-            new_interface = interface.Interface(conf.VERSION_IPV4, interface_id, ip_address, network_mask, [],
-                                                self.area_id, pipeline, shutdown)
+            new_interface = interface.Interface(interface_id, ip_address, '', network_mask, [], self.area_id,
+                                                pipeline, shutdown)
         else:
             ip_address = self.utils.get_ipv6_link_local_address_from_interface_name(interface_id)
             link_prefix = self.utils.get_ipv6_prefix_from_interface_name(interface_id)
-            new_interface = interface.Interface(conf.VERSION_IPV6, interface_id, ip_address, '', [link_prefix],
+            new_interface = interface.Interface(interface_id, '', ip_address, '', [link_prefix],
                                                 self.area_id, pipeline, shutdown)
 
         interface_thread = threading.Thread(target=new_interface.interface_loop)
