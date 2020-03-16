@@ -29,7 +29,7 @@ class Socket:
         if interface.strip() == '':
             raise ValueError("Empty interface to bind provided")
 
-        #  Creates socket and bind it to interface
+        #  Creates socket and binds it to interface
         self.is_dr = is_dr
         s = socket.socket(socket.AF_INET, socket.SOCK_RAW, conf.OSPF_PROTOCOL_NUMBER)
         s.setsockopt(socket.SOL_SOCKET, socket.SO_BINDTODEVICE, str(interface + '\0').encode(ENCODING))
@@ -45,8 +45,8 @@ class Socket:
 
         #  Listens to packets from the network
         while not shutdown.is_set():
-            data = s.recvfrom(conf.MTU)
-            array = Socket.process_ipv4_data(data[0])  # [packet_byte_stream, source_ip_address, destination_ip_address]
+            data = s.recvfrom(conf.MTU)  # Includes IP header
+            array = Socket.process_ipv4_data(data[0])  # [packet_byte_stream, source_ip_address]
             #  If packet is not from itself OR if packets from itself are allowed
             if (array[1] != socket.gethostbyname(socket.gethostname())) | accept_self_packets:
                 pipeline.put(array)
@@ -79,11 +79,13 @@ class Socket:
 
         #  Listens to packets from the network
         while not shutdown.is_set():
-            data = s.recvfrom(conf.MTU)
+            data = s.recvfrom(conf.MTU)  # Does not include IP header
+            packet_bytes = data[0]
+            source_ip_address = data[1][0].split('%')[0]
+            link_local_address = socket.getaddrinfo(socket.gethostname(), PORT, socket.AF_INET6)[3][4][0]
             #  If packet is not from itself OR if packets from itself are allowed
-            if (data[1][0].split()[0] != socket.getaddrinfo(
-                    socket.gethostname(), PORT, socket.AF_INET6)[0][4][0]) | accept_self_packets:
-                pipeline.put(data[0])
+            if (source_ip_address != link_local_address) | accept_self_packets:
+                pipeline.put([packet_bytes, source_ip_address])
         s.close()
 
     #  Sends the supplied IPv4 packet to the supplied address through the supplied interface
@@ -135,16 +137,13 @@ class Socket:
     #  Processes incoming IPv4 data
     @staticmethod
     def process_ipv4_data(byte_stream):
-        if len(byte_stream) < conf.IP_HEADER_BASE_LENGTH:
+        if len(byte_stream) < conf.IPV4_HEADER_BASE_LENGTH:  # IPv4 socket returns packets with IP header
             return ValueError("Byte stream too short")
-        ospf_packet = byte_stream[conf.IP_HEADER_BASE_LENGTH:]  # First bytes in byte array are the IP header
+        ospf_packet = byte_stream[conf.IPV4_HEADER_BASE_LENGTH:]  # First bytes in byte array are the IPv4 header
 
-        #  Source and destination IP addresses start respectively at 13th and 17th bytes of IP header
-        source_ip_bytes = byte_stream[conf.SOURCE_IP_ADDRESS_1ST_BYTE:conf.SOURCE_IP_ADDRESS_1ST_BYTE +
-                                      conf.IP_ADDRESS_BYTE_LENGTH]
-        destination_ip_bytes = byte_stream[conf.DESTINATION_IP_ADDRESS_1ST_BYTE:conf.DESTINATION_IP_ADDRESS_1ST_BYTE +
-                                           conf.IP_ADDRESS_BYTE_LENGTH]
+        #  Source IPv4 address starts at 13th byte of IPv4 header
+        source_ip_bytes = byte_stream[conf.SOURCE_IPV4_ADDRESS_1ST_BYTE:
+                                      conf.SOURCE_IPV4_ADDRESS_1ST_BYTE + conf.IPV4_ADDRESS_BYTE_LENGTH]
         source_ip_address = utils.Utils.decimal_to_ipv4(int.from_bytes(source_ip_bytes, byteorder="big"))
-        destination_ip_address = utils.Utils.decimal_to_ipv4(int.from_bytes(destination_ip_bytes, byteorder="big"))
 
-        return [ospf_packet, source_ip_address, destination_ip_address]
+        return [ospf_packet, source_ip_address]

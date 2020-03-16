@@ -131,7 +131,7 @@ class InterfaceTest(unittest.TestCase):
         self.assertEqual(conf.NEIGHBOR_STATE_INIT, self.interface_ospfv2.neighbors['1.1.1.1'].neighbor_state)
         self.assertEqual(conf.NEIGHBOR_STATE_INIT, self.interface_ospfv3.neighbors['1.1.1.1'].neighbor_state)
         self.interface_pipeline_v2.put([one_way_v2, '222.222.1.1'])
-        self.interface_pipeline_v2.put([one_way_v3, 'fe80::c001:18ff:fe34:10'])
+        self.interface_pipeline_v3.put([one_way_v3, 'fe80::c001:18ff:fe34:10'])
         time.sleep(conf.ROUTER_DEAD_INTERVAL - 5)  # More than 40 s will have passed since original Hello packet
         self.assertEqual(1, len(self.interface_ospfv2.neighbors))  # New Hello packet resets neighbor timer
         self.assertEqual(1, len(self.interface_ospfv3.neighbors))
@@ -160,7 +160,7 @@ class InterfaceTest(unittest.TestCase):
 
         #  Listens for a packet from the neighbor acknowledging this router
         #  Neighbor goes to 2-WAY state
-        while True:
+        while True:  # OSPFv2
             if not socket_pipeline_v2.empty():
                 byte_array = socket_pipeline_v2.get()[0]
                 if (packet.Packet.get_ospf_version(byte_array) == conf.VERSION_IPV4) & \
@@ -168,7 +168,7 @@ class InterfaceTest(unittest.TestCase):
                     two_way_v2 = packet.Packet.unpack_packet(byte_array)
                     self.interface_pipeline_v2.put([two_way_v2, '222.222.1.1'])
                     break
-        while True:
+        while True:  # OSPFv3
             if not socket_pipeline_v3.empty():
                 byte_array = socket_pipeline_v3.get()[0]
                 if (packet.Packet.get_ospf_version(byte_array) == conf.VERSION_IPV6) & \
@@ -209,7 +209,7 @@ class InterfaceTest(unittest.TestCase):
         self.assertEqual(conf.NEIGHBOR_STATE_INIT, self.interface_ospfv2.neighbors['1.1.1.1'].neighbor_state)
         self.assertEqual(conf.NEIGHBOR_STATE_INIT, self.interface_ospfv3.neighbors['1.1.1.1'].neighbor_state)
 
-        #  Shutdown and restart
+        #  Interface restart
         #  Neighbor goes to DOWN state and is deleted
         self.interface_shutdown_v2.set()
         self.interface_shutdown_v3.set()
