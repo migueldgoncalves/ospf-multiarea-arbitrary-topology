@@ -16,7 +16,7 @@ ENCODING = "UTF-8"
 
 class Socket:
 
-    is_dr = False  # If router is DR/BDR - Only needed for testing purposes
+    is_dr = False  # If router is DR/BDR - Global parameter only needed for testing purposes
 
     #  Listens to IPv4 packets in the network until signaled to stop
     def receive_ipv4(self, pipeline, shutdown, interface, accept_self_packets, is_dr):

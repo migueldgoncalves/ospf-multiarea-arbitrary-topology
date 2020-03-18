@@ -33,6 +33,7 @@ class Area:
             raise ValueError("Invalid Area ID")
         self.ospf_version = ospf_version
         self.area_id = area_id
+        self.interfaces = {}
         self.external_routing_capable = external_routing_capable
 
         #  Creates the interfaces that belong to this area
