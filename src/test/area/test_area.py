@@ -9,7 +9,7 @@ This class tests the area operations in the router
 '''
 
 
-#  Full successful run - 30 s
+#  Full successful run - 12-13 s
 class AreaTest(unittest.TestCase):
 
     area_id = '0.0.0.0'
@@ -23,20 +23,14 @@ class AreaTest(unittest.TestCase):
         self.area_v2 = area.Area(conf.VERSION_IPV4, self.area_id, self.external_routing_capable)
         self.area_v3 = area.Area(conf.VERSION_IPV6, self.area_id, self.external_routing_capable)
 
-    #  Successful run - 23 s
-    #  This smaller tests conflicted with each other when separate - Therefore they are joined in a single larger test
-    def test_area_creation(self):
-
-        #  Class constructor arguments
-
+    #  Successful run - 1 s
+    def test_constructor_successful(self):
         self.assertEqual(conf.VERSION_IPV4, self.area_v2.ospf_version)
         self.assertEqual(conf.VERSION_IPV6, self.area_v3.ospf_version)
         self.assertEqual(self.area_id, self.area_v2.area_id)
         self.assertEqual(self.area_id, self.area_v3.area_id)
         self.assertEqual(self.external_routing_capable, self.area_v2.external_routing_capable)
         self.assertEqual(self.external_routing_capable, self.area_v3.external_routing_capable)
-
-        #  Base successful operation
 
         interfaces_v2 = self.area_v2.interfaces
         interfaces_v3 = self.area_v3.interfaces
@@ -67,42 +61,12 @@ class AreaTest(unittest.TestCase):
         self.assertFalse(shutdown_event_v2.is_set())
         self.assertFalse(shutdown_event_v3.is_set())
 
-        time.sleep(2 * conf.HELLO_INTERVAL)  # Allows for Hello packets to be sent
-
-        #  Successful interface startup after shutdown
-
-        self.area_v2.shutdown_interface(conf.INTERFACE_NAMES[0])
-        self.area_v3.shutdown_interface(conf.INTERFACE_NAMES[0])
-        time.sleep(1)
-        self.assertFalse(thread_v2.isAlive())
-        self.assertFalse(thread_v3.isAlive())
-        self.assertFalse(self.area_v2.is_interface_operating(conf.INTERFACE_NAMES[0]))
-        self.assertFalse(self.area_v3.is_interface_operating(conf.INTERFACE_NAMES[0]))
-
-        self.area_v2.start_interface(conf.INTERFACE_NAMES[0])
-        self.area_v3.start_interface(conf.INTERFACE_NAMES[0])
-        #  New thread is assigned to interface on startup - Getting thread again is necessary
-        thread_v2 = self.area_v2.interfaces[conf.INTERFACE_NAMES[0]][area.INTERFACE_THREAD]
-        thread_v3 = self.area_v3.interfaces[conf.INTERFACE_NAMES[0]][area.INTERFACE_THREAD]
-        time.sleep(1)
-        self.assertTrue(self.area_v2.is_interface_operating(conf.INTERFACE_NAMES[0]))
-        self.assertTrue(self.area_v3.is_interface_operating(conf.INTERFACE_NAMES[0]))
-        self.assertTrue(thread_v2.isAlive())
-        self.assertTrue(thread_v3.isAlive())
-
-        #  Create interface twice
-
-        self.area_v2.create_interface(conf.INTERFACE_NAMES[0])  # Interface is already created on startup
-        self.area_v3.create_interface(conf.INTERFACE_NAMES[0])
-        self.assertTrue(self.area_v2.is_interface_operating(conf.INTERFACE_NAMES[0]))
-        self.assertTrue(self.area_v3.is_interface_operating(conf.INTERFACE_NAMES[0]))
-
-        #  Invalid OSPF version
-
+    #  Successful run - 1 s
+    def test_constructor_invalid_parameters(self):
         with self.assertRaises(ValueError):
             area.Area(1, self.area_id, self.external_routing_capable)
-
-        #  Invalid Area ID
+        with self.assertRaises(ValueError):
+            area.Area(4, self.area_id, self.external_routing_capable)
 
         with self.assertRaises(ValueError):
             area.Area(conf.VERSION_IPV4, '', self.external_routing_capable)
@@ -124,11 +88,43 @@ class AreaTest(unittest.TestCase):
             area.Area(conf.VERSION_IPV4, '0.0.0.0.0', self.external_routing_capable)
 
     #  Successful run - 1 s
+    def test_create_interface_twice(self):
+        self.area_v2.create_interface(conf.INTERFACE_NAMES[0])  # Interface is already created on startup
+        self.area_v3.create_interface(conf.INTERFACE_NAMES[0])
+        self.assertTrue(self.area_v2.is_interface_operating(conf.INTERFACE_NAMES[0]))
+        self.assertTrue(self.area_v3.is_interface_operating(conf.INTERFACE_NAMES[0]))
+
+    #  Successful run - 1 s
     def test_create_interface_invalid_interface_id(self):
         with self.assertRaises(ValueError):
             self.area_v2.create_interface('Invalid interface')
         with self.assertRaises(ValueError):
             self.area_v3.create_interface('Invalid interface')
+
+    #  Successful run - 2 s
+    def test_start_interface_after_shutdown(self):
+        interface_objects_v2 = self.area_v2.interfaces[conf.INTERFACE_NAMES[0]]
+        interface_objects_v3 = self.area_v3.interfaces[conf.INTERFACE_NAMES[0]]
+        thread_v2 = interface_objects_v2[area.INTERFACE_THREAD]
+        thread_v3 = interface_objects_v3[area.INTERFACE_THREAD]
+
+        time.sleep(1)  # Required for successful interface shutdown
+        self.area_v2.shutdown_interface(conf.INTERFACE_NAMES[0])
+        self.area_v3.shutdown_interface(conf.INTERFACE_NAMES[0])
+        self.assertFalse(thread_v2.isAlive())
+        self.assertFalse(thread_v3.isAlive())
+        self.assertFalse(self.area_v2.is_interface_operating(conf.INTERFACE_NAMES[0]))
+        self.assertFalse(self.area_v3.is_interface_operating(conf.INTERFACE_NAMES[0]))
+
+        self.area_v2.start_interface(conf.INTERFACE_NAMES[0])
+        self.area_v3.start_interface(conf.INTERFACE_NAMES[0])
+        #  New thread is assigned to interface on startup - Getting thread again is necessary
+        thread_v2 = self.area_v2.interfaces[conf.INTERFACE_NAMES[0]][area.INTERFACE_THREAD]
+        thread_v3 = self.area_v3.interfaces[conf.INTERFACE_NAMES[0]][area.INTERFACE_THREAD]
+        self.assertTrue(self.area_v2.is_interface_operating(conf.INTERFACE_NAMES[0]))
+        self.assertTrue(self.area_v3.is_interface_operating(conf.INTERFACE_NAMES[0]))
+        self.assertTrue(thread_v2.isAlive())
+        self.assertTrue(thread_v3.isAlive())
 
     #  Successful run - 1 s
     def test_start_interface_twice(self):
