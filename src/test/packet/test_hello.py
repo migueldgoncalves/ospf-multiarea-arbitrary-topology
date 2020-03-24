@@ -231,240 +231,217 @@ class TestHello(unittest.TestCase):
     #  Successful run - Instant
     def test_parameter_validation_successful(self):
         #  Correct network mask
-        self.assertTrue(self.packet_body_v2.parameter_validation(
+        self.assertEqual((True, ''), self.packet_body_v2.parameter_validation(
             '0.0.0.0', self.hello_interval, self.options, self.router_priority, self.router_dead_interval,
             self.designated_router, self.backup_designated_router, self.neighbors, 0, conf.VERSION_IPV4))
-        self.assertTrue(self.packet_body_v2.parameter_validation(
+        self.assertEqual((True, ''), self.packet_body_v2.parameter_validation(
             '255.255.255.255', self.hello_interval, self.options, self.router_priority, self.router_dead_interval,
             self.designated_router, self.backup_designated_router, self.neighbors, 0, conf.VERSION_IPV4))
 
         #  Correct Hello interval
-        self.assertTrue(self.packet_body_v2.parameter_validation(
+        self.assertEqual((True, ''), self.packet_body_v2.parameter_validation(
             self.network_mask, 0, self.options, self.router_priority, self.router_dead_interval,
             self.designated_router, self.backup_designated_router, self.neighbors, 0, conf.VERSION_IPV4))
-        self.assertTrue(self.packet_body_v2.parameter_validation(
+        self.assertEqual((True, ''), self.packet_body_v2.parameter_validation(
             self.network_mask, conf.MAX_VALUE_16_BITS, self.options, self.router_priority, self.router_dead_interval,
             self.designated_router, self.backup_designated_router, self.neighbors, 0, conf.VERSION_IPV4))
 
         #  Correct packet options
-        self.assertTrue(self.packet_body_v2.parameter_validation(
+        self.assertEqual((True, ''), self.packet_body_v2.parameter_validation(
             self.network_mask, self.hello_interval, 0, self.router_priority, self.router_dead_interval,
             self.designated_router, self.backup_designated_router, self.neighbors, 0, conf.VERSION_IPV4))
-        self.assertTrue(self.packet_body_v3.parameter_validation(
+        self.assertEqual((True, ''), self.packet_body_v3.parameter_validation(
             self.network_mask, self.hello_interval, 0, self.router_priority, self.router_dead_interval,
             self.designated_router, self.backup_designated_router, self.neighbors, 0, conf.VERSION_IPV6))
-        self.assertTrue(self.packet_body_v2.parameter_validation(
+        self.assertEqual((True, ''), self.packet_body_v2.parameter_validation(
             self.network_mask, self.hello_interval, conf.MAX_VALUE_8_BITS, self.router_priority,
             self.router_dead_interval, self.designated_router, self.backup_designated_router, self.neighbors, 0,
             conf.VERSION_IPV4))
-        self.assertTrue(self.packet_body_v2.parameter_validation(
+        self.assertEqual((True, ''), self.packet_body_v2.parameter_validation(
             self.network_mask, self.hello_interval, conf.MAX_VALUE_24_BITS, self.router_priority,
             self.router_dead_interval, self.designated_router, self.backup_designated_router, self.neighbors, 0,
             conf.VERSION_IPV6))
 
         #  Correct router priority
-        self.assertTrue(self.packet_body_v2.parameter_validation(
+        self.assertEqual((True, ''), self.packet_body_v2.parameter_validation(
             self.network_mask, self.hello_interval, self.options, 0, self.router_dead_interval,
             self.designated_router, self.backup_designated_router, self.neighbors, 0, conf.VERSION_IPV4))
-        self.assertTrue(self.packet_body_v2.parameter_validation(
+        self.assertEqual((True, ''), self.packet_body_v2.parameter_validation(
             self.network_mask, self.hello_interval, self.options, conf.MAX_VALUE_8_BITS, self.router_dead_interval,
             self.designated_router, self.backup_designated_router, self.neighbors, 0, conf.VERSION_IPV4))
 
         #  Correct router dead interval
-        self.assertTrue(self.packet_body_v2.parameter_validation(
+        self.assertEqual((True, ''), self.packet_body_v2.parameter_validation(
             self.network_mask, self.hello_interval, self.options, self.router_priority, 0,
             self.designated_router, self.backup_designated_router, self.neighbors, 0, conf.VERSION_IPV4))
-        self.assertTrue(self.packet_body_v2.parameter_validation(
+        self.assertEqual((True, ''), self.packet_body_v2.parameter_validation(
             self.network_mask, self.hello_interval, self.options, self.router_priority, 0,
             self.designated_router, self.backup_designated_router, self.neighbors, 0, conf.VERSION_IPV6))
-        self.assertTrue(self.packet_body_v2.parameter_validation(
+        self.assertEqual((True, ''), self.packet_body_v2.parameter_validation(
             self.network_mask, self.hello_interval, self.options, self.router_priority, conf.MAX_VALUE_32_BITS,
             self.designated_router, self.backup_designated_router, self.neighbors, 0, conf.VERSION_IPV4))
-        self.assertTrue(self.packet_body_v2.parameter_validation(
+        self.assertEqual((True, ''), self.packet_body_v2.parameter_validation(
             self.network_mask, self.hello_interval, self.options, self.router_priority, conf.MAX_VALUE_16_BITS,
             self.designated_router, self.backup_designated_router, self.neighbors, 0, conf.VERSION_IPV4))
 
         #  Correct Designated Router
-        self.assertTrue(self.packet_body_v2.parameter_validation(
+        self.assertEqual((True, ''), self.packet_body_v2.parameter_validation(
             self.network_mask, self.hello_interval, self.options, self.router_priority, self.router_dead_interval,
             '0.0.0.0', self.backup_designated_router, self.neighbors, 0, conf.VERSION_IPV4))
-        self.assertTrue(self.packet_body_v2.parameter_validation(
+        self.assertEqual((True, ''), self.packet_body_v2.parameter_validation(
             self.network_mask, self.hello_interval, self.options, self.router_priority, self.router_dead_interval,
             '255.255.255.255', self.backup_designated_router, self.neighbors, 0, conf.VERSION_IPV4))
 
         #  Correct Backup Designated Router
-        self.assertTrue(self.packet_body_v2.parameter_validation(
+        self.assertEqual((True, ''), self.packet_body_v2.parameter_validation(
             self.network_mask, self.hello_interval, self.options, self.router_priority, self.router_dead_interval,
             self.designated_router, '0.0.0.0', self.neighbors, 0, conf.VERSION_IPV4))
-        self.assertTrue(self.packet_body_v2.parameter_validation(
+        self.assertEqual((True, ''), self.packet_body_v2.parameter_validation(
             self.network_mask, self.hello_interval, self.options, self.router_priority, self.router_dead_interval,
             self.designated_router, '255.255.255.255', self.neighbors, 0, conf.VERSION_IPV4))
 
         #  Correct neighbors
         neighbors = ()
-        self.assertTrue(self.packet_body_v2.parameter_validation(
+        self.assertEqual((True, ''), self.packet_body_v2.parameter_validation(
             self.network_mask, self.hello_interval, self.options, self.router_priority, self.router_dead_interval,
             self.designated_router, self.backup_designated_router, neighbors, 0, conf.VERSION_IPV4))
         neighbors = ('1.1.1.1',)
-        self.assertTrue(self.packet_body_v2.parameter_validation(
+        self.assertEqual((True, ''), self.packet_body_v2.parameter_validation(
             self.network_mask, self.hello_interval, self.options, self.router_priority, self.router_dead_interval,
             self.designated_router, self.backup_designated_router, neighbors, 0, conf.VERSION_IPV4))
         neighbors = ('1.1.1.1', '2.2.2.2')
-        self.assertTrue(self.packet_body_v2.parameter_validation(
+        self.assertEqual((True, ''), self.packet_body_v2.parameter_validation(
             self.network_mask, self.hello_interval, self.options, self.router_priority, self.router_dead_interval,
             self.designated_router, self.backup_designated_router, neighbors, 0, conf.VERSION_IPV4))
         neighbors = ('1.1.1.1', '2.2.2.2', '4.4.4.4')
-        self.assertTrue(self.packet_body_v2.parameter_validation(
+        self.assertEqual((True, ''), self.packet_body_v2.parameter_validation(
             self.network_mask, self.hello_interval, self.options, self.router_priority, self.router_dead_interval,
             self.designated_router, self.backup_designated_router, neighbors, 0, conf.VERSION_IPV4))
 
         #  Correct interface ID
-        self.assertTrue(self.packet_body_v2.parameter_validation(
+        self.assertEqual((True, ''), self.packet_body_v2.parameter_validation(
             self.network_mask, self.hello_interval, self.options, self.router_priority, self.router_dead_interval,
             self.designated_router, self.backup_designated_router, self.neighbors, 0, conf.VERSION_IPV6))
-        self.assertTrue(self.packet_body_v2.parameter_validation(
+        self.assertEqual((True, ''), self.packet_body_v2.parameter_validation(
             self.network_mask, self.hello_interval, self.options, self.router_priority, self.router_dead_interval,
             self.designated_router, self.backup_designated_router, self.neighbors, conf.MAX_VALUE_32_BITS,
             conf.VERSION_IPV6))
 
         #  Correct OSPF version
-        self.assertTrue(self.packet_body_v2.parameter_validation(
+        self.assertEqual((True, ''), self.packet_body_v2.parameter_validation(
             self.network_mask, self.hello_interval, self.options, self.router_priority, self.router_dead_interval,
             self.designated_router, self.backup_designated_router, self.neighbors, 0, conf.VERSION_IPV4))
-        self.assertTrue(self.packet_body_v2.parameter_validation(
+        self.assertEqual((True, ''), self.packet_body_v2.parameter_validation(
             self.network_mask, self.hello_interval, self.options, self.router_priority, self.router_dead_interval,
             self.designated_router, self.backup_designated_router, self.neighbors, 0, conf.VERSION_IPV6))
 
     #  Successful run - Instant
     def test_parameter_validation_invalid_parameters(self):
         #  Invalid network mask
-        self.assertEqual(self.packet_body_v2.parameter_validation(
+        self.assertEqual((False, "Invalid network mask"), self.packet_body_v2.parameter_validation(
             '', self.hello_interval, self.options, self.router_priority, self.router_dead_interval,
-            self.designated_router, self.backup_designated_router, self.neighbors, 0, conf.VERSION_IPV4),
-            (False, "Invalid network mask"))
+            self.designated_router, self.backup_designated_router, self.neighbors, 0, conf.VERSION_IPV4))
 
         #  Invalid Hello interval
-        self.assertEqual(self.packet_body_v2.parameter_validation(
+        self.assertEqual((False, "Invalid Hello interval"), self.packet_body_v2.parameter_validation(
             self.network_mask, -1, self.options, self.router_priority, self.router_dead_interval,
-            self.designated_router, self.backup_designated_router, self.neighbors, 0, conf.VERSION_IPV4),
-            (False, "Invalid Hello interval"))
-        self.assertEqual(self.packet_body_v2.parameter_validation(
+            self.designated_router, self.backup_designated_router, self.neighbors, 0, conf.VERSION_IPV4))
+        self.assertEqual((False, "Invalid Hello interval"), self.packet_body_v2.parameter_validation(
             self.network_mask, conf.MAX_VALUE_16_BITS + 1, self.options, self.router_priority,
             self.router_dead_interval,
-            self.designated_router, self.backup_designated_router, self.neighbors, 0, conf.VERSION_IPV4),
-            (False, "Invalid Hello interval"))
-        self.assertEqual(self.packet_body_v2.parameter_validation(
+            self.designated_router, self.backup_designated_router, self.neighbors, 0, conf.VERSION_IPV4))
+        self.assertEqual((False, "Invalid parameter type"), self.packet_body_v2.parameter_validation(
             self.network_mask, 'Invalid parameter', self.options, self.router_priority, self.router_dead_interval,
-            self.designated_router, self.backup_designated_router, self.neighbors, 0, conf.VERSION_IPV4),
-            (False, "Invalid parameter type"))
+            self.designated_router, self.backup_designated_router, self.neighbors, 0, conf.VERSION_IPV4))
 
         #  Invalid packet options
-        self.assertEqual(self.packet_body_v2.parameter_validation(
+        self.assertEqual((False, "Invalid packet options"), self.packet_body_v2.parameter_validation(
             self.network_mask, self.hello_interval, -1, self.router_priority, self.router_dead_interval,
-            self.designated_router, self.backup_designated_router, self.neighbors, 0, conf.VERSION_IPV4),
-            (False, "Invalid packet options"))
-        self.assertEqual(self.packet_body_v2.parameter_validation(
+            self.designated_router, self.backup_designated_router, self.neighbors, 0, conf.VERSION_IPV4))
+        self.assertEqual((False, "Invalid packet options"), self.packet_body_v2.parameter_validation(
             self.network_mask, self.hello_interval, -1, self.router_priority, self.router_dead_interval,
-            self.designated_router, self.backup_designated_router, self.neighbors, 0, conf.VERSION_IPV6),
-            (False, "Invalid packet options"))
-        self.assertEqual(self.packet_body_v2.parameter_validation(
+            self.designated_router, self.backup_designated_router, self.neighbors, 0, conf.VERSION_IPV6))
+        self.assertEqual((False, "Invalid packet options"), self.packet_body_v2.parameter_validation(
             self.network_mask, self.hello_interval, conf.MAX_VALUE_8_BITS + 1, self.router_priority,
             self.router_dead_interval, self.designated_router, self.backup_designated_router, self.neighbors, 0,
-            conf.VERSION_IPV4), (False, "Invalid packet options"))
-        self.assertEqual(self.packet_body_v2.parameter_validation(
+            conf.VERSION_IPV4))
+        self.assertEqual((False, "Invalid packet options"), self.packet_body_v2.parameter_validation(
             self.network_mask, self.hello_interval, conf.MAX_VALUE_24_BITS + 1, self.router_priority,
             self.router_dead_interval, self.designated_router, self.backup_designated_router, self.neighbors, 0,
-            conf.VERSION_IPV6), (False, "Invalid packet options"))
-        self.assertEqual(self.packet_body_v2.parameter_validation(
+            conf.VERSION_IPV6))
+        self.assertEqual((False, "Invalid parameter type"), self.packet_body_v2.parameter_validation(
             self.network_mask, self.hello_interval, 'Invalid parameter', self.router_priority,
             self.router_dead_interval, self.designated_router, self.backup_designated_router, self.neighbors, 0,
-            conf.VERSION_IPV4), (False, "Invalid parameter type"))
+            conf.VERSION_IPV4))
 
         #  Invalid router priority
-        self.assertEqual(self.packet_body_v2.parameter_validation(
+        self.assertEqual((False, "Invalid router priority"), self.packet_body_v2.parameter_validation(
             self.network_mask, self.hello_interval, self.options, -1, self.router_dead_interval,
-            self.designated_router, self.backup_designated_router, self.neighbors, 0, conf.VERSION_IPV4),
-            (False, "Invalid router priority"))
-        self.assertEqual(self.packet_body_v2.parameter_validation(
+            self.designated_router, self.backup_designated_router, self.neighbors, 0, conf.VERSION_IPV4))
+        self.assertEqual((False, "Invalid router priority"), self.packet_body_v2.parameter_validation(
             self.network_mask, self.hello_interval, self.options, conf.MAX_VALUE_8_BITS + 1, self.router_dead_interval,
-            self.designated_router, self.backup_designated_router, self.neighbors, 0, conf.VERSION_IPV4),
-            (False, "Invalid router priority"))
-        self.assertEqual(self.packet_body_v2.parameter_validation(
+            self.designated_router, self.backup_designated_router, self.neighbors, 0, conf.VERSION_IPV4))
+        self.assertEqual((False, "Invalid parameter type"), self.packet_body_v2.parameter_validation(
             self.network_mask, self.hello_interval, self.options, 'Invalid parameter', self.router_dead_interval,
-            self.designated_router, self.backup_designated_router, self.neighbors, 0, conf.VERSION_IPV4),
-            (False, "Invalid parameter type"))
+            self.designated_router, self.backup_designated_router, self.neighbors, 0, conf.VERSION_IPV4))
 
         #  Invalid router dead interval
-        self.assertEqual(self.packet_body_v2.parameter_validation(
+        self.assertEqual((False, "Invalid router dead interval"), self.packet_body_v2.parameter_validation(
             self.network_mask, self.hello_interval, self.options, self.router_priority, -1,
-            self.designated_router, self.backup_designated_router, self.neighbors, 0, conf.VERSION_IPV4),
-            (False, "Invalid router dead interval"))
-        self.assertEqual(self.packet_body_v2.parameter_validation(
+            self.designated_router, self.backup_designated_router, self.neighbors, 0, conf.VERSION_IPV4))
+        self.assertEqual((False, "Invalid router dead interval"), self.packet_body_v2.parameter_validation(
             self.network_mask, self.hello_interval, self.options, self.router_priority, -1,
-            self.designated_router, self.backup_designated_router, self.neighbors, 0, conf.VERSION_IPV6),
-            (False, "Invalid router dead interval"))
-        self.assertEqual(self.packet_body_v2.parameter_validation(
+            self.designated_router, self.backup_designated_router, self.neighbors, 0, conf.VERSION_IPV6))
+        self.assertEqual((False, "Invalid router dead interval"), self.packet_body_v2.parameter_validation(
             self.network_mask, self.hello_interval, self.options, self.router_priority, conf.MAX_VALUE_32_BITS + 1,
-            self.designated_router, self.backup_designated_router, self.neighbors, 0, conf.VERSION_IPV4),
-            (False, "Invalid router dead interval"))
-        self.assertEqual(self.packet_body_v2.parameter_validation(
+            self.designated_router, self.backup_designated_router, self.neighbors, 0, conf.VERSION_IPV4))
+        self.assertEqual((False, "Invalid router dead interval"), self.packet_body_v2.parameter_validation(
             self.network_mask, self.hello_interval, self.options, self.router_priority, conf.MAX_VALUE_16_BITS + 1,
-            self.designated_router, self.backup_designated_router, self.neighbors, 0, conf.VERSION_IPV6),
-            (False, "Invalid router dead interval"))
-        self.assertEqual(self.packet_body_v2.parameter_validation(
+            self.designated_router, self.backup_designated_router, self.neighbors, 0, conf.VERSION_IPV6))
+        self.assertEqual((False, "Invalid parameter type"), self.packet_body_v2.parameter_validation(
             self.network_mask, self.hello_interval, self.options, self.router_priority, 'Invalid parameter',
-            self.designated_router, self.backup_designated_router, self.neighbors, 0, conf.VERSION_IPV4),
-            (False, "Invalid parameter type"))
+            self.designated_router, self.backup_designated_router, self.neighbors, 0, conf.VERSION_IPV4))
 
         #  Invalid Designated Router
-        self.assertEqual(self.packet_body_v2.parameter_validation(
+        self.assertEqual((False, "Invalid Designated Router"), self.packet_body_v2.parameter_validation(
             self.network_mask, self.hello_interval, self.options, self.router_priority, self.router_dead_interval, '',
-            self.backup_designated_router, self.neighbors, 0, conf.VERSION_IPV4),
-            (False, "Invalid Designated Router"))
+            self.backup_designated_router, self.neighbors, 0, conf.VERSION_IPV4))
 
         #  Invalid Backup Designated Router
-        self.assertEqual(self.packet_body_v2.parameter_validation(
+        self.assertEqual((False, "Invalid Backup Designated Router"), self.packet_body_v2.parameter_validation(
             self.network_mask, self.hello_interval, self.options, self.router_priority, self.router_dead_interval,
-            self.designated_router, '', self.neighbors, 0, conf.VERSION_IPV4),
-            (False, "Invalid Backup Designated Router"))
+            self.designated_router, '', self.neighbors, 0, conf.VERSION_IPV4))
 
         #  Invalid neighbors
         neighbors = ('',)
-        self.assertEqual(self.packet_body_v2.parameter_validation(
+        self.assertEqual((False, "Invalid Neighbor(s)"), self.packet_body_v2.parameter_validation(
             self.network_mask, self.hello_interval, self.options, self.router_priority, self.router_dead_interval,
-            self.designated_router, self.backup_designated_router, neighbors, 0, conf.VERSION_IPV4),
-            (False, "Invalid Neighbor(s)"))
+            self.designated_router, self.backup_designated_router, neighbors, 0, conf.VERSION_IPV4))
         neighbors = ('', '')
-        self.assertEqual(self.packet_body_v2.parameter_validation(
+        self.assertEqual((False, "Invalid Neighbor(s)"), self.packet_body_v2.parameter_validation(
             self.network_mask, self.hello_interval, self.options, self.router_priority, self.router_dead_interval,
-            self.designated_router, self.backup_designated_router, neighbors, 0, conf.VERSION_IPV4),
-            (False, "Invalid Neighbor(s)"))
+            self.designated_router, self.backup_designated_router, neighbors, 0, conf.VERSION_IPV4))
         neighbors = ('', '', '')
-        self.assertEqual(self.packet_body_v2.parameter_validation(
+        self.assertEqual((False, "Invalid Neighbor(s)"), self.packet_body_v2.parameter_validation(
             self.network_mask, self.hello_interval, self.options, self.router_priority, self.router_dead_interval,
-            self.designated_router, self.backup_designated_router, neighbors, 0, conf.VERSION_IPV4),
-            (False, "Invalid Neighbor(s)"))
+            self.designated_router, self.backup_designated_router, neighbors, 0, conf.VERSION_IPV4))
 
         #  Invalid interface ID
-        self.assertEqual(self.packet_body_v2.parameter_validation(
+        self.assertEqual((False, "Invalid interface ID"), self.packet_body_v2.parameter_validation(
             self.network_mask, self.hello_interval, self.options, self.router_priority, self.router_dead_interval,
-            self.designated_router, self.backup_designated_router, self.neighbors, -1, conf.VERSION_IPV6),
-            (False, "Invalid interface ID"))
-        self.assertEqual(self.packet_body_v2.parameter_validation(
+            self.designated_router, self.backup_designated_router, self.neighbors, -1, conf.VERSION_IPV6))
+        self.assertEqual((False, "Invalid interface ID"), self.packet_body_v2.parameter_validation(
             self.network_mask, self.hello_interval, self.options, self.router_priority, self.router_dead_interval,
             self.designated_router, self.backup_designated_router, self.neighbors, conf.MAX_VALUE_32_BITS + 1,
-            conf.VERSION_IPV6),
-            (False, "Invalid interface ID"))
+            conf.VERSION_IPV6))
 
         #  Invalid OSPF version
-        self.assertEqual(self.packet_body_v2.parameter_validation(
+        self.assertEqual((False, "Invalid OSPF version"), self.packet_body_v2.parameter_validation(
             self.network_mask, self.hello_interval, self.options, self.router_priority, self.router_dead_interval,
-            self.designated_router, self.backup_designated_router, self.neighbors, 0, 1),
-            (False, "Invalid OSPF version"))
-        self.assertEqual(self.packet_body_v2.parameter_validation(
+            self.designated_router, self.backup_designated_router, self.neighbors, 0, 1))
+        self.assertEqual((False, "Invalid OSPF version"), self.packet_body_v2.parameter_validation(
             self.network_mask, self.hello_interval, self.options, self.router_priority, self.router_dead_interval,
-            self.designated_router, self.backup_designated_router, self.neighbors, 0, 4),
-            (False, "Invalid OSPF version"))
+            self.designated_router, self.backup_designated_router, self.neighbors, 0, 4))
 
     def tearDown(self):
         self.network_mask = ''

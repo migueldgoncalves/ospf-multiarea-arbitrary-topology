@@ -116,26 +116,26 @@ class TestNeighbor(unittest.TestCase):
     #  Successful run - 1 s
     def test_parameter_validation_successful(self):
         #  Correct neighbor ID
-        self.assertTrue(self.neighbor_v2.parameter_validation('0.0.0.0', self.neighbor_options))
-        self.assertTrue(self.neighbor_v2.parameter_validation('255.255.255.255', self.neighbor_options))
+        self.assertEqual((True, ''), self.neighbor_v2.parameter_validation('0.0.0.0', self.neighbor_options))
+        self.assertEqual((True, ''), self.neighbor_v2.parameter_validation('255.255.255.255', self.neighbor_options))
 
         #  Correct neighbor options
-        self.assertTrue(self.neighbor_v2.parameter_validation(self.neighbor_id, 0))
-        self.assertTrue(self.neighbor_v2.parameter_validation(self.neighbor_id, conf.MAX_VALUE_8_BITS))
+        self.assertEqual((True, ''), self.neighbor_v2.parameter_validation(self.neighbor_id, 0))
+        self.assertEqual((True, ''), self.neighbor_v2.parameter_validation(self.neighbor_id, conf.MAX_VALUE_8_BITS))
 
     #  Successful run - 1 s
     def test_parameter_validation_invalid_parameters(self):
         #  Invalid neighbor ID
         self.assertEqual(
-            self.neighbor_v2.parameter_validation('', self.neighbor_options), (False, "Invalid neighbor ID"))
+            (False, "Invalid neighbor ID"), self.neighbor_v2.parameter_validation('', self.neighbor_options))
 
         #  Invalid neighbor options
         self.assertEqual(
-            self.neighbor_v2.parameter_validation(self.neighbor_id, -1), (False, "Invalid neighbor options"))
-        self.assertEqual(self.neighbor_v2.parameter_validation(self.neighbor_id, conf.MAX_VALUE_8_BITS + 1),
-                         (False, "Invalid neighbor options"))
-        self.assertEqual(self.neighbor_v2.parameter_validation(self.neighbor_id, 'Invalid parameter'),
-                         (False, "Invalid parameter type"))
+            (False, "Invalid neighbor options"), self.neighbor_v2.parameter_validation(self.neighbor_id, -1))
+        self.assertEqual((False, "Invalid neighbor options"),
+                         self.neighbor_v2.parameter_validation(self.neighbor_id, conf.MAX_VALUE_8_BITS + 1))
+        self.assertEqual((False, "Invalid parameter type"),
+                         self.neighbor_v2.parameter_validation(self.neighbor_id, 'Invalid parameter'))
 
     def tearDown(self):
         self.neighbor_v2.delete_neighbor()

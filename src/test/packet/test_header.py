@@ -181,131 +181,128 @@ class TestHeader(unittest.TestCase):
     #  Successful run - Instant
     def test_parameter_validation_successful(self):
         #  Correct OSPF version
-        self.assertTrue(self.header_ospfv2.parameter_validation(
+        self.assertEqual((True, ''), self.header_ospfv2.parameter_validation(
             conf.VERSION_IPV4, conf.PACKET_TYPE_HELLO, self.router_id, self.area_id, self.auth_type,
             self.authentication, self.instance_id))
-        self.assertTrue(self.header_ospfv2.parameter_validation(
+        self.assertEqual((True, ''), self.header_ospfv2.parameter_validation(
             conf.VERSION_IPV6, conf.PACKET_TYPE_HELLO, self.router_id, self.area_id, self.auth_type,
             self.authentication, self.instance_id))
 
         #  Correct packet type
-        self.assertTrue(self.header_ospfv2.parameter_validation(
+        self.assertEqual((True, ''), self.header_ospfv2.parameter_validation(
             conf.VERSION_IPV4, conf.PACKET_TYPE_HELLO, self.router_id, self.area_id, self.auth_type,
             self.authentication, self.instance_id))
-        self.assertTrue(self.header_ospfv2.parameter_validation(
+        self.assertEqual((True, ''), self.header_ospfv2.parameter_validation(
             conf.VERSION_IPV4, conf.PACKET_TYPE_DB_DESCRIPTION, self.router_id, self.area_id, self.auth_type,
             self.authentication, self.instance_id))
-        self.assertTrue(self.header_ospfv2.parameter_validation(
+        self.assertEqual((True, ''), self.header_ospfv2.parameter_validation(
             conf.VERSION_IPV4, conf.PACKET_TYPE_LS_REQUEST, self.router_id, self.area_id, self.auth_type,
             self.authentication, self.instance_id))
-        self.assertTrue(self.header_ospfv2.parameter_validation(
+        self.assertEqual((True, ''), self.header_ospfv2.parameter_validation(
             conf.VERSION_IPV4, conf.PACKET_TYPE_LS_UPDATE, self.router_id, self.area_id, self.auth_type,
             self.authentication, self.instance_id))
-        self.assertTrue(self.header_ospfv2.parameter_validation(
+        self.assertEqual((True, ''), self.header_ospfv2.parameter_validation(
             conf.VERSION_IPV4, conf.PACKET_TYPE_LS_ACKNOWLEDGMENT, self.router_id, self.area_id, self.auth_type,
             self.authentication, self.instance_id))
 
         #  Correct router ID
-        self.assertTrue(self.header_ospfv2.parameter_validation(
+        self.assertEqual((True, ''), self.header_ospfv2.parameter_validation(
             conf.VERSION_IPV4, self.packet_type, '0.0.0.0', self.area_id, self.auth_type, self.authentication,
             self.instance_id))
-        self.assertTrue(self.header_ospfv2.parameter_validation(
+        self.assertEqual((True, ''), self.header_ospfv2.parameter_validation(
             conf.VERSION_IPV4, self.packet_type, '255.255.255.255', self.area_id, self.auth_type, self.authentication,
             self.instance_id))
 
         #  Correct area ID
-        self.assertTrue(self.header_ospfv2.parameter_validation(
+        self.assertEqual((True, ''), self.header_ospfv2.parameter_validation(
             conf.VERSION_IPV4, self.packet_type, self.router_id, '0.0.0.0', self.auth_type, self.authentication,
             self.instance_id))
-        self.assertTrue(self.header_ospfv2.parameter_validation(
+        self.assertEqual((True, ''), self.header_ospfv2.parameter_validation(
             conf.VERSION_IPV4, self.packet_type, self.router_id, '255.255.255.255', self.auth_type, self.authentication,
             self.instance_id))
 
         #  Correct authentication type
-        self.assertTrue(self.header_ospfv2.parameter_validation(
+        self.assertEqual((True, ''), self.header_ospfv2.parameter_validation(
             conf.VERSION_IPV4, self.packet_type, self.router_id, self.area_id, conf.NULL_AUTHENTICATION,
             self.authentication, self.instance_id))
-        self.assertTrue(self.header_ospfv2.parameter_validation(
+        self.assertEqual((True, ''), self.header_ospfv2.parameter_validation(
             conf.VERSION_IPV4, self.packet_type, self.router_id, self.area_id, conf.SIMPLE_PASSWORD,
             self.authentication, self.instance_id))
-        self.assertTrue(self.header_ospfv2.parameter_validation(
+        self.assertEqual((True, ''), self.header_ospfv2.parameter_validation(
             conf.VERSION_IPV4, self.packet_type, self.router_id, self.area_id, conf.CRYPTOGRAPHIC_AUTHENTICATION,
             self.authentication, self.instance_id))
 
         #  Correct authentication field
-        self.assertTrue(self.header_ospfv2.parameter_validation(
+        self.assertEqual((True, ''), self.header_ospfv2.parameter_validation(
             conf.VERSION_IPV4, self.packet_type, self.router_id, self.area_id, self.auth_type, 0, self.instance_id))
-        self.assertTrue(self.header_ospfv2.parameter_validation(
+        self.assertEqual((True, ''), self.header_ospfv2.parameter_validation(
             conf.VERSION_IPV4, self.packet_type, self.router_id, self.area_id, self.auth_type, conf.MAX_VALUE_64_BITS,
             self.instance_id))
 
         #  Correct instance ID
-        self.assertTrue(self.header_ospfv2.parameter_validation(
+        self.assertEqual((True, ''), self.header_ospfv2.parameter_validation(
             conf.VERSION_IPV6, self.packet_type, self.router_id, self.area_id, self.auth_type, self.authentication, 0))
-        self.assertTrue(self.header_ospfv2.parameter_validation(
+        self.assertEqual((True, ''), self.header_ospfv2.parameter_validation(
             conf.VERSION_IPV6, self.packet_type, self.router_id, self.area_id, self.auth_type, self.authentication,
             conf.MAX_VALUE_8_BITS))
 
     #  Successful run - Instant
     def test_parameter_validation_invalid_parameters(self):
         #  Invalid OSPF version
-        self.assertEqual(self.header_ospfv2.parameter_validation(
+        self.assertEqual((False, "Invalid OSPF version"), self.header_ospfv2.parameter_validation(
             1, conf.PACKET_TYPE_HELLO - 1, self.router_id, self.area_id, self.auth_type, self.authentication,
-            self.instance_id), (False, "Invalid OSPF version"))
-        self.assertEqual(self.header_ospfv2.parameter_validation(
+            self.instance_id))
+        self.assertEqual((False, "Invalid OSPF version"), self.header_ospfv2.parameter_validation(
             4, conf.PACKET_TYPE_HELLO - 1, self.router_id, self.area_id, self.auth_type, self.authentication,
-            self.instance_id), (False, "Invalid OSPF version"))
+            self.instance_id))
 
         #  Invalid packet type
-        self.assertEqual(self.header_ospfv2.parameter_validation(
+        self.assertEqual((False, "Invalid packet type"), self.header_ospfv2.parameter_validation(
             conf.VERSION_IPV4, conf.PACKET_TYPE_HELLO - 1, self.router_id, self.area_id, self.auth_type,
-            self.authentication, self.instance_id), (False, "Invalid packet type"))
-        self.assertEqual(self.header_ospfv2.parameter_validation(
+            self.authentication, self.instance_id))
+        self.assertEqual((False, "Invalid packet type"), self.header_ospfv2.parameter_validation(
             conf.VERSION_IPV4, conf.PACKET_TYPE_LS_ACKNOWLEDGMENT + 1, self.router_id, self.area_id, self.auth_type,
-            self.authentication, self.instance_id), (False, "Invalid packet type"))
-        self.assertEqual(self.header_ospfv2.parameter_validation(
+            self.authentication, self.instance_id))
+        self.assertEqual((False, "Invalid packet type"), self.header_ospfv2.parameter_validation(
             conf.VERSION_IPV4, 'Invalid parameter', self.router_id, self.area_id, self.auth_type, self.authentication,
-            self.instance_id), (False, "Invalid packet type"))
+            self.instance_id))
 
         #  Incorrect router ID
-        self.assertEqual(self.header_ospfv2.parameter_validation(
+        self.assertEqual((False, "Invalid router ID"), self.header_ospfv2.parameter_validation(
             conf.VERSION_IPV4, self.packet_type, '', self.area_id, self.auth_type, self.authentication,
-            self.instance_id), (False, "Invalid router ID"))
+            self.instance_id))
 
         #  Incorrect area ID
-        self.assertEqual(self.header_ospfv2.parameter_validation(
+        self.assertEqual((False, "Invalid area ID"), self.header_ospfv2.parameter_validation(
             conf.VERSION_IPV4, self.packet_type, self.router_id, '', self.auth_type, self.authentication,
-            self.instance_id), (False, "Invalid area ID"))
+            self.instance_id))
 
         #  Incorrect authentication type
-        self.assertEqual(self.header_ospfv2.parameter_validation(
+        self.assertEqual((False, "Invalid authentication type"), self.header_ospfv2.parameter_validation(
             conf.VERSION_IPV4, self.packet_type, self.router_id, self.area_id, conf.NULL_AUTHENTICATION - 1,
-            self.authentication, self.instance_id), (False, "Invalid authentication type"))
-        self.assertEqual(self.header_ospfv2.parameter_validation(
+            self.authentication, self.instance_id))
+        self.assertEqual((False, "Invalid authentication type"), self.header_ospfv2.parameter_validation(
             conf.VERSION_IPV4, self.packet_type, self.router_id, self.area_id, conf.CRYPTOGRAPHIC_AUTHENTICATION + 1,
-            self.authentication, self.instance_id), (False, "Invalid authentication type"))
-        self.assertEqual(self.header_ospfv2.parameter_validation(
+            self.authentication, self.instance_id))
+        self.assertEqual((False, "Invalid authentication type"), self.header_ospfv2.parameter_validation(
             conf.VERSION_IPV4, self.packet_type, self.router_id, self.area_id, 'Invalid parameter', self.authentication,
-            self.instance_id), (False, "Invalid authentication type"))
+            self.instance_id))
 
         #  Incorrect authentication field
-        self.assertEqual(self.header_ospfv2.parameter_validation(
-            conf.VERSION_IPV4, self.packet_type, self.router_id, self.area_id, self.auth_type, -1, self.instance_id),
-            (False, "Invalid authentication field"))
-        self.assertEqual(self.header_ospfv2.parameter_validation(
+        self.assertEqual((False, "Invalid authentication field"), self.header_ospfv2.parameter_validation(
+            conf.VERSION_IPV4, self.packet_type, self.router_id, self.area_id, self.auth_type, -1, self.instance_id))
+        self.assertEqual((False, "Invalid authentication field"), self.header_ospfv2.parameter_validation(
             conf.VERSION_IPV4, self.packet_type, self.router_id, self.area_id, self.auth_type,
-            conf.MAX_VALUE_64_BITS + 1, self.instance_id), (False, "Invalid authentication field"))
-        self.assertEqual(self.header_ospfv2.parameter_validation(
+            conf.MAX_VALUE_64_BITS + 1, self.instance_id))
+        self.assertEqual((False, "Invalid parameter type"), self.header_ospfv2.parameter_validation(
             conf.VERSION_IPV4, self.packet_type, self.router_id, self.area_id, self.auth_type, 'Invalid parameter',
-            self.instance_id), (False, "Invalid parameter type"))
+            self.instance_id))
 
         #  Incorrect instance ID
-        self.assertEqual(self.header_ospfv3.parameter_validation(
-            conf.VERSION_IPV6, self.packet_type, self.router_id, self.area_id, 0, 0, -1),
-            (False, "Invalid instance ID"))
-        self.assertEqual(self.header_ospfv3.parameter_validation(
-            conf.VERSION_IPV6, self.packet_type, self.router_id, self.area_id, 0, 0, conf.MAX_VALUE_8_BITS + 1),
-            (False, "Invalid instance ID"))
+        self.assertEqual((False, "Invalid instance ID"), self.header_ospfv3.parameter_validation(
+            conf.VERSION_IPV6, self.packet_type, self.router_id, self.area_id, 0, 0, -1))
+        self.assertEqual((False, "Invalid instance ID"), self.header_ospfv3.parameter_validation(
+            conf.VERSION_IPV6, self.packet_type, self.router_id, self.area_id, 0, 0, conf.MAX_VALUE_8_BITS + 1))
 
     #  Successful run - Instant
     def test_set_checksum(self):
