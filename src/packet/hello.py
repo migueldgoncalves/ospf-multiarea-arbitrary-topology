@@ -1,5 +1,6 @@
 import struct
 
+import packet.body as body
 import general.utils as utils
 import conf.conf as conf
 
@@ -16,7 +17,7 @@ OSPFV3_BASE_FORMAT_STRING = "> L L H H L L"
 EXTRA_FORMAT_STRING = " L"  # Must be added to the base format string for every neighbor, for every OSPF version
 
 
-class Hello:  # OSPFv2 and OSPFv3 - 20 bytes + 4 bytes / neighbor
+class Hello(body.Body):  # OSPFv2 and OSPFv3 - 20 bytes + 4 bytes / neighbor
 
     utils = utils.Utils()
 

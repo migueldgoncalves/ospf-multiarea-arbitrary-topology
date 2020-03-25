@@ -12,7 +12,6 @@ This class tests the OSPF Hello packet class and its operations
 #  Full successful run - Instant
 class TestHello(unittest.TestCase):
     utils = utils.Utils()
-    interface_name = conf.INTERFACE_NAMES[0]
 
     network_mask = '0.0.0.0'
     hello_interval = 0
