@@ -7,6 +7,7 @@ import conf.conf as conf
 import general.timer as timer
 import general.sock as sock
 import general.utils as utils
+import lsa.header as lsa_header
 
 '''
 This class represents the OSPF interface and contains its data and operations
@@ -138,6 +139,43 @@ class Interface:
                 else:  # OSPFv3
                     self.socket.send_ipv6(packet_bytes, conf.ALL_OSPF_ROUTERS_IPV6, self.physical_identifier)
                 self.timeout.clear()
+
+                #  FIXME: Temporary
+                interface_mtu = 1
+                options = 2
+                i_bit = False
+                m_bit = True
+                ms_bit = True
+                dd_sequence_number = 3
+                lsa_header_1 = lsa_header.Header(10, 20, 1, 30, '1.1.1.1', 40, conf.VERSION_IPV4)
+                lsa_header_1.length = 24
+                lsa_header_2 = lsa_header.Header(50, 60, 2, 70, '2.2.2.2', 80, conf.VERSION_IPV4)
+                lsa_header_2.length = 28
+                lsa_header_3 = lsa_header.Header(90, 0, 3, 100, '3.3.3.3', 110, conf.VERSION_IPV6)
+                lsa_header_4 = lsa_header.Header(120, 0, 4, 130, '4.4.4.4', 140, conf.VERSION_IPV6)
+                lsa_header_5 = lsa_header.Header(150, 0, 5, 160, '5.5.5.5', 170, conf.VERSION_IPV6)
+                db_description_packet = packet.Packet()
+                if self.ipv4_address != '':
+                    db_description_packet.create_header_v2(conf.PACKET_TYPE_DB_DESCRIPTION, conf.ROUTER_ID,
+                                                           self.area_id, conf.NULL_AUTHENTICATION, conf.DEFAULT_AUTH)
+                    db_description_packet.create_db_description_packet_body(
+                        interface_mtu, options, i_bit, m_bit, ms_bit, dd_sequence_number, (lsa_header_1, lsa_header_2),
+                        conf.VERSION_IPV4)
+                    db_description_packet_bytes = db_description_packet.pack_packet()
+                    self.socket.send_ipv4(db_description_packet_bytes, '222.222.1.1', self.physical_identifier)
+                else:
+                    source_address = utils.Utils.get_ipv6_link_local_address_from_interface_name(
+                        self.physical_identifier)
+                    destination_address = 'fe80::c001:18ff:fe34:10'
+                    db_description_packet.create_header_v3(conf.PACKET_TYPE_DB_DESCRIPTION, conf.ROUTER_ID,
+                                                           self.area_id, self.instance_id, source_address,
+                                                           destination_address)
+                    db_description_packet.create_db_description_packet_body(
+                        interface_mtu, options, i_bit, m_bit, ms_bit, dd_sequence_number, (lsa_header_3, lsa_header_4),
+                        conf.VERSION_IPV6)
+                    db_description_packet_bytes = db_description_packet.pack_packet()
+                    self.socket.send_ipv6(
+                        db_description_packet_bytes, 'fe80::c001:18ff:fe34:10', self.physical_identifier)
 
         #  Interface signalled to shutdown
         self.shutdown_interface()

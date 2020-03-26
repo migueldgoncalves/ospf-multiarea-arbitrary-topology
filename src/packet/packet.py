@@ -3,6 +3,7 @@ import struct
 import general.utils as utils
 import packet.header as header
 import packet.hello as hello
+import packet.db_description as db_description
 import conf.conf as conf
 
 '''
@@ -78,7 +79,7 @@ class Packet:
         if packet_type == conf.PACKET_TYPE_HELLO:
             packet.body = hello.Hello.unpack_packet_body(body_bytes, packet_version)
         elif packet_type == conf.PACKET_TYPE_DB_DESCRIPTION:
-            pass
+            packet.body = db_description.DBDescription.unpack_packet_body(body_bytes, packet_version)
         elif packet_type == conf.PACKET_TYPE_LS_REQUEST:
             pass
         elif packet_type == conf.PACKET_TYPE_LS_UPDATE:
@@ -112,6 +113,17 @@ class Packet:
         self.body = hello.Hello('', hello_interval, options, router_priority, router_dead_interval,
                                 designated_router, backup_designated_router, neighbors, interface_id, conf.VERSION_IPV6)
         self.set_packet_length()  # Packet length must be set after body is created and before checksum is computed
+        self.set_packet_checksum()
+
+    #  Adds an OSPF Database Description packet body to the packet with the provided arguments
+    def create_db_description_packet_body(self, interface_mtu, options, i_bit, m_bit, ms_bit, dd_sequence_number,
+                                          lsa_headers, version):
+        if self.header is None:
+            raise ValueError("Packet header is not set")
+
+        self.body = db_description.DBDescription(interface_mtu, options, i_bit, m_bit, ms_bit, dd_sequence_number,
+                                                 lsa_headers, version)
+        self.set_packet_length()
         self.set_packet_checksum()
 
     #  #  #  #  #  #  #   #
