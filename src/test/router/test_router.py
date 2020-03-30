@@ -17,8 +17,6 @@ class RouterTest(unittest.TestCase):
 
     command_pipeline_v2 = None
     command_pipeline_v3 = None
-    data_pipeline_v2 = None
-    data_pipeline_v3 = None
     shutdown_event_v2 = None
     shutdown_event_v3 = None
     thread_v2 = None
@@ -29,14 +27,12 @@ class RouterTest(unittest.TestCase):
     def setUp(self):
         self.command_pipeline_v2 = queue.Queue()
         self.command_pipeline_v3 = queue.Queue()
-        self.data_pipeline_v2 = queue.Queue()
-        self.data_pipeline_v3 = queue.Queue()
         self.shutdown_event_v2 = threading.Event()
         self.shutdown_event_v3 = threading.Event()
         self.router_v2 = router.Router(
-            conf.VERSION_IPV4, self.command_pipeline_v2, self.data_pipeline_v2, self.shutdown_event_v2)
+            conf.VERSION_IPV4, self.command_pipeline_v2, self.shutdown_event_v2)
         self.router_v3 = router.Router(
-            conf.VERSION_IPV6, self.command_pipeline_v3, self.data_pipeline_v3, self.shutdown_event_v3)
+            conf.VERSION_IPV6, self.command_pipeline_v3, self.shutdown_event_v3)
         self.thread_v2 = threading.Thread(target=self.router_v2.main_loop)
         self.thread_v3 = threading.Thread(target=self.router_v3.main_loop)
         self.thread_v2.start()
@@ -87,8 +83,6 @@ class RouterTest(unittest.TestCase):
             self.assertTrue(self.router_v3.interface_threads[interface_id].isAlive())
         self.assertTrue(self.router_v2.command_pipeline.empty())
         self.assertTrue(self.router_v3.command_pipeline.empty())
-        self.assertTrue(self.router_v2.data_pipeline.empty())
-        self.assertTrue(self.router_v3.data_pipeline.empty())
         self.assertFalse(self.router_v2.router_shutdown_event.is_set())
         self.assertFalse(self.router_v3.router_shutdown_event.is_set())
 
@@ -104,17 +98,15 @@ class RouterTest(unittest.TestCase):
     #  Successful run - 0-10 s
     def test_constructor_invalid_parameters(self):
         with self.assertRaises(ValueError):
-            router.Router(1, self.command_pipeline_v2, self.data_pipeline_v2, self.shutdown_event_v2)
+            router.Router(1, self.command_pipeline_v2, self.shutdown_event_v2)
         with self.assertRaises(ValueError):
-            router.Router(4, self.command_pipeline_v2, self.data_pipeline_v2, self.shutdown_event_v2)
+            router.Router(4, self.command_pipeline_v2, self.shutdown_event_v2)
 
     def tearDown(self):
         self.shutdown_event_v2.set()
         self.shutdown_event_v3.set()
         self.command_pipeline_v2 = None
         self.command_pipeline_v3 = None
-        self.data_pipeline_v2 = None
-        self.data_pipeline_v3 = None
         self.shutdown_event_v2 = None
         self.shutdown_event_v3 = None
         self.thread_v2.join()

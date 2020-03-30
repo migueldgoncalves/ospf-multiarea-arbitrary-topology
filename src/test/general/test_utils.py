@@ -12,6 +12,8 @@ INTERFACE_IPV4 = '222.222.1.2'  # Must be changed if IPv4 address of interface i
 INTERFACE_IPV6 = '2001:db8:cafe:1::2'  # Must be changed if IPv6 address of interface is changed for tests to pass
 NETWORK_MASK_IPV4 = '255.255.255.0'  # Must be changed if IPv4 network mask of interface is changed for tests to pass
 NETWORK_MASK_IPV6 = 'ffff:ffff:ffff:ffff::'  # Must be changed if IPv6 network mask of interface is changed
+PREFIX_IPV4 = '222.222.1.0'  # Must be changed if IPv4 network prefix of interface is changed
+PREFIX_IPV4_LENGTH = 24  # Must be changed if length of IPv4 network prefix of interface is changed
 PREFIX_IPV6 = '2001:db8:cafe:1::'  # Must be changed if IPv6 network prefix of interface is changed
 PREFIX_IPV6_LENGTH = 64  # Must be changed if length of IPv6 network prefix of interface is changed
 
@@ -159,6 +161,11 @@ class UtilsTest(unittest.TestCase):
     #  Successful run - Instant
     def test_get_ipv4_network_mask_from_interface_name(self):
         self.assertEqual(NETWORK_MASK_IPV4, self.utils.get_ipv4_network_mask_from_interface_name(INTERFACE_NAME))
+
+    #  Successful run - Instant
+    def test_get_ipv4_prefix_from_interface_name(self):
+        self.assertEqual(
+            [PREFIX_IPV4, PREFIX_IPV4_LENGTH], self.utils.get_ipv4_prefix_from_interface_name(INTERFACE_NAME))
 
     #  Successful run - Instant
     def test_get_ipv6_network_mask_from_interface_name(self):

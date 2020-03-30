@@ -8,6 +8,7 @@ This class performs the timer operations in the router
 class Timer:
 
     initial_time = 0
+    timeout = 0
 
     #  Implements a single-shot timer - Fires if timeout is reached, can be reset indefinite times
     def single_shot_timer(self, reset, timeout, shutdown, seconds):
@@ -21,6 +22,7 @@ class Timer:
             raise ValueError("Timeout must be positive and at least 1 second")
 
         self.reset_timer()
+        self.timeout = seconds
         while int(time.perf_counter()) < int(self.initial_time + seconds):
             if reset.is_set():  # Timer is signalled to restart
                 reset.clear()
@@ -41,6 +43,7 @@ class Timer:
             raise ValueError("Timeout must be positive and at least 1 second")
 
         self.reset_timer()
+        self.timeout = seconds
         time.sleep(offset)  # This sleep helps to ensure different interval timers are not synchronized
         while True:
             if int(time.perf_counter()) >= int(self.initial_time + seconds):  # Timeout is reached
@@ -48,6 +51,9 @@ class Timer:
                 self.reset_timer()
             if shutdown.is_set():  # Times is signalled to shutdown
                 break
+
+    def get_timer_time(self):
+        return int(self.initial_time + self.timeout) - int(time.perf_counter())
 
     def reset_timer(self):
         self.initial_time = int(time.perf_counter())  # Sets initial time with current system time in seconds

@@ -17,7 +17,6 @@ SHUTDOWN_EVENT = 3
 
 
 class Area:
-    #  TODO: Allow router to operate with both OSPF versions at the same time
     ospf_version = 0
 
     area_id = '0.0.0.0'  # 0.0.0.0 - Backbone area
@@ -46,7 +45,7 @@ class Area:
     #  Creates and starts an interface associated with this area
     def create_interface(self, interface_id):
         if interface_id in self.interfaces:
-            print("Interface", interface_id, "is already created")
+            print("OSPFv" + str(self.ospf_version), "interface", interface_id, "is already created")
             return
 
         pipeline = queue.Queue()
@@ -79,20 +78,20 @@ class Area:
             interface_data[PIPELINE].queue.clear()  # Clears interface thread pipeline
             interface_data[SHUTDOWN_EVENT].clear()  # Resets shutdown event of interface thread
             interface_data[INTERFACE_THREAD].start()
-            print("Interface", interface_id, "started")
+            print("OSPFv" + str(self.ospf_version), "interface", interface_id, "started")
         else:
-            print("Interface", interface_id, "is already operating")
+            print("OSPFv" + str(self.ospf_version), "interface", interface_id, "is already operating")
 
-    #  Shutdowns a specified interface
+    #  Performs shutdown of a specified interface
     def shutdown_interface(self, interface_id):
         interface_data = self.interfaces[interface_id]
         if self.is_interface_operating(interface_id):  # If operating
             interface_data[SHUTDOWN_EVENT].set()  # Signals interface thread to shutdown
             interface_data[INTERFACE_THREAD].join()
             interface_data[PIPELINE].queue.clear()
-            print("Interface", interface_id, "successfully shutdown")
+            print("OSPFv" + str(self.ospf_version), "interface", interface_id, "successfully shutdown")
         else:
-            print("Interface", interface_id, "is already down")
+            print("OSPFv" + str(self.ospf_version), "interface", interface_id, "is already down")
 
     #  Shutdown event is set when interface should stop operating
     def is_interface_operating(self, interface_id):

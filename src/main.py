@@ -1,23 +1,93 @@
+import cmd
 import queue
 import threading
 
 import router.router as router
 import conf.conf as conf
-import command.command_line as command_line
 
-command_pipeline_v2 = queue.Queue()
-command_pipeline_v3 = queue.Queue()
-data_pipeline_v2 = queue.Queue()
-data_pipeline_v3 = queue.Queue()
-shutdown_event_v2 = threading.Event()
-shutdown_event_v3 = threading.Event()
+'''
+Router program startup script and class. Run the script to launch the program
+'''
 
-router_v2 = router.Router(conf.VERSION_IPV4, command_pipeline_v2, data_pipeline_v2, shutdown_event_v2)
-router_v3 = router.Router(conf.VERSION_IPV6, command_pipeline_v3, data_pipeline_v3, shutdown_event_v3)
 
-thread_v2 = threading.Thread(target=router_v2.main_loop)
-thread_v3 = threading.Thread(target=router_v3.main_loop)
-thread_v2.start()
-thread_v3.start()
+class Main(cmd.Cmd):
+    #  Cmd class parameters
+    intro = 'OSPF router program. Type "help" or "?" to display help'
+    prompt = '(router) '
+    file = None
 
-command_line.CommandLine().cmdloop()
+    #  Implementation-specific parameters
+    command_pipeline_v2 = None
+    command_pipeline_v3 = None
+    shutdown_event_v2 = None
+    shutdown_event_v3 = None
+    router_v2 = None
+    router_v3 = None
+    thread_v2 = None
+    thread_v3 = None
+
+    def do_show(self, arg):
+        'Prints general protocol information: SHOW'
+        print("OSPFv2")
+        self.router_v2.show_general_data()
+        print()
+        print("OSPFv3")
+        self.router_v3.show_general_data()
+
+    def do_show_interface(self, arg):
+        'Prints interface information: SHOW_INTERFACE'
+        print("OSPFv2")
+        self.router_v2.show_interface_data()
+        print()
+        print("OSPFv3")
+        self.router_v3.show_interface_data()
+
+    def do_show_neighbor(self, arg):
+        'Prints neighbor information: SHOW_NEIGHBOR'
+        print("OSPFv2")
+        self.router_v2.show_neighbor_data()
+        print()
+        print("OSPFv3")
+        self.router_v3.show_neighbor_data()
+
+    def do_shutdown_interface(self, arg):
+        'Performs shutdown of specified interface: SHUTDOWN_INTERFACE ens33'
+        self.router_v2.shutdown_interface(arg)
+        self.router_v3.shutdown_interface(arg)
+
+    def do_start_interface(self, arg):
+        'Starts specified interface: START_INTERFACE ens33'
+        self.router_v2.start_interface(arg)
+        self.router_v3.start_interface(arg)
+
+    def do_shutdown(self, arg):
+        'Performs the router shutdown: SHUTDOWN'
+        return True
+
+    def preloop(self):
+        print("Starting router...")
+        self.command_pipeline_v2 = queue.Queue()
+        self.command_pipeline_v3 = queue.Queue()
+        self.shutdown_event_v2 = threading.Event()
+        self.shutdown_event_v3 = threading.Event()
+
+        self.router_v2 = router.Router(conf.VERSION_IPV4, self.command_pipeline_v2, self.shutdown_event_v2)
+        self.router_v3 = router.Router(conf.VERSION_IPV6, self.command_pipeline_v3, self.shutdown_event_v3)
+
+        self.thread_v2 = threading.Thread(target=self.router_v2.main_loop)
+        self.thread_v3 = threading.Thread(target=self.router_v3.main_loop)
+        self.thread_v2.start()
+        self.thread_v3.start()
+        print("Router started")
+
+    def postloop(self):
+        print("Shutting down router...")
+        self.shutdown_event_v2.set()
+        self.shutdown_event_v3.set()
+        self.thread_v2.join()
+        self.thread_v3.join()
+        print("Router down")
+
+
+if __name__ == '__main__':
+    Main().cmdloop()
