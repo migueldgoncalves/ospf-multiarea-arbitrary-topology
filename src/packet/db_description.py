@@ -16,12 +16,10 @@ OSPFV2_BASE_FORMAT_STRING = "> H B B L"  # Determines the format of the byte obj
 OSPFV3_BASE_FORMAT_STRING = "> L H H L"
 
 
-class DBDescription(body.Body):  # OSPFv2 - 8 bytes + 20 bytes / LSA Header; OSPFv3 - 10 bytes + 20 bytes / LSA Header
+class DBDescription(body.Body):  # OSPFv2 - 8 bytes + 20 bytes / LSA Header; OSPFv3 - 12 bytes + 20 bytes / LSA Header
 
     interface_mtu = 0  # 2 bytes
-    options = 0  # 1 byte in OSPFv2, 3 bytes in OSPFv3 + 1 empty byte before
-    #  I-bit, M-bit and MS-bit are respectively the last 3 bits of a byte with all other bits set to 0
-    #  In OSPFv3 there is an empty byte before
+    options = 0  # 1 byte in OSPFv2, 3 bytes in OSPFv3
     i_bit = False  # Init bit
     m_bit = False  # More bit
     ms_bit = False  # Master/Slave bit
