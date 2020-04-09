@@ -5,7 +5,7 @@ import conf.conf as conf
 import general.utils as utils
 
 '''
-This class represents the body of an OSPF Intra-Area-Prefix-LSA and contains its operations
+This class represents the body of an OSPF Link-LSA and contains its operations
 '''
 
 #  > - Big-endian
@@ -13,44 +13,42 @@ This class represents the body of an OSPF Intra-Area-Prefix-LSA and contains its
 #  H - Unsigned short (2 bytes) - struct.pack("> H", 1) -> b'\x00\x01
 #  L - Unsigned long (4 bytes) - struct.pack("> L", 1) -> b'\x00\x00\x00\x01
 #  Q - Unsigned long long (8 bytes) - struct.pack("> Q", 1) -> b'\x00\x00\x00\x00\x00\x00\x00\x01
-BASE_FORMAT_STRING = "> H H L L"  # Determines the format of the byte object to be created
+BASE_FORMAT_STRING = "> L Q Q L"  # Determines the format of the byte object to be created
 PREFIX_BASE_FORMAT_STRING = "> B B H"
 
 
-class IntraAreaPrefix(body.Body):  # 12 bytes + 4-20 bytes / prefix
+class Link(body.Body):  # 24 bytes + 4-20 bytes / prefix
 
-    prefix_number = 0  # 2 bytes
-    referenced_ls_type = 0  # 2 bytes
-    referenced_link_state_id = '0.0.0.0'  # 4 bytes
-    referenced_advertising_router = '0.0.0.0'  # 4 bytes
+    router_priority = 0  # 1 byte
+    options = 0  # 3 bytes
+    link_local_address = '::'  # 16 bytes
+    prefix_number = 0  # 4 bytes
     prefixes = []  # 4-20 bytes / prefix
 
-    def __init__(self, referenced_ls_type, referenced_link_state_id, referenced_advertising_router):
+    def __init__(self, router_priority, options, link_local_address):
+        self.router_priority = router_priority
+        self.options = options
+        self.link_local_address = link_local_address
         self.prefix_number = 0
-        self.referenced_ls_type = referenced_ls_type
-        self.referenced_link_state_id = referenced_link_state_id
-        self.referenced_advertising_router = referenced_advertising_router
         self.prefixes = []
 
     #  Adds data for one prefix to the LSA body
-    def add_prefix_info(self, prefix_length, prefix_options, metric, prefix):
+    def add_prefix_info(self, prefix_length, prefix_options, prefix):
         self.prefix_number += 1
-        prefix_data = [prefix_length, prefix_options, metric, prefix]
-        self.prefixes.append(prefix_data)
+        self.prefixes.append([prefix_length, prefix_options, prefix])
 
-    #  Creates byte object suitable to be sent and recognized as the body of an OSPF Intra-Area-Prefix-LSA
+    #  Creates byte object suitable to be sent and recognized as the body of an OSPF Link-LSA
     def pack_lsa_body(self):
-        referenced_ls_type = self.referenced_ls_type + 0x2000
-        decimal_referenced_link_state_id = utils.Utils.ipv4_to_decimal(self.referenced_link_state_id)
-        decimal_referenced_advertising_router = utils.Utils.ipv4_to_decimal(self.referenced_advertising_router)
-        body_bytes = struct.pack(BASE_FORMAT_STRING, self.prefix_number, referenced_ls_type,
-                                 decimal_referenced_link_state_id, decimal_referenced_advertising_router)
+        decimal_link_local_address = utils.Utils.ipv6_to_decimal(self.link_local_address)
+        body_bytes = struct.pack(
+            BASE_FORMAT_STRING, (self.router_priority << 24) + self.options, decimal_link_local_address >> 64,
+            decimal_link_local_address & conf.MAX_VALUE_64_BITS, self.prefix_number)
+
         for p in self.prefixes:
             prefix_length = p[0]
             prefix_options = p[1]
-            metric = p[2]
-            decimal_prefix = utils.Utils.ipv6_to_decimal(p[3])
-            prefix_data = struct.pack(PREFIX_BASE_FORMAT_STRING, prefix_length, prefix_options, metric)
+            decimal_prefix = utils.Utils.ipv6_to_decimal(p[2])
+            prefix_data = struct.pack(PREFIX_BASE_FORMAT_STRING, prefix_length, prefix_options, 0)
             body_bytes += prefix_data
 
             #  Packing data with variable length
@@ -69,22 +67,21 @@ class IntraAreaPrefix(body.Body):  # 12 bytes + 4-20 bytes / prefix
             body_bytes += prefix_bytes
         return body_bytes
 
-    #  Converts byte stream to body of an OSPF Intra-Area-Prefix-LSA
+    #  Converts byte stream to body of an OSPF Link-LSA
     @staticmethod
     def unpack_lsa_body(body_bytes, version):
-        first_fields = struct.unpack(BASE_FORMAT_STRING, body_bytes[:12])
-        prefix_number = first_fields[0]
-        referenced_ls_type = first_fields[1] - 0x2000
-        referenced_link_state_id = utils.Utils.decimal_to_ipv4(first_fields[2])
-        referenced_advertising_router = utils.Utils.decimal_to_ipv4(first_fields[3])
-        unpacked_body = IntraAreaPrefix(referenced_ls_type, referenced_link_state_id, referenced_advertising_router)
-        body_bytes = body_bytes[12:]
+        first_fields = struct.unpack(BASE_FORMAT_STRING, body_bytes[:24])
+        router_priority = first_fields[0] >> 24
+        options = first_fields[0] & conf.MAX_VALUE_24_BITS
+        link_local_address = utils.Utils.decimal_to_ipv6((first_fields[1] << 64) + first_fields[2])
+        prefix_number = first_fields[3]
+        unpacked_body = Link(router_priority, options, link_local_address)
+        body_bytes = body_bytes[24:]
 
         for i in range(prefix_number):
             prefix_fields = struct.unpack(PREFIX_BASE_FORMAT_STRING, body_bytes[:4])
             prefix_length = prefix_fields[0]
             prefix_options = prefix_fields[1]
-            metric = prefix_fields[2]
 
             #  Unpacking data with variable length
             if prefix_length == 0:
@@ -112,6 +109,6 @@ class IntraAreaPrefix(body.Body):  # 12 bytes + 4-20 bytes / prefix
                 body_bytes = body_bytes[20:]
             prefix = utils.Utils.decimal_to_ipv6(prefix)
 
-            unpacked_body.add_prefix_info(prefix_length, prefix_options, metric, prefix)
+            unpacked_body.add_prefix_info(prefix_length, prefix_options, prefix)
 
         return unpacked_body

@@ -143,6 +143,15 @@ class UtilsTest(unittest.TestCase):
             source_address, destination_address))
 
     #  Successful run - Instant
+    def test_create_fletcher_checksum_successful(self):
+        byte_stream = b' \x01\x00\x00\x00\x00\x08\x08\x08\x08\x80\x00\x00\x01\x00\x00\x00(\x00\x00\x003\x02\x00\x00\n' \
+                      b'\x00\x00\x00\x04\x00\x00\x00\x04\x07\x07\x07\x07'
+        self.assertEqual(20832, utils.Utils.create_fletcher_checksum(byte_stream))
+        byte_stream = b' \x01\x00\x00\x00\x00\x08\x08\x08\x08\x80\x00\x00\x04\x00\x00\x00(\x00\x00\x003\x02\x00\x00\n' \
+                      b'\x00\x00\x00\x04\x00\x00\x00\x04\x07\x07\x07\x07'
+        self.assertEqual(19299, utils.Utils.create_fletcher_checksum(byte_stream))
+
+    #  Successful run - Instant
     def test_get_ipv4_address_from_interface_name(self):
         self.assertEqual(INTERFACE_IPV4, self.utils.get_ipv4_address_from_interface_name(INTERFACE_NAME))
 

@@ -78,6 +78,19 @@ class Utils:
             + next_header
         return Utils.create_checksum_ospfv2(pseudo_header + message)  # Bitwise operations are the same as in OSPFv2
 
+    #  Calculates the LSA Fletcher's checksum
+    #  It is assumed that the LSA Age (first 2 bytes) is removed, and the checksum field is clear
+    @staticmethod
+    def create_fletcher_checksum(message):
+        c0 = 0
+        c1 = 0
+        for i in range(len(message)):
+            c0 = (message[i] + c0) % conf.MAX_VALUE_8_BITS
+            c1 = (c0 + c1) % conf.MAX_VALUE_8_BITS
+        x = (-c1 + (len(message) - 15) * c0) % conf.MAX_VALUE_8_BITS  # Checksum starts at 16th byte of LSA
+        y = (c1 - (len(message) - 15 + 1) * c0) % conf.MAX_VALUE_8_BITS
+        return (x << conf.BYTE_SIZE) + y
+
     #  Returns the IPv4 address of an interface given its name (ex: ens33)
     @staticmethod
     def get_ipv4_address_from_interface_name(interface_name):
