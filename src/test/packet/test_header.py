@@ -325,22 +325,22 @@ class TestHeader(unittest.TestCase):
 
     #  Successful run - Instant
     def test_set_length(self):
-        self.header_ospfv2.set_length(conf.OSPFV2_HEADER_LENGTH)
-        self.header_ospfv3.set_length(conf.OSPFV3_HEADER_LENGTH)
-        self.assertEqual(conf.OSPFV2_HEADER_LENGTH, self.header_ospfv2.length)
-        self.assertEqual(conf.OSPFV3_HEADER_LENGTH, self.header_ospfv3.length)
+        self.header_ospfv2.set_length(conf.OSPFV2_PACKET_HEADER_LENGTH)
+        self.header_ospfv3.set_length(conf.OSPFV3_PACKET_HEADER_LENGTH)
+        self.assertEqual(conf.OSPFV2_PACKET_HEADER_LENGTH, self.header_ospfv2.length)
+        self.assertEqual(conf.OSPFV3_PACKET_HEADER_LENGTH, self.header_ospfv3.length)
 
         with self.assertRaises(ValueError):
-            self.header_ospfv2.set_length(conf.OSPFV2_HEADER_LENGTH - 1)
+            self.header_ospfv2.set_length(conf.OSPFV2_PACKET_HEADER_LENGTH - 1)
         with self.assertRaises(ValueError):
-            self.header_ospfv3.set_length(conf.OSPFV3_HEADER_LENGTH - 1)
+            self.header_ospfv3.set_length(conf.OSPFV3_PACKET_HEADER_LENGTH - 1)
         with self.assertRaises(ValueError):
             self.header_ospfv2.set_length(conf.MAX_VALUE_16_BITS + 1)
         with self.assertRaises(ValueError):
             self.header_ospfv3.set_length(conf.MAX_VALUE_16_BITS + 1)
 
-        self.assertEqual(conf.OSPFV2_HEADER_LENGTH, self.header_ospfv2.length)
-        self.assertEqual(conf.OSPFV3_HEADER_LENGTH, self.header_ospfv3.length)
+        self.assertEqual(conf.OSPFV2_PACKET_HEADER_LENGTH, self.header_ospfv2.length)
+        self.assertEqual(conf.OSPFV3_PACKET_HEADER_LENGTH, self.header_ospfv3.length)
 
     #  Successful run - Instant
     def test_format_string(self):

@@ -123,11 +123,11 @@ class Header:  # OSPFv2 - 24 bytes; OSPFv3 - 16 bytes
         self.checksum = checksum
 
     def set_length(self, length):
-        if (length < conf.OSPFV2_HEADER_LENGTH) & (self.version == conf.VERSION_IPV4):
-            error = "Packet length must be at least " + str(conf.OSPFV2_HEADER_LENGTH) + " bytes, was " + str(length)
+        if (length < conf.OSPFV2_PACKET_HEADER_LENGTH) & (self.version == conf.VERSION_IPV4):
+            error = "Packet length must be at least " + str(conf.OSPFV2_PACKET_HEADER_LENGTH) + " bytes, was " + str(length)
             raise ValueError(error)
-        elif (length < conf.OSPFV3_HEADER_LENGTH) & (self.version == conf.VERSION_IPV6):
-            error = "Packet length must be at least " + str(conf.OSPFV3_HEADER_LENGTH) + " bytes, was " + str(length)
+        elif (length < conf.OSPFV3_PACKET_HEADER_LENGTH) & (self.version == conf.VERSION_IPV6):
+            error = "Packet length must be at least " + str(conf.OSPFV3_PACKET_HEADER_LENGTH) + " bytes, was " + str(length)
             raise ValueError(error)
         elif length > conf.MAX_VALUE_16_BITS:
             error = "Packet length must be no larger than " + str(conf.MAX_VALUE_16_BITS) + " bytes, was" + str(length)

@@ -60,19 +60,19 @@ class Packet:
         packet_type = Packet.get_ospf_packet_type(packet_bytes)
 
         #  An OSPF packet just with a header, or with less bytes, can immediately be discarded
-        if (len(packet_bytes) <= conf.OSPFV2_HEADER_LENGTH) & (packet_version == conf.VERSION_IPV4):
+        if (len(packet_bytes) <= conf.OSPFV2_PACKET_HEADER_LENGTH) & (packet_version == conf.VERSION_IPV4):
             raise ValueError("OSPFv2 packet byte stream is too short")
-        if (len(packet_bytes) <= conf.OSPFV3_HEADER_LENGTH) & (packet_version == conf.VERSION_IPV6):
+        if (len(packet_bytes) <= conf.OSPFV3_PACKET_HEADER_LENGTH) & (packet_version == conf.VERSION_IPV6):
             raise ValueError("OSPFv3 packet byte stream is too short")
 
         #  If no exception is thrown, both packet version and type are valid
         packet = Packet()
         if packet_version == conf.VERSION_IPV4:
-            header_bytes = packet_bytes[:conf.OSPFV2_HEADER_LENGTH]
-            body_bytes = packet_bytes[conf.OSPFV2_HEADER_LENGTH:]
+            header_bytes = packet_bytes[:conf.OSPFV2_PACKET_HEADER_LENGTH]
+            body_bytes = packet_bytes[conf.OSPFV2_PACKET_HEADER_LENGTH:]
         else:
-            header_bytes = packet_bytes[:conf.OSPFV3_HEADER_LENGTH]
-            body_bytes = packet_bytes[conf.OSPFV3_HEADER_LENGTH:]
+            header_bytes = packet_bytes[:conf.OSPFV3_PACKET_HEADER_LENGTH]
+            body_bytes = packet_bytes[conf.OSPFV3_PACKET_HEADER_LENGTH:]
 
         #  Creates the header and the body of the packet from their byte streams
         packet.header = header.Header.unpack_header(header_bytes, packet_version)
