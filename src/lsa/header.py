@@ -22,7 +22,7 @@ class Header:  # OSPFv2 and OSPFv3 - 20 bytes
     ls_age = 0  # 2 bytes
     options = 0  # 1 byte - Only for OSPFv2
     ls_type = 0  # 1 byte in OSPFv2, 2 bytes in OSPFv3
-    link_state_id = 0  # 4 bytes
+    link_state_id = '0.0.0.0'  # 4 bytes
     advertising_router = '0.0.0.0'  # 4 bytes
     ls_sequence_number = 0  # 4 bytes
     ls_checksum = 0  # 2 bytes
@@ -47,12 +47,13 @@ class Header:  # OSPFv2 and OSPFv3 - 20 bytes
 
     #  Converts set of parameters to a byte object suitable to be sent and recognized as the header of an OSPF LSA
     def pack_header(self):
+        decimal_link_state_id = self.utils.ipv4_to_decimal(self.link_state_id)
         decimal_advertising_router = self.utils.ipv4_to_decimal(self.advertising_router)
         if self.ospf_version == conf.VERSION_IPV4:
-            return struct.pack(OSPFV2_FORMAT_STRING, self.ls_age, self.options, self.ls_type, self.link_state_id,
+            return struct.pack(OSPFV2_FORMAT_STRING, self.ls_age, self.options, self.ls_type, decimal_link_state_id,
                                decimal_advertising_router, self.ls_sequence_number, self.ls_checksum, self.length)
         else:
-            return struct.pack(OSPFV3_FORMAT_STRING, self.ls_age, self.ls_type, self.link_state_id,
+            return struct.pack(OSPFV3_FORMAT_STRING, self.ls_age, self.ls_type, decimal_link_state_id,
                                decimal_advertising_router, self.ls_sequence_number, self.ls_checksum, self.length)
 
     #  Converts byte object to an OSPF LSA header
@@ -65,7 +66,7 @@ class Header:  # OSPFv2 and OSPFv3 - 20 bytes
         if version == conf.VERSION_IPV4:
             options = header_tuple[1]
             ls_type = header_tuple[2]
-            link_state_id = header_tuple[3]
+            link_state_id = utils.Utils.decimal_to_ipv4(header_tuple[3])
             advertising_router = utils.Utils.decimal_to_ipv4(header_tuple[4])
             ls_sequence_number = header_tuple[5]
             ls_checksum = header_tuple[6]
@@ -73,7 +74,7 @@ class Header:  # OSPFv2 and OSPFv3 - 20 bytes
             header = Header(ls_age, options, ls_type, link_state_id, advertising_router, ls_sequence_number, version)
         else:
             ls_type = header_tuple[1]
-            link_state_id = header_tuple[2]
+            link_state_id = utils.Utils.decimal_to_ipv4(header_tuple[2])
             advertising_router = utils.Utils.decimal_to_ipv4(header_tuple[3])
             ls_sequence_number = header_tuple[4]
             ls_checksum = header_tuple[5]
@@ -101,7 +102,7 @@ class Header:  # OSPFv2 and OSPFv3 - 20 bytes
             if (version == conf.VERSION_IPV6) & (
                     s1_s2_bits not in [conf.LINK_LOCAL_SCOPING, conf.AREA_SCOPING, conf.AS_SCOPING]):
                 return False, "Invalid values for S1 and S2 bits"
-            if (link_state_id <= 0) | (link_state_id > conf.MAX_VALUE_32_BITS):
+            if not self.utils.is_ipv4_address(link_state_id):
                 return False, "Invalid Link State ID"
             if (not self.utils.is_ipv4_address(advertising_router)) | (advertising_router == '0.0.0.0'):
                 return False, "Invalid Advertising Router"

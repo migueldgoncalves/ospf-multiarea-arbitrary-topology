@@ -4,6 +4,9 @@ import general.utils as utils
 import packet.header as header
 import packet.hello as hello
 import packet.db_description as db_description
+import packet.ls_request as ls_request
+import packet.ls_update as ls_update
+import packet.ls_acknowledge as ls_acknowledgement
 import conf.conf as conf
 
 '''
@@ -81,11 +84,11 @@ class Packet:
         elif packet_type == conf.PACKET_TYPE_DB_DESCRIPTION:
             packet.body = db_description.DBDescription.unpack_packet_body(body_bytes, packet_version)
         elif packet_type == conf.PACKET_TYPE_LS_REQUEST:
-            pass
+            packet.body = ls_request.LSRequest.unpack_packet_body(body_bytes, packet_version)
         elif packet_type == conf.PACKET_TYPE_LS_UPDATE:
-            pass
+            packet.body = ls_update.LSUpdate.unpack_packet_body(body_bytes, packet_version)
         else:
-            pass
+            packet.body = ls_acknowledgement.LSAcknowledgement.unpack_packet_body(body_bytes, packet_version)
 
         return packet
 
@@ -123,6 +126,66 @@ class Packet:
 
         self.body = db_description.DBDescription(interface_mtu, options, i_bit, m_bit, ms_bit, dd_sequence_number,
                                                  lsa_headers, version)
+        self.set_packet_length()
+        self.set_packet_checksum()
+
+    #  Adds an OSPF Link State Request packet body to the packet with the provided arguments
+    def create_ls_request_packet_body(self, version):
+        if self.header is None:
+            raise ValueError("Packet header is not set")
+
+        self.body = ls_request.LSRequest(version)
+        self.set_packet_length()
+        self.set_packet_checksum()
+
+    #  Adds data for one LSA identifier to the Link State Request packet
+    def add_lsa_info(self, ls_type, link_state_id, advertising_router):
+        if self.header is None:
+            raise ValueError("Packet header is not set")
+        if self.body is None:
+            raise ValueError("Packet body is not set")
+
+        self.body.add_lsa_info(ls_type, link_state_id, advertising_router)
+        self.set_packet_length()
+        self.set_packet_checksum()
+
+    #  Adds an OSPF Link State Update packet body to the packet with the provided arguments
+    def create_ls_update_packet_body(self, version):
+        if self.header is None:
+            raise ValueError("Packet header is not set")
+
+        self.body = ls_update.LSUpdate(version)
+        self.set_packet_length()
+        self.set_packet_checksum()
+
+    #  Adds one full LSA to the Link State Update packet
+    def add_lsa(self, new_lsa):
+        if self.header is None:
+            raise ValueError("Packet header is not set")
+        if self.body is None:
+            raise ValueError("Packet body is not set")
+
+        self.body.add_lsa(new_lsa)
+        self.set_packet_length()
+        self.set_packet_checksum()
+
+    #  Adds an OSPF Link State Acknowledgement packet body to the packet with the provided arguments
+    def create_ls_acknowledgement_packet_body(self, version):
+        if self.header is None:
+            raise ValueError("Packet header is not set")
+
+        self.body = ls_acknowledgement.LSAcknowledgement(version)
+        self.set_packet_length()
+        self.set_packet_checksum()
+
+    #  Adds one LSA header to the Link State Acknowledgement packet
+    def add_lsa_header(self, lsa_header):
+        if self.header is None:
+            raise ValueError("Packet header is not set")
+        if self.body is None:
+            raise ValueError("Packet body is not set")
+
+        self.body.add_lsa_header(lsa_header)
         self.set_packet_length()
         self.set_packet_checksum()
 

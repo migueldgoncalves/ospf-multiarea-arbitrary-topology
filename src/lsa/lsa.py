@@ -55,10 +55,16 @@ class Lsa:
         lsa.header = header.Header.unpack_header(header_bytes, lsa_version)
         if lsa_type == conf.LSA_TYPE_ROUTER:
             lsa.body = router.Router.unpack_lsa_body(body_bytes, lsa_version)
+            if lsa_version == conf.VERSION_IPV6:
+                lsa.header.ls_type -= 0x2000  # Removes flooding scope from LS Type field
         elif lsa_type == conf.LSA_TYPE_NETWORK:
             lsa.body = network.Network.unpack_lsa_body(body_bytes, lsa_version)
+            if lsa_version == conf.VERSION_IPV6:
+                lsa.header.ls_type -= 0x2000
         elif (lsa_type == conf.LSA_TYPE_INTRA_AREA_PREFIX) & (lsa_version == conf.VERSION_IPV6):
             lsa.body = intra_area_prefix.IntraAreaPrefix.unpack_lsa_body(body_bytes, 0)
+            if lsa_version == conf.VERSION_IPV6:
+                lsa.header.ls_type -= 0x2000
         elif (lsa_type == conf.LSA_TYPE_LINK) & (lsa_version == conf.VERSION_IPV6):
             lsa.body = link.Link.unpack_lsa_body(body_bytes, 0)
         else:
@@ -69,12 +75,28 @@ class Lsa:
     #  Adds an OSPF Router-LSA body to the LSA with the provided arguments
     def create_router_lsa_body(self, bit_v, bit_e, bit_b, options, version):
         self.body = router.Router(bit_v, bit_e, bit_b, options, version)
+        if version == conf.VERSION_IPV6:
+            self.header.ls_type += 0x2000  # Sets flooding scope to area scope
         self.set_lsa_length()  # LSA length must be set after body is created and before checksum is computed
+        self.set_lsa_checksum()
+
+    #  Adds data for one link (interface) to the OSPFv2 Router-LSA body
+    def add_link_info_v2(self, link_id, link_data, link_type, tos_number, metric):
+        self.body.add_link_info_v2(link_id, link_data, link_type, tos_number, metric)
+        self.set_lsa_length()
+        self.set_lsa_checksum()
+
+    #  Adds data for one link (interface) to the OSPFv3 Router-LSA body
+    def add_link_info_v3(self, link_type, metric, interface_id, neighbor_interface_id, neighbor_router_id):
+        self.body.add_link_info_v3(link_type, metric, interface_id, neighbor_interface_id, neighbor_router_id)
+        self.set_lsa_length()
         self.set_lsa_checksum()
 
     #  Adds an OSPF Network-LSA body to the LSA with the provided arguments
     def create_network_lsa_body(self, network_mask, options, attached_routers, version):
         self.body = network.Network(network_mask, options, attached_routers, version)
+        if version == conf.VERSION_IPV6:
+            self.header.ls_type += 0x2000
         self.set_lsa_length()
         self.set_lsa_checksum()
 
@@ -83,12 +105,23 @@ class Lsa:
             self, referenced_ls_type, referenced_link_state_id, referenced_advertising_router):
         self.body = intra_area_prefix.IntraAreaPrefix(
             referenced_ls_type, referenced_link_state_id, referenced_advertising_router)
+        self.header.ls_type += 0x2000
         self.set_lsa_length()
         self.set_lsa_checksum()
 
     #  Adds an OSPF Link-LSA body to the LSA with the provided arguments
     def create_link_lsa_body(self, router_priority, options, link_local_address):
         self.body = link.Link(router_priority, options, link_local_address)
+        #  Link-LSAs have link local scope - LS Type field remains unchanged
+        self.set_lsa_length()
+        self.set_lsa_checksum()
+
+    #  Adds data for one prefix to the Intra-Area-Prefix-LSA and Link-LSA bodies
+    def add_prefix_info(self, prefix_length, prefix_options, metric, prefix, lsa_type):
+        if lsa_type == conf.LSA_TYPE_INTRA_AREA_PREFIX:
+            self.body.add_prefix_info(prefix_length, prefix_options, metric, prefix)
+        else:  # Link-LSA
+            self.body.add_prefix_info(prefix_length, prefix_options, prefix)
         self.set_lsa_length()
         self.set_lsa_checksum()
 
@@ -104,7 +137,7 @@ class Lsa:
             #  Calculates and sets LSA checksum
             header_bytes = self.header.pack_header()[2:]  # Without the LS Age field
             body_bytes = self.body.pack_lsa_body()
-            self.header.ls_checksum = utils.Utils.create_checksum_ospfv2(header_bytes + body_bytes)
+            self.header.ls_checksum = utils.Utils.create_fletcher_checksum(header_bytes + body_bytes)
 
     #  Calculates LSA length and inserts it on given LSA header
     def set_lsa_length(self):
@@ -116,6 +149,13 @@ class Lsa:
     #  Given a LSA byte stream, returns its OSPF LSA type
     @staticmethod
     def get_ospf_lsa_type(lsa_bytes):
-        lsa_type_byte = lsa_bytes[2:3]  # Third byte of OSPF LSA is always its type
+        lsa_type_byte = lsa_bytes[3:4]  # Forth byte of OSPF LSA is always its type
         lsa_type = struct.unpack("> B", lsa_type_byte)[0]
         return lsa_type
+
+    # Given a bite stream with LSAs, returns the length of the first LSA
+    @staticmethod
+    def get_ospf_lsa_length(lsa_bytes):
+        lsa_length_byte = lsa_bytes[18:20]  # 19th and 20th bytes of OSPF LSA are always its length
+        lsa_length = struct.unpack("> H", lsa_length_byte)[0]
+        return lsa_length

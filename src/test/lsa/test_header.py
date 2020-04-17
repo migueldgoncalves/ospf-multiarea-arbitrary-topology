@@ -13,7 +13,7 @@ class TestHeader(unittest.TestCase):
     ls_age = 0
     options = 0
     ls_type = 0
-    link_state_id = 0
+    link_state_id = '0.0.0.0'
     advertising_router = '0.0.0.0'
     ls_sequence_number = 0
 
@@ -24,7 +24,7 @@ class TestHeader(unittest.TestCase):
         self.ls_age = 1
         self.options = 2
         self.ls_type = conf.LSA_TYPE_ROUTER
-        self.link_state_id = 3
+        self.link_state_id = '3.3.3.3'
         self.advertising_router = '1.1.1.1'
         self.ls_sequence_number = 4
         self.header_ospfv2 = header.Header(self.ls_age, self.options, self.ls_type, self.link_state_id,
@@ -79,44 +79,46 @@ class TestHeader(unittest.TestCase):
 
     #  Successful run - Instant
     def test_pack_header(self):
-        header_bytes = b'\x00\x01\x02\x01\x00\x00\x00\x03\x01\x01\x01\x01\x00\x00\x00\x04\x00\x00\x00\x00'
-        self.assertEqual(header_bytes, self.header_ospfv2.pack_header())
-        self.header_ospfv2.ls_checksum = 10
-        self.header_ospfv2.length = 20
-        header_bytes = b'\x00\x01\x02\x01\x00\x00\x00\x03\x01\x01\x01\x01\x00\x00\x00\x04\x00\n\x00\x14'
-        self.assertEqual(header_bytes, self.header_ospfv2.pack_header())
+        header_bytes = b'\x00\x01"\x01\x01\x01\x01\x01\x01\x01\x01\x01\x80\x00\x00\x06\x00\x00\x00\x00'
+        header_ospfv2 = header.Header(1, 34, 1, '1.1.1.1', '1.1.1.1', 2147483654, conf.VERSION_IPV4)
+        self.assertEqual(header_bytes, header_ospfv2.pack_header())
+        header_ospfv2.ls_checksum = 2992
+        header_ospfv2.length = 84
+        header_bytes = b'\x00\x01"\x01\x01\x01\x01\x01\x01\x01\x01\x01\x80\x00\x00\x06\x0b\xb0\x00T'
+        self.assertEqual(header_bytes, header_ospfv2.pack_header())
 
-        header_bytes = b'\x00\x01\x00\x01\x00\x00\x00\x03\x01\x01\x01\x01\x00\x00\x00\x04\x00\x00\x00\x00'
-        self.assertEqual(header_bytes, self.header_ospfv3.pack_header())
-        self.header_ospfv3.ls_checksum = 30
-        self.header_ospfv3.length = 40
-        header_bytes = b'\x00\x01\x00\x01\x00\x00\x00\x03\x01\x01\x01\x01\x00\x00\x00\x04\x00\x1e\x00('
-        self.assertEqual(header_bytes, self.header_ospfv3.pack_header())
+        header_bytes = b'\x00&\x00\x08\x00\x00\x00\x04\x01\x01\x01\x01\x80\x00\x00\x02\x00\x00\x00\x00'
+        header_ospfv3 = header.Header(38, 0, 8, '0.0.0.4', '1.1.1.1', 2147483650, conf.VERSION_IPV6)
+        self.assertEqual(header_bytes, header_ospfv3.pack_header())
+        header_ospfv3.ls_checksum = 33022
+        header_ospfv3.length = 56
+        header_bytes = b'\x00&\x00\x08\x00\x00\x00\x04\x01\x01\x01\x01\x80\x00\x00\x02\x80\xfe\x008'
+        self.assertEqual(header_bytes, header_ospfv3.pack_header())
 
     #  Successful run - Instant
     def test_unpack_header(self):
-        header_bytes = b'\x00\x01\x02\x01\x00\x00\x00\x03\x01\x01\x01\x01\x00\x00\x00\x04\x00\n\x00\x14'
+        header_bytes = b'\x00\x01"\x01\x01\x01\x01\x01\x01\x01\x01\x01\x80\x00\x00\x06\x0b\xb0\x00T'
         unpacked_header = header.Header.unpack_header(header_bytes, conf.VERSION_IPV4)
         self.assertEqual(conf.VERSION_IPV4, unpacked_header.ospf_version)
-        self.assertEqual(self.ls_age, unpacked_header.ls_age)
-        self.assertEqual(self.options, unpacked_header.options)
-        self.assertEqual(self.ls_type, unpacked_header.ls_type)
-        self.assertEqual(self.link_state_id, unpacked_header.link_state_id)
-        self.assertEqual(self.advertising_router, unpacked_header.advertising_router)
-        self.assertEqual(self.ls_sequence_number, unpacked_header.ls_sequence_number)
-        self.assertEqual(10, unpacked_header.ls_checksum)
-        self.assertEqual(20, unpacked_header.length)
+        self.assertEqual(1, unpacked_header.ls_age)
+        self.assertEqual(34, unpacked_header.options)
+        self.assertEqual(1, unpacked_header.ls_type)
+        self.assertEqual('1.1.1.1', unpacked_header.link_state_id)
+        self.assertEqual('1.1.1.1', unpacked_header.advertising_router)
+        self.assertEqual(2147483654, unpacked_header.ls_sequence_number)
+        self.assertEqual(2992, unpacked_header.ls_checksum)
+        self.assertEqual(84, unpacked_header.length)
 
-        header_bytes = b'\x00\x01\x00\x01\x00\x00\x00\x03\x01\x01\x01\x01\x00\x00\x00\x04\x00\x1e\x00('
+        header_bytes = b'\x00&\x00\x08\x00\x00\x00\x04\x01\x01\x01\x01\x80\x00\x00\x02\x80\xfe\x008'
         unpacked_header = header.Header.unpack_header(header_bytes, conf.VERSION_IPV6)
         self.assertEqual(conf.VERSION_IPV6, unpacked_header.ospf_version)
-        self.assertEqual(self.ls_age, unpacked_header.ls_age)
-        self.assertEqual(self.ls_type, unpacked_header.ls_type)
-        self.assertEqual(self.link_state_id, unpacked_header.link_state_id)
-        self.assertEqual(self.advertising_router, unpacked_header.advertising_router)
-        self.assertEqual(self.ls_sequence_number, unpacked_header.ls_sequence_number)
-        self.assertEqual(30, unpacked_header.ls_checksum)
-        self.assertEqual(40, unpacked_header.length)
+        self.assertEqual(38, unpacked_header.ls_age)
+        self.assertEqual(8, unpacked_header.ls_type)
+        self.assertEqual('0.0.0.4', unpacked_header.link_state_id)
+        self.assertEqual('1.1.1.1', unpacked_header.advertising_router)
+        self.assertEqual(2147483650, unpacked_header.ls_sequence_number)
+        self.assertEqual(33022, unpacked_header.ls_checksum)
+        self.assertEqual(56, unpacked_header.length)
 
     #  Successful run - Instant
     def test_parameter_validation_successful(self):
@@ -161,10 +163,10 @@ class TestHeader(unittest.TestCase):
 
         #  Correct Link State ID
         self.assertEqual((True, ''), self.header_ospfv2.parameter_validation(
-            self.ls_age, self.options, self.ls_type, 1, self.advertising_router, self.ls_sequence_number,
+            self.ls_age, self.options, self.ls_type, '0.0.0.0', self.advertising_router, self.ls_sequence_number,
             conf.VERSION_IPV4))
         self.assertEqual((True, ''), self.header_ospfv2.parameter_validation(
-            self.ls_age, self.options, self.ls_type, conf.MAX_VALUE_32_BITS, self.advertising_router,
+            self.ls_age, self.options, self.ls_type, '255.255.255.255', self.advertising_router,
             self.ls_sequence_number, conf.VERSION_IPV4))
 
         #  Correct Advertising Router
@@ -228,10 +230,13 @@ class TestHeader(unittest.TestCase):
 
         #  Invalid Link State ID
         self.assertEqual((False, "Invalid Link State ID"), (self.header_ospfv2.parameter_validation(
-            self.ls_age, self.options, self.ls_type, 0, self.advertising_router, self.ls_sequence_number,
+            self.ls_age, self.options, self.ls_type, '255.255.255.256', self.advertising_router,
+            self.ls_sequence_number, conf.VERSION_IPV4)))
+        self.assertEqual((False, "Invalid Link State ID"), (self.header_ospfv2.parameter_validation(
+            self.ls_age, self.options, self.ls_type, '', self.advertising_router, self.ls_sequence_number,
             conf.VERSION_IPV4)))
         self.assertEqual((False, "Invalid Link State ID"), (self.header_ospfv2.parameter_validation(
-            self.ls_age, self.options, self.ls_type, conf.MAX_VALUE_32_BITS + 1, self.advertising_router,
+            self.ls_age, self.options, self.ls_type, 'Invalid address', self.advertising_router,
             self.ls_sequence_number, conf.VERSION_IPV4)))
 
         #  Invalid Advertising Router
@@ -296,7 +301,7 @@ class TestHeader(unittest.TestCase):
         self.ls_age = 0
         self.options = 0
         self.ls_type = 0
-        self.link_state_id = 0
+        self.link_state_id = '0.0.0.0'
         self.advertising_router = '0.0.0.0'
         self.ls_sequence_number = 0
         self.header_ospfv2 = None
