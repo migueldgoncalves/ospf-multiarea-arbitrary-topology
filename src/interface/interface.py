@@ -219,8 +219,8 @@ class Interface:
                     ls_request_packet.create_ls_request_packet_body(conf.VERSION_IPV6)
                     ls_request_packet.add_lsa_info(conf.LSA_TYPE_ROUTER, '0.0.0.0', '4.4.4.4')
                     ls_request_packet.add_lsa_info(conf.LSA_TYPE_NETWORK, '0.0.0.1', '4.4.4.4')
-                    ls_request_packet.add_lsa_info(conf.LSA_TYPE_NETWORK, '0.0.0.0', '4.4.4.4')
-                    ls_request_packet.add_lsa_info(conf.LSA_TYPE_NETWORK, '0.0.0.1', '4.4.4.4')
+                    ls_request_packet.add_lsa_info(conf.LSA_TYPE_INTRA_AREA_PREFIX, '0.0.0.0', '4.4.4.4')
+                    ls_request_packet.add_lsa_info(conf.LSA_TYPE_LINK, '0.0.0.1', '4.4.4.4')
                     ls_request_packet_bytes = ls_request_packet.pack_packet()
 
                     ls_update_packet.create_header_v3(conf.PACKET_TYPE_LS_UPDATE, conf.ROUTER_ID, self.area_id,

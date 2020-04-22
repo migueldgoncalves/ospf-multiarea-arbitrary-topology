@@ -6,7 +6,7 @@ import packet.hello as hello
 import packet.db_description as db_description
 import packet.ls_request as ls_request
 import packet.ls_update as ls_update
-import packet.ls_acknowledge as ls_acknowledgement
+import packet.ls_acknowledgment as ls_acknowledgement
 import conf.conf as conf
 
 '''

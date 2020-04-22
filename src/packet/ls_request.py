@@ -19,12 +19,11 @@ class LSRequest(body.Body):  # OSPFv2 and OSPFv3 - 12 bytes / LSA identifier
     version = 0
 
     def __init__(self, version):
+        self.lsa_identifiers = []
         self.version = version
 
     #  Adds data for one LSA identifier to the packet
     def add_lsa_info(self, ls_type, link_state_id, advertising_router):
-        if (self.version == conf.VERSION_IPV6) & (ls_type != conf.LSA_TYPE_LINK):
-            ls_type += 0x2000
         self.lsa_identifiers.append([ls_type, link_state_id, advertising_router])
 
     #  Creates byte object suitable to be sent and recognized as the body of an OSPF Link State Request packet
@@ -32,6 +31,8 @@ class LSRequest(body.Body):  # OSPFv2 and OSPFv3 - 12 bytes / LSA identifier
         body_bytes = b''
         for i in self.lsa_identifiers:
             ls_type = i[0]
+            if (self.version == conf.VERSION_IPV6) & (ls_type != conf.LSA_TYPE_LINK):
+                ls_type += 0x2000
             decimal_link_state_id = utils.Utils.ipv4_to_decimal(i[1])
             decimal_advertising_router = utils.Utils.ipv4_to_decimal(i[2])
             body_bytes += struct.pack(FORMAT_STRING, ls_type, decimal_link_state_id, decimal_advertising_router)

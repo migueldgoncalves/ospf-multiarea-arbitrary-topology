@@ -12,6 +12,7 @@ class LSAcknowledgement(body.Body):  # OSPFv2 and OSPFv3 - 20 bytes / LSA header
     version = 0
 
     def __init__(self, version):
+        self.lsa_headers = []
         self.version = version
 
     #  Adds one LSA header to the packet
@@ -30,6 +31,6 @@ class LSAcknowledgement(body.Body):  # OSPFv2 and OSPFv3 - 20 bytes / LSA header
     def unpack_packet_body(body_bytes, version):
         new_packet = LSAcknowledgement(version)
         for i in range(len(body_bytes) // 20):
-            new_lsa = lsa.Lsa.unpack_lsa(body_bytes[i*20:(i+1)+20], version)
+            new_lsa = lsa.Lsa.unpack_header(body_bytes[i*20:(i+1)*20], version)
             new_packet.lsa_headers.append(new_lsa)
         return new_packet

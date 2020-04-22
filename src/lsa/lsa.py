@@ -34,9 +34,28 @@ class Lsa:
         if self.body is None:
             raise ValueError("LSA body is not set")
 
+        # Sets flooding scope to area scope
+        if (self.header.ospf_version == conf.VERSION_IPV6) & (self.header.ls_type != conf.LSA_TYPE_LINK) &\
+                (self.header.ls_type < 0x2000):
+            self.header.ls_type += 0x2000
+            self.set_lsa_length()
+            self.set_lsa_checksum()
+
         header_bytes = self.header.pack_header()
         body_bytes = self.body.pack_lsa_body()
         return header_bytes + body_bytes
+
+    #  Converts an OSPF LSA header into a byte stream
+    def pack_header(self):
+        if self.header is None:
+            raise ValueError("LSA header is not set")
+        if (self.header.ospf_version == conf.VERSION_IPV6) & (self.header.ls_type != conf.LSA_TYPE_LINK) & \
+                (self.header.ls_type < 0x2000):
+            self.header.ls_type += 0x2000
+            self.set_lsa_length()
+            self.set_lsa_checksum()
+        header_bytes = self.header.pack_header()
+        return header_bytes
 
     #  Converts a byte stream into an OSPF LSA
     @staticmethod
@@ -72,11 +91,22 @@ class Lsa:
 
         return lsa
 
+    #  Converts a byte stream into an OSPF LSA header
+    @staticmethod
+    def unpack_header(lsa_bytes, lsa_version):
+        if len(lsa_bytes) < conf.LSA_HEADER_LENGTH:
+            raise ValueError("LSA byte stream is too short")
+        lsa_type = Lsa.get_ospf_lsa_type(lsa_bytes)
+        lsa = Lsa()
+        header_bytes = lsa_bytes[:conf.LSA_HEADER_LENGTH]
+        lsa.header = header.Header.unpack_header(header_bytes, lsa_version)
+        if (lsa_version == conf.VERSION_IPV6) & (lsa_type != conf.LSA_TYPE_LINK):
+            lsa.header.ls_type -= 0x2000
+        return lsa
+
     #  Adds an OSPF Router-LSA body to the LSA with the provided arguments
     def create_router_lsa_body(self, bit_v, bit_e, bit_b, options, version):
         self.body = router.Router(bit_v, bit_e, bit_b, options, version)
-        if version == conf.VERSION_IPV6:
-            self.header.ls_type += 0x2000  # Sets flooding scope to area scope
         self.set_lsa_length()  # LSA length must be set after body is created and before checksum is computed
         self.set_lsa_checksum()
 
@@ -95,8 +125,6 @@ class Lsa:
     #  Adds an OSPF Network-LSA body to the LSA with the provided arguments
     def create_network_lsa_body(self, network_mask, options, attached_routers, version):
         self.body = network.Network(network_mask, options, attached_routers, version)
-        if version == conf.VERSION_IPV6:
-            self.header.ls_type += 0x2000
         self.set_lsa_length()
         self.set_lsa_checksum()
 
@@ -105,7 +133,6 @@ class Lsa:
             self, referenced_ls_type, referenced_link_state_id, referenced_advertising_router):
         self.body = intra_area_prefix.IntraAreaPrefix(
             referenced_ls_type, referenced_link_state_id, referenced_advertising_router)
-        self.header.ls_type += 0x2000
         self.set_lsa_length()
         self.set_lsa_checksum()
 
