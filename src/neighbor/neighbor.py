@@ -14,13 +14,23 @@ class Neighbor:
     thread = None
 
     neighbor_id = '0.0.0.0'
+    neighbor_priority = 0
     neighbor_interface_id = 0  # Only for OSPFv3
     neighbor_ip_address = ''  # Link-local address in OSPFv3
     neighbor_options = 0
     neighbor_state = conf.NEIGHBOR_STATE_DOWN  # Initial state
     neighbor_dr = '0.0.0.0'  # 0.0.0.0 means no DR is known by the neighbor
     neighbor_bdr = '0.0.0.0'
+    master_slave = False  # True -> This router is master
+    dd_sequence = 0
+    last_dd_packet = []  # [I-bit, M-bit, MS-bit, options, dd_sequence] from last DD packet from neighbor
 
+    #  LSA lists
+    ls_retransmission_list = []
+    db_summary_list = []
+    ls_request_list = []
+
+    #  Implementation-specific parameters
     reset = None
     timeout = None
     shutdown = None
@@ -34,6 +44,7 @@ class Neighbor:
             raise ValueError(message)
 
         self.neighbor_id = neighbor_id
+        self.neighbor_priority = 0
         self.neighbor_interface_id = neighbor_interface_id
         self.neighbor_ip_address = neighbor_ip_address
         self.neighbor_options = neighbor_options
@@ -42,6 +53,13 @@ class Neighbor:
         self.neighbor_bdr = neighbor_bdr
         print("OSPFv" + str(self.utils.get_ospf_version(self.neighbor_ip_address)),
               "neighbor found with ID", self.neighbor_id)
+        self.master_slave = False
+        self.dd_sequence = 0
+        self.last_dd_packet = []
+
+        self.ls_retransmission_list = []
+        self.db_summary_list = []
+        self.ls_request_list = []
 
         self.reset = threading.Event()
         self.timeout = threading.Event()

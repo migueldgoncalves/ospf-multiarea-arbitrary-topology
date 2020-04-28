@@ -7,8 +7,6 @@ import conf.conf as conf
 import general.timer as timer
 import general.sock as sock
 import general.utils as utils
-import lsa.header as lsa_header
-import lsa.lsa as lsa
 
 '''
 This class represents the OSPF interface and contains its data and operations
@@ -34,6 +32,9 @@ class Interface:
     cost = 0
     max_ip_datagram = 0
     instance_id = 0  # Just for OSPFv3 - Default is 0 TODO: Allow router to operate more than one instance of OSPFv3
+    transmission_delay = 0
+    retransmission_interval = 0
+    link_local_lsa_list = []  # Just for OSPFv3
 
     #  Implementation-specific parameters
     socket = None  # Socket that will send packets
@@ -68,6 +69,9 @@ class Interface:
         self.cost = conf.INTERFACE_COST
         self.max_ip_datagram = conf.MTU
         self.instance_id = 0
+        self.transmission_delay = 0
+        self.retransmission_interval = 0
+        self.link_local_lsa_list = []
 
         self.socket = sock.Socket()
         self.pipeline = pipeline
@@ -138,135 +142,6 @@ class Interface:
                 else:  # OSPFv3
                     self.socket.send_ipv6(packet_bytes, conf.ALL_OSPF_ROUTERS_IPV6, self.physical_identifier)
                 self.timeout.clear()
-
-                #  FIXME: Temporary
-                interface_mtu = 1
-                options = 2
-                i_bit = False
-                m_bit = True
-                ms_bit = True
-                dd_sequence_number = 3
-                lsa_header_1 = lsa_header.Header(10, 20, 1, 30, '1.1.1.1', 40, conf.VERSION_IPV4)
-                lsa_header_1.length = 24
-                lsa_header_2 = lsa_header.Header(50, 60, 2, 70, '2.2.2.2', 80, conf.VERSION_IPV4)
-                lsa_header_2.length = 28
-                lsa_header_3 = lsa_header.Header(90, 0, 3, 100, '3.3.3.3', 110, conf.VERSION_IPV6)
-                lsa_header_4 = lsa_header.Header(120, 0, 4, 130, '4.4.4.4', 140, conf.VERSION_IPV6)
-                lsa_header_5 = lsa_header.Header(150, 0, 5, 160, '5.5.5.5', 170, conf.VERSION_IPV6)
-                db_description_packet = packet.Packet()
-                ls_request_packet = packet.Packet()
-                ls_update_packet = packet.Packet()
-                ls_acknowledgement_packet = packet.Packet()
-                if self.ipv4_address != '':
-                    db_description_packet.create_header_v2(conf.PACKET_TYPE_DB_DESCRIPTION, conf.ROUTER_ID,
-                                                           self.area_id, conf.NULL_AUTHENTICATION, conf.DEFAULT_AUTH)
-                    db_description_packet.create_db_description_packet_body(
-                        interface_mtu, options, i_bit, m_bit, ms_bit, dd_sequence_number, (lsa_header_1, lsa_header_2),
-                        conf.VERSION_IPV4)
-                    db_description_packet_bytes = db_description_packet.pack_packet()
-
-                    ls_request_packet.create_header_v2(conf.PACKET_TYPE_LS_REQUEST, conf.ROUTER_ID, self.area_id,
-                                                       conf.NULL_AUTHENTICATION, conf.DEFAULT_AUTH)
-                    ls_request_packet.create_ls_request_packet_body(conf.VERSION_IPV4)
-                    ls_request_packet.add_lsa_info(conf.LSA_TYPE_ROUTER, '4.4.4.4', '4.4.4.4')
-                    ls_request_packet.add_lsa_info(conf.LSA_TYPE_NETWORK, '222.222.1.2', '4.4.4.4')
-                    ls_request_packet_bytes = ls_request_packet.pack_packet()
-
-                    ls_update_packet.create_header_v2(conf.PACKET_TYPE_LS_UPDATE, conf.ROUTER_ID, self.area_id,
-                                                      conf.NULL_AUTHENTICATION, conf.DEFAULT_AUTH)
-                    ls_update_packet.create_ls_update_packet_body(conf.VERSION_IPV4)
-                    router_lsa = lsa.Lsa()
-                    router_lsa.create_header(1, 34, 1, '1.1.1.1', '1.1.1.1', 2147483654, conf.VERSION_IPV4)
-                    router_lsa.create_router_lsa_body(False, False, False, 0, conf.VERSION_IPV4)
-                    router_lsa.add_link_info_v2('3.3.3.3', '222.222.6.1', 1, 0, 64)
-                    router_lsa.add_link_info_v2('222.222.6.0', '255.255.255.0', 3, 0, 64)
-                    router_lsa.add_link_info_v2('222.222.3.2', '222.222.3.1', 2, 0, 10)
-                    router_lsa.add_link_info_v2('222.222.2.0', '255.255.255.0', 3, 0, 10)
-                    router_lsa.add_link_info_v2('222.222.1.0', '255.255.255.0', 3, 0, 1)
-                    network_lsa = lsa.Lsa()
-                    network_lsa.create_header(1, 34, 2, '222.222.3.2', '2.2.2.2', 2147483649, conf.VERSION_IPV4)
-                    network_lsa.create_network_lsa_body('255.255.255.0', 0, ['2.2.2.2', '1.1.1.1'], conf.VERSION_IPV4)
-                    ls_update_packet.add_lsa(router_lsa)
-                    ls_update_packet.add_lsa(network_lsa)
-                    ls_update_packet_bytes = ls_update_packet.pack_packet()
-
-                    ls_acknowledgement_packet.create_header_v2(conf.PACKET_TYPE_LS_ACKNOWLEDGMENT, conf.ROUTER_ID,
-                                                               self.area_id, conf.NULL_AUTHENTICATION,
-                                                               conf.DEFAULT_AUTH)
-                    ls_acknowledgement_packet.create_ls_acknowledgement_packet_body(conf.VERSION_IPV4)
-                    ls_acknowledgement_packet.add_lsa_header(router_lsa.header)
-                    ls_acknowledgement_packet.add_lsa_header(network_lsa.header)
-                    ls_acknowledgement_packet_bytes = ls_acknowledgement_packet.pack_packet()
-
-                    self.socket.send_ipv4(db_description_packet_bytes, '222.222.1.1', self.physical_identifier)
-                    self.socket.send_ipv4(ls_request_packet_bytes, '222.222.1.1', self.physical_identifier)
-                    self.socket.send_ipv4(ls_update_packet_bytes, '222.222.1.1', self.physical_identifier)
-                    self.socket.send_ipv4(ls_acknowledgement_packet_bytes, '222.222.1.1', self.physical_identifier)
-                else:
-                    source_address = utils.Utils.get_ipv6_link_local_address_from_interface_name(
-                        self.physical_identifier)
-                    destination_address = 'fe80::c001:18ff:fe34:10'
-                    db_description_packet.create_header_v3(conf.PACKET_TYPE_DB_DESCRIPTION, conf.ROUTER_ID,
-                                                           self.area_id, self.instance_id, source_address,
-                                                           destination_address)
-                    db_description_packet.create_db_description_packet_body(
-                        interface_mtu, options, i_bit, m_bit, ms_bit, dd_sequence_number, (lsa_header_3, lsa_header_4),
-                        conf.VERSION_IPV6)
-                    db_description_packet_bytes = db_description_packet.pack_packet()
-
-                    ls_request_packet.create_header_v3(conf.PACKET_TYPE_LS_REQUEST, conf.ROUTER_ID, self.area_id,
-                                                       self.instance_id, source_address, destination_address)
-                    ls_request_packet.create_ls_request_packet_body(conf.VERSION_IPV6)
-                    ls_request_packet.add_lsa_info(conf.LSA_TYPE_ROUTER, '0.0.0.0', '4.4.4.4')
-                    ls_request_packet.add_lsa_info(conf.LSA_TYPE_NETWORK, '0.0.0.1', '4.4.4.4')
-                    ls_request_packet.add_lsa_info(conf.LSA_TYPE_INTRA_AREA_PREFIX, '0.0.0.0', '4.4.4.4')
-                    ls_request_packet.add_lsa_info(conf.LSA_TYPE_LINK, '0.0.0.1', '4.4.4.4')
-                    ls_request_packet_bytes = ls_request_packet.pack_packet()
-
-                    ls_update_packet.create_header_v3(conf.PACKET_TYPE_LS_UPDATE, conf.ROUTER_ID, self.area_id,
-                                                      self.instance_id, source_address, destination_address)
-                    ls_update_packet.create_ls_update_packet_body(conf.VERSION_IPV6)
-                    router_lsa = lsa.Lsa()
-                    router_lsa.create_header(1, 0, 1, '0.0.0.0', '2.2.2.2', 2147483655, conf.VERSION_IPV6)
-                    router_lsa.create_router_lsa_body(False, False, False, 51, conf.VERSION_IPV6)
-                    router_lsa.add_link_info_v3(2, 1, 6, 4, '3.3.3.3')
-                    router_lsa.add_link_info_v3(2, 10, 5, 5, '2.2.2.2')
-                    network_lsa = lsa.Lsa()
-                    network_lsa.create_header(1, 34, 2, '222.222.3.2', '2.2.2.2', 2147483649, conf.VERSION_IPV4)
-                    network_lsa.create_network_lsa_body('255.255.255.0', 0, ['2.2.2.2', '1.1.1.1'], conf.VERSION_IPV4)
-                    intra_area_prefix_lsa = lsa.Lsa()
-                    intra_area_prefix_lsa.create_header(1, 0, 9, '0.0.0.0', '2.2.2.2', 2147483653, conf.VERSION_IPV6)
-                    intra_area_prefix_lsa.create_intra_area_prefix_lsa_body(1, '0.0.0.0', '2.2.2.2')
-                    intra_area_prefix_lsa.add_prefix_info(64, 0, 10, '2001:db8:cafe:4::',
-                                                          conf.LSA_TYPE_INTRA_AREA_PREFIX)
-                    link_lsa = lsa.Lsa()
-                    link_lsa.create_header(38, 0, 8, '0.0.0.4', '1.1.1.1', 2147483650, conf.VERSION_IPV6)
-                    link_lsa.create_link_lsa_body(1, 51, 'fe80::c001:18ff:fe34:0')
-                    link_lsa.add_prefix_info(64, 0, 0, '2001:db8:cafe:3::', conf.LSA_TYPE_LINK)
-                    ls_update_packet.add_lsa(router_lsa)
-                    ls_update_packet.add_lsa(network_lsa)
-                    ls_update_packet.add_lsa(intra_area_prefix_lsa)
-                    ls_update_packet.add_lsa(link_lsa)
-                    ls_update_packet_bytes = ls_update_packet.pack_packet()
-
-                    ls_acknowledgement_packet.create_header_v3(conf.PACKET_TYPE_LS_ACKNOWLEDGMENT, conf.ROUTER_ID,
-                                                               self.area_id, self.instance_id, source_address,
-                                                               destination_address)
-                    ls_acknowledgement_packet.create_ls_acknowledgement_packet_body(conf.VERSION_IPV6)
-                    ls_acknowledgement_packet.add_lsa_header(router_lsa.header)
-                    ls_acknowledgement_packet.add_lsa_header(network_lsa.header)
-                    ls_acknowledgement_packet.add_lsa_header(intra_area_prefix_lsa.header)
-                    ls_acknowledgement_packet.add_lsa_header(link_lsa.header)
-                    ls_acknowledgement_packet_bytes = ls_acknowledgement_packet.pack_packet()
-
-                    self.socket.send_ipv6(
-                        db_description_packet_bytes, 'fe80::c001:18ff:fe34:10', self.physical_identifier)
-                    self.socket.send_ipv6(
-                        ls_request_packet_bytes, 'fe80::c001:18ff:fe34:10', self.physical_identifier)
-                    self.socket.send_ipv6(
-                        ls_update_packet_bytes, 'fe80::c001:18ff:fe34:10', self.physical_identifier)
-                    self.socket.send_ipv6(
-                        ls_acknowledgement_packet_bytes, 'fe80::c001:18ff:fe34:10', self.physical_identifier)
 
         #  Interface signalled to shutdown
         self.shutdown_interface()

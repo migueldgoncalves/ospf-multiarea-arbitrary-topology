@@ -60,7 +60,7 @@ class Lsa:
     #  Converts a byte stream into an OSPF LSA
     @staticmethod
     def unpack_lsa(lsa_bytes, lsa_version):
-        lsa_type = Lsa.get_ospf_lsa_type(lsa_bytes)
+        lsa_type = Lsa.get_lsa_type_from_bytes(lsa_bytes)
 
         #  An OSPF LSA just with a header, or with less bytes, can immediately be discarded
         if len(lsa_bytes) <= conf.LSA_HEADER_LENGTH:
@@ -96,7 +96,7 @@ class Lsa:
     def unpack_header(lsa_bytes, lsa_version):
         if len(lsa_bytes) < conf.LSA_HEADER_LENGTH:
             raise ValueError("LSA byte stream is too short")
-        lsa_type = Lsa.get_ospf_lsa_type(lsa_bytes)
+        lsa_type = Lsa.get_lsa_type_from_bytes(lsa_bytes)
         lsa = Lsa()
         header_bytes = lsa_bytes[:conf.LSA_HEADER_LENGTH]
         lsa.header = header.Header.unpack_header(header_bytes, lsa_version)
@@ -175,14 +175,36 @@ class Lsa:
 
     #  Given a LSA byte stream, returns its OSPF LSA type
     @staticmethod
-    def get_ospf_lsa_type(lsa_bytes):
+    def get_lsa_type_from_bytes(lsa_bytes):
         lsa_type_byte = lsa_bytes[3:4]  # Forth byte of OSPF LSA is always its type
         lsa_type = struct.unpack("> B", lsa_type_byte)[0]
         return lsa_type
 
+    #  Returns type of current LSA, without flooding scope if any
+    def get_lsa_type_from_lsa(self):
+        ls_type = self.header.ls_type
+        if ls_type > 0x2000:
+            ls_type -= 0x2000
+        return ls_type
+
+    #  Returns identifier of current LSA
+    def get_lsa_identifier(self):
+        ls_type = self.get_lsa_type_from_lsa()
+        link_state_id = self.header.link_state_id
+        advertising_router = self.header.advertising_router
+        return [ls_type, link_state_id, advertising_router]
+
+    #  Returns True if LSA identifier matches current LSA
+    def is_lsa_identifier_equal(self, ls_type, link_state_id, advertising_router):
+        if ls_type > 0x2000:
+            ls_type -= 0x2000
+        lsa_identifier = self.get_lsa_identifier()
+        return (ls_type == lsa_identifier[0]) & (link_state_id == lsa_identifier[1]) & \
+               (advertising_router == lsa_identifier[2])
+
     # Given a bite stream with LSAs, returns the length of the first LSA
     @staticmethod
-    def get_ospf_lsa_length(lsa_bytes):
+    def get_lsa_length(lsa_bytes):
         lsa_length_byte = lsa_bytes[18:20]  # 19th and 20th bytes of OSPF LSA are always its length
         lsa_length = struct.unpack("> H", lsa_length_byte)[0]
         return lsa_length
