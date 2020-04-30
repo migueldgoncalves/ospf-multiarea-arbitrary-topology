@@ -42,6 +42,7 @@ class Interface:
     interface_shutdown = None  # Signals interface thread to shutdown
     hello_packet_to_send = None
     hello_thread = None
+    lsa_lock = None  # For controlling access to interface LSA list
 
     #  Hello timer and its parameters
     hello_timer = None
@@ -85,6 +86,7 @@ class Interface:
             destination_address = conf.ALL_OSPF_ROUTERS_IPV6
             self.hello_packet_to_send.create_header_v3(
                 conf.PACKET_TYPE_HELLO, conf.ROUTER_ID, area_id, self.instance_id, source_address, destination_address)
+        self.lsa_lock = threading.RLock()
 
         self.hello_timer = timer.Timer()
         self.timeout = threading.Event()
@@ -193,3 +195,37 @@ class Interface:
                     return i
                 i += 1
         return 0
+
+    #  Atomically gets all link-local LSAs from interface
+    def get_link_local_lsa_list(self):
+        with self.lsa_lock:
+            return self.link_local_lsa_list
+
+    #  Atomically gets a link-local LSA from interface
+    def get_link_local_lsa(self, ls_type, link_state_id, advertising_router):
+        with self.lsa_lock:
+            for local_lsa in self.link_local_lsa_list:
+                if local_lsa.is_lsa_identifier_equal(ls_type, link_state_id, advertising_router):
+                    return local_lsa
+            return None
+
+    #  Atomically deletes link-local LSA from interface
+    def delete_link_local_lsa(self, ls_type, link_state_id, advertising_router):
+        with self.lsa_lock:
+            for local_lsa in self.link_local_lsa_list:
+                if local_lsa.is_lsa_identifier_equal(ls_type, link_state_id, advertising_router):
+                    self.link_local_lsa_list.remove(local_lsa)
+
+    #  Atomically deletes all link-local LSAs from interface
+    def clean_link_local_lsa_list(self):
+        with self.lsa_lock:
+            self.link_local_lsa_list = []
+
+    #  Atomically adds a link-local LSA to interface, or updates it if already present
+    def add_link_local_lsa(self, new_lsa):
+        with self.lsa_lock:
+            #  Deletes previous instance of LSA, if present
+            new_lsa_identifier = new_lsa.get_lsa_identifier()
+            self.delete_link_local_lsa(new_lsa_identifier[0], new_lsa_identifier[1], new_lsa_identifier[2])
+
+            self.link_local_lsa_list.append(new_lsa)

@@ -8,6 +8,7 @@ import general.utils as utils
 import general.sock as sock
 import interface.interface as interface
 import packet.packet as packet
+import lsa.lsa as lsa
 
 '''
 This class tests the interface operations in the router
@@ -264,6 +265,65 @@ class InterfaceTest(unittest.TestCase):
         self.assertEqual(0, interface.Interface.ospf_identifier_generator(self.interface_identifier, identifiers_tuple))
         identifiers_tuple = (self.interface_identifier, self.interface_identifier,)
         self.assertEqual(1, interface.Interface.ospf_identifier_generator(self.interface_identifier, identifiers_tuple))
+
+    #  Successful run - Instant
+    def test_link_local_lsa_methods(self):
+        lsa_1 = lsa.Lsa()
+        lsa_1.create_header(1, 0, 1, '0.0.0.0', '2.2.2.2', 2147483655, conf.VERSION_IPV6)
+        lsa_1.create_router_lsa_body(False, False, False, 51, conf.VERSION_IPV6)
+        lsa_1.add_link_info_v3(2, 1, 6, 4, '3.3.3.3')
+        lsa_1.add_link_info_v3(2, 10, 5, 5, '2.2.2.2')
+        lsa_2 = lsa.Lsa()
+        lsa_2.create_header(1, 0, 2, '0.0.0.5', '2.2.2.2', 2147483650, conf.VERSION_IPV6)
+        lsa_2.create_network_lsa_body('', 51, ['2.2.2.2', '1.1.1.1'], conf.VERSION_IPV6)
+
+        self.interface_ospfv3.add_link_local_lsa(lsa_1)
+        self.interface_ospfv3.add_link_local_lsa(lsa_2)
+        self.assertEqual(2, len(self.interface_ospfv3.link_local_lsa_list))
+        self.assertEqual(1, self.interface_ospfv3.link_local_lsa_list[0].header.ls_type)
+        self.assertEqual(2147483655, self.interface_ospfv3.link_local_lsa_list[0].header.ls_sequence_number)
+        self.assertEqual(2, self.interface_ospfv3.link_local_lsa_list[1].header.ls_type)
+        lsa_3 = lsa.Lsa()
+        lsa_3.create_header(1, 0, 1, '0.0.0.0', '2.2.2.2', 10000, conf.VERSION_IPV6)
+        lsa_3.create_router_lsa_body(False, False, False, 51, conf.VERSION_IPV6)
+        self.interface_ospfv3.add_link_local_lsa(lsa_3)
+        self.assertEqual(2, len(self.interface_ospfv3.link_local_lsa_list))
+        self.assertEqual(1, self.interface_ospfv3.link_local_lsa_list[1].header.ls_type)
+        self.assertEqual(10000, self.interface_ospfv3.link_local_lsa_list[1].header.ls_sequence_number)
+        self.assertEqual(2, self.interface_ospfv3.link_local_lsa_list[0].header.ls_type)
+        lsa_4 = lsa.Lsa()
+        lsa_4.create_header(1, 0, 1, '4.4.4.4', '2.2.2.2', 10000, conf.VERSION_IPV6)
+        lsa_4.create_router_lsa_body(False, False, False, 51, conf.VERSION_IPV6)
+        self.interface_ospfv3.add_link_local_lsa(lsa_4)
+        self.assertEqual(3, len(self.interface_ospfv3.link_local_lsa_list))
+        self.assertEqual('4.4.4.4', self.interface_ospfv3.link_local_lsa_list[2].header.link_state_id)
+
+        retrieved_list = self.interface_ospfv3.get_link_local_lsa_list()
+        self.assertEqual(3, len(retrieved_list))
+        self.assertEqual(1, retrieved_list[1].header.ls_type)
+        self.assertEqual(2, retrieved_list[0].header.ls_type)
+
+        retrieved_lsa = self.interface_ospfv3.get_link_local_lsa(3, '0.0.0.0', '0.0.0.0')
+        self.assertIsNone(retrieved_lsa)
+        retrieved_lsa = self.interface_ospfv3.get_link_local_lsa(1, '0.0.0.0', '2.2.2.2')
+        self.assertEqual(1, retrieved_lsa.header.ls_type)
+
+        self.interface_ospfv3.delete_link_local_lsa(3, '0.0.0.0', '2.2.2.2')
+        self.assertEqual(3, len(self.interface_ospfv3.link_local_lsa_list))
+        self.interface_ospfv3.delete_link_local_lsa(2, '0.0.0.5', '2.2.2.2')
+        self.assertEqual(2, len(self.interface_ospfv3.link_local_lsa_list))
+        self.assertEqual(1, self.interface_ospfv3.link_local_lsa_list[0].header.ls_type)
+        self.interface_ospfv3.delete_link_local_lsa(2, '0.0.0.5', '2.2.2.2')
+        self.assertEqual(2, len(self.interface_ospfv3.link_local_lsa_list))
+        self.assertEqual(1, self.interface_ospfv3.link_local_lsa_list[0].header.ls_type)
+        self.interface_ospfv3.delete_link_local_lsa(1, '0.0.0.0', '2.2.2.2')
+        self.interface_ospfv3.delete_link_local_lsa(1, '4.4.4.4', '2.2.2.2')
+        self.assertEqual(0, len(self.interface_ospfv3.link_local_lsa_list))
+
+        self.interface_ospfv3.add_link_local_lsa(lsa_1)
+        self.interface_ospfv3.add_link_local_lsa(lsa_2)
+        self.interface_ospfv3.clean_link_local_lsa_list()
+        self.assertEqual(0, len(self.interface_ospfv3.link_local_lsa_list))
 
     def tearDown(self):
         self.interface_pipeline_v2 = None

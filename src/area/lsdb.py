@@ -1,7 +1,9 @@
+import threading
+
 import conf.conf as conf
 
 '''
-This class represents the OSPF Link State Database stored in the area layer and contains its data and operations
+This class represents the OSPF Link State Database and contains its data and operations
 '''
 
 
@@ -11,49 +13,89 @@ class Lsdb:
     intra_area_prefix_lsa_list = []  # Only for OSPFv3
     #  Link-LSAs are stored in the appropriate interface instance
 
+    lsdb_lock = None
+
     def __init__(self):
-        self.clean_lsdb()
+        self.lsdb_lock = threading.RLock()
+        self.clean_lsdb([])
 
-    #  Adds a LSA to the adequate list according to its type
-    def add_lsa(self, lsa):
-        ls_type = lsa.get_lsa_type_from_lsa()
-        if ls_type == conf.LSA_TYPE_ROUTER:
-            self.router_lsa_list.append(lsa)
-        elif ls_type == conf.LSA_TYPE_NETWORK:
-            self.network_lsa_list.append(lsa)
-        elif ls_type == conf.LSA_TYPE_INTRA_AREA_PREFIX:
-            self.intra_area_prefix_lsa_list.append(lsa)
-        else:
-            pass
+    #  Atomically returns full LSDB as a single list
+    def get_lsdb(self, interfaces):
+        with self.lsdb_lock:
+            lsa_list = []
+            lsa_list.extend(self.router_lsa_list)
+            lsa_list.extend(self.network_lsa_list)
+            lsa_list.extend(self.intra_area_prefix_lsa_list)
+            for i in interfaces:
+                lsa_list.extend(i.get_link_local_lsa_list())
+            return lsa_list
 
-    #  Returns a LSA given its identifier, if present
-    def get_lsa(self, ls_type, link_state_id, advertising_router):
-        if ls_type == conf.LSA_TYPE_ROUTER:
-            list_to_search = self.router_lsa_list
-        elif ls_type == conf.LSA_TYPE_NETWORK:
-            list_to_search = self.network_lsa_list
-        elif ls_type == conf.LSA_TYPE_INTRA_AREA_PREFIX:
-            list_to_search = self.intra_area_prefix_lsa_list
-        else:
+    #  Atomically returns a LSA given its identifier, if present
+    def get_lsa(self, ls_type, link_state_id, advertising_router, interfaces):
+        with self.lsdb_lock:
+            lsa_list = self.get_lsdb(interfaces)
+            for lsa in lsa_list:
+                if lsa.is_lsa_identifier_equal(ls_type, link_state_id, advertising_router):
+                    return lsa
             return None
 
-        for lsa in list_to_search:
-            if lsa.is_lsa_identifier_equal(ls_type, link_state_id, advertising_router):
-                return lsa
-        return None
+    #  Atomically returns headers of full LSDB as a single list
+    def get_lsa_headers(self, interfaces):
+        with self.lsdb_lock:
+            lsa_list = self.get_lsdb(interfaces)
+            lsa_headers = []
+            for lsa in lsa_list:
+                lsa_headers.append(lsa.header)
+            return lsa_headers
 
-    #  Returns list of LSA headers
-    def get_lsa_headers(self):
-        lsa_headers = []
-        for lsa in self.router_lsa_list:
-            lsa_headers.append(lsa.header)
-        for lsa in self.network_lsa_list:
-            lsa_headers.append(lsa.header)
-        for lsa in self.intra_area_prefix_lsa_list:
-            lsa_headers.append(lsa.header)
-        #  TODO: Implement fetching of Link-LSAs
+    #  Atomically returns a LSA header given its identifier, if present
+    def get_lsa_header(self, ls_type, link_state_id, advertising_router, interfaces):
+        with self.lsdb_lock:
+            lsa = self.get_lsa(ls_type, link_state_id, advertising_router, interfaces)
+            if lsa is not None:
+                return lsa.header
+            return None
 
-    def clean_lsdb(self):
-        self.router_lsa_list = []
-        self.network_lsa_list = []
-        self.intra_area_prefix_lsa_list = []
+    #  Atomically deletes a LSA from the LSDB, if present
+    def delete_lsa(self, ls_type, link_state_id, advertising_router, interfaces):
+        with self.lsdb_lock:
+            for lsa in self.router_lsa_list:
+                if lsa.is_lsa_identifier_equal(ls_type, link_state_id, advertising_router):
+                    self.router_lsa_list.remove(lsa)
+                    return
+            for lsa in self.network_lsa_list:
+                if lsa.is_lsa_identifier_equal(ls_type, link_state_id, advertising_router):
+                    self.network_lsa_list.remove(lsa)
+                    return
+            for lsa in self.intra_area_prefix_lsa_list:
+                if lsa.is_lsa_identifier_equal(ls_type, link_state_id, advertising_router):
+                    self.intra_area_prefix_lsa_list.remove(lsa)
+                    return
+            for i in interfaces:
+                i.delete_link_local_lsa(ls_type, link_state_id, advertising_router)
+
+    #  Atomically adds a LSA to the adequate list according to its type
+    def add_lsa(self, lsa):
+        with self.lsdb_lock:
+            #  Deletes previous instance of LSA, if present
+            lsa_identifier = lsa.get_lsa_identifier()
+            self.delete_lsa(lsa_identifier[0], lsa_identifier[1], lsa_identifier[2], [])
+
+            ls_type = lsa.get_lsa_type_from_lsa()
+            if ls_type == conf.LSA_TYPE_ROUTER:
+                self.router_lsa_list.append(lsa)
+            elif ls_type == conf.LSA_TYPE_NETWORK:
+                self.network_lsa_list.append(lsa)
+            elif ls_type == conf.LSA_TYPE_INTRA_AREA_PREFIX:
+                self.intra_area_prefix_lsa_list.append(lsa)
+            #  Link-LSAs are added by the interface instance directly to itself
+            else:
+                pass
+
+    def clean_lsdb(self, interfaces):
+        with self.lsdb_lock:
+            self.router_lsa_list = []
+            self.network_lsa_list = []
+            self.intra_area_prefix_lsa_list = []
+            for i in interfaces:
+                i.clean_link_local_lsa_list()
