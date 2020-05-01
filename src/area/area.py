@@ -4,6 +4,8 @@ import queue
 import interface.interface as interface
 import conf.conf as conf
 import general.utils as utils
+import area.lsdb as lsdb
+import lsa.lsa as lsa
 
 '''
 This class represents the OSPF area and contains its data and operations, from the point of view of a router
@@ -22,6 +24,7 @@ class Area:
     area_id = '0.0.0.0'  # 0.0.0.0 - Backbone area
     interfaces = {}  # Contains as key their identifier, and as value the list above mentioned
     external_routing_capable = False
+    database = None
 
     utils = utils.Utils()
 
@@ -34,6 +37,22 @@ class Area:
         self.area_id = area_id
         self.interfaces = {}
         self.external_routing_capable = external_routing_capable
+
+        #  LSDB initialization
+        self.database = lsdb.Lsdb()
+        router_lsa = lsa.Lsa()
+        if ospf_version == conf.VERSION_IPV4:
+            link_state_id = conf.ROUTER_ID
+        else:
+            link_state_id = 0
+        router_lsa.create_header(conf.INITIAL_LS_AGE, conf.OPTIONS, conf.LSA_TYPE_ROUTER, link_state_id, conf.ROUTER_ID,
+                                 conf.INITIAL_SEQUENCE_NUMBER, ospf_version)
+        if ospf_version == conf.VERSION_IPV4:
+            options = 0
+        else:
+            options = conf.OPTIONS
+        router_lsa.create_router_lsa_body(False, False, False, options, ospf_version)
+        self.database.add_lsa(router_lsa)
 
         #  Creates the interfaces that belong to this area
         interface_list = conf.INTERFACE_NAMES
@@ -96,6 +115,13 @@ class Area:
     #  Shutdown event is set when interface should stop operating
     def is_interface_operating(self, interface_id):
         return not self.interfaces[interface_id][SHUTDOWN_EVENT].is_set()
+
+    #  Returns area interfaces in a list
+    def get_interfaces(self):
+        interface_list = []
+        for i in self.interfaces:
+            interface_list.append(self.interfaces[i][INTERFACE_OBJECT])
+        return interface_list
 
     #  Ensures area is down, and with it all of its interfaces
     def shutdown_area(self):

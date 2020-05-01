@@ -115,9 +115,9 @@ class Interface:
                 source_ip = data_array[1]
                 version = incoming_packet.header.version
                 packet_type = incoming_packet.header.packet_type
+                neighbor_id = incoming_packet.header.router_id
 
                 if packet_type == conf.PACKET_TYPE_HELLO:
-                    neighbor_id = incoming_packet.header.router_id
                     #  New neighbor
                     if neighbor_id not in self.neighbors:
                         neighbor_interface_id = 0
@@ -129,27 +129,94 @@ class Interface:
                         self.neighbors[neighbor_id] = new_neighbor
 
                     #  Existing neighbor
-                    self.neighbors[neighbor_id].reset_timer()
+                    neighbor_router = self.neighbors[neighbor_id]
+                    neighbor_router.reset_timer()
                     time.sleep(0.1)  # Required to immediately give the CPU to the neighbor timer thread
-                    if conf.ROUTER_ID in incoming_packet.body.neighbors:  # Neighbor acknowledges router as neighbor
-                        self.neighbors[neighbor_id].set_neighbor_state(conf.NEIGHBOR_STATE_2_WAY)
-                    else:  # Neighbor does not, even if it did in the last packets
-                        self.neighbors[neighbor_id].set_neighbor_state(conf.NEIGHBOR_STATE_INIT)
+                    #  Neighbor acknowledges router as neighbor
+                    if (conf.ROUTER_ID in incoming_packet.body.neighbors) & (
+                            neighbor_router.neighbor_state == conf.NEIGHBOR_STATE_INIT):
+                        self.elect_dr()
+                        #  Neither this router nor neighbor are DR/BDR
+                        if (conf.ROUTER_ID not in [self.designated_router, self.backup_designated_router]) & (
+                                neighbor_id not in [self.designated_router, self.backup_designated_router]):
+                            neighbor_router.set_neighbor_state(conf.NEIGHBOR_STATE_2_WAY)
+                        else:  # Routers can become fully adjacent
+                            neighbor_router.set_neighbor_state(conf.NEIGHBOR_STATE_EXSTART)
+                            neighbor_router.generate_dd_sequence_number()
+                            dd_packet = packet.Packet()
+                            if self.ipv4_address != '':
+                                dd_packet.create_header_v2(conf.PACKET_TYPE_DB_DESCRIPTION, conf.ROUTER_ID,
+                                                           self.area_id, conf.NULL_AUTHENTICATION, conf.DEFAULT_AUTH)
+                                dd_packet.create_db_description_packet_body(
+                                    conf.MTU, conf.OPTIONS, True, True, True, self.neighbors[neighbor_id].dd_sequence,
+                                    [], conf.VERSION_IPV4)
+                            else:
+                                dd_packet.create_header_v3(conf.PACKET_TYPE_DB_DESCRIPTION, conf.ROUTER_ID,
+                                                           self.area_id, self.instance_id, self.ipv6_address, source_ip)
+                                dd_packet.create_db_description_packet_body(
+                                    conf.MTU, conf.OPTIONS, True, True, True, self.neighbors[neighbor_id].dd_sequence,
+                                    [], conf.VERSION_IPV6)
+                            self.send_packet(dd_packet, source_ip)
+                    #  Neighbor does not, even if it did in the last Hello packets
+                    elif conf.ROUTER_ID not in incoming_packet.body.neighbors:
+                        neighbor_router.set_neighbor_state(conf.NEIGHBOR_STATE_INIT)
+                    else:
+                        pass  # Timer already reset - Nothing else to do
+
+                elif packet_type == conf.PACKET_TYPE_DB_DESCRIPTION:
+                    if self.neighbors[neighbor_id].neighbor_state == conf.NEIGHBOR_STATE_EXSTART:
+                        #  This router is the slave
+                        if utils.Utils.ipv4_to_decimal(neighbor_id) > utils.Utils.ipv4_to_decimal(conf.ROUTER_ID):
+                            self.neighbors[neighbor_id] = False
+                            dd_packet = packet.Packet()
+                            if self.ipv4_address != '':
+                                dd_packet.create_header_v2(conf.PACKET_TYPE_DB_DESCRIPTION, conf.ROUTER_ID,
+                                                           self.area_id, conf.NULL_AUTHENTICATION, conf.DEFAULT_AUTH)
+                                dd_packet.create_db_description_packet_body(
+                                    conf.MTU, conf.OPTIONS, False, True, False, self.neighbors[neighbor_id].dd_sequence,
+                                    [], conf.VERSION_IPV4)
+                            else:
+                                dd_packet.create_header_v3(conf.PACKET_TYPE_DB_DESCRIPTION, conf.ROUTER_ID,
+                                                           self.area_id, self.instance_id, self.ipv6_address, source_ip)
+                                dd_packet.create_db_description_packet_body(
+                                    conf.MTU, conf.OPTIONS, False, True, False, self.neighbors[neighbor_id].dd_sequence,
+                                    [], conf.VERSION_IPV6)
+                            self.send_packet(dd_packet, source_ip)
+                            #  TODO: Continue
+                elif packet_type == conf.PACKET_TYPE_LS_REQUEST:
+                    pass
+
+                elif packet_type == conf.PACKET_TYPE_LS_UPDATE:
+                    pass
+
+                elif packet_type == conf.PACKET_TYPE_LS_ACKNOWLEDGMENT:
+                    pass
+
+                else:
+                    pass
 
             #  Sends Hello packet
             if self.timeout.is_set():
-                packet_bytes = self.create_packet()
-                if self.ipv4_address != '':  # OSPFv2
-                    self.socket.send_ipv4(packet_bytes, conf.ALL_OSPF_ROUTERS_IPV4, self.physical_identifier)
-                else:  # OSPFv3
-                    self.socket.send_ipv6(packet_bytes, conf.ALL_OSPF_ROUTERS_IPV6, self.physical_identifier)
+                self.create_hello_packet()
+                if self.ipv4_address != '':
+                    self.send_packet(self.hello_packet_to_send, conf.ALL_OSPF_ROUTERS_IPV4)
+                else:
+                    self.send_packet(self.hello_packet_to_send, conf.ALL_OSPF_ROUTERS_IPV6)
                 self.timeout.clear()
 
         #  Interface signalled to shutdown
         self.shutdown_interface()
 
-    #  Creates an OSPF packet to be sent
-    def create_packet(self):
+    #  Sends an OSPF packet through the interface
+    def send_packet(self, packet_to_send, destination_address):
+        packet_bytes = packet_to_send.pack_packet()
+        if self.ipv4_address != '':  # OSPFv2
+            self.socket.send_ipv4(packet_bytes, destination_address, self.physical_identifier)
+        else:  # OSPFv3
+            self.socket.send_ipv6(packet_bytes, destination_address, self.physical_identifier)
+
+    #  Creates an OSPF Hello packet to be sent
+    def create_hello_packet(self):
         if self.ipv4_address != '':  # OSPFv2
             self.hello_packet_to_send.create_hello_v2_packet_body(
                 self.network_mask, self.hello_interval, conf.OPTIONS, self.router_priority, self.router_dead_interval,
@@ -158,7 +225,13 @@ class Interface:
             self.hello_packet_to_send.create_hello_v3_packet_body(
                 self.ospf_identifier, self.hello_interval, conf.OPTIONS, self.router_priority,
                 self.router_dead_interval, self.designated_router, self.backup_designated_router, self.neighbors)
-        return self.hello_packet_to_send.pack_packet()
+        return self.hello_packet_to_send
+
+    #  Performs the DR/BDR election
+    def elect_dr(self):
+        #  TODO: Implement DR election
+        self.designated_router = '1.1.1.1'
+        self.backup_designated_router = '0.0.0.0'
 
     def get_neighbor_count(self):
         return len(self.neighbors)
@@ -195,6 +268,10 @@ class Interface:
                     return i
                 i += 1
         return 0
+
+    #  #  #  #  #  #  #  #  #  #  #  #
+    #  Link-local LSA list methods  #
+    #  #  #  #  #  #  #  #  #  #  #  #
 
     #  Atomically gets all link-local LSAs from interface
     def get_link_local_lsa_list(self):

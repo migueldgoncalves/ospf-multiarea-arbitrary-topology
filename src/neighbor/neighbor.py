@@ -1,4 +1,5 @@
 import threading
+import random
 
 import general.timer as timer
 import conf.conf as conf
@@ -93,6 +94,10 @@ class Neighbor:
             print("OSPFv" + str(self.utils.get_ospf_version(self.neighbor_ip_address)),
                   "neighbor", self.neighbor_id, "changed state from", old_state, "to", new_state)
             self.neighbor_state = new_state
+
+    #  Generates a random DD Sequence Number
+    def generate_dd_sequence_number(self):
+        self.dd_sequence = random.randrange(conf.MAX_VALUE_16_BITS + 1)
 
     #  Validates constructor parameters - Returns error message in case of failed validation
     def parameter_validation(self, neighbor_id, neighbor_options):  # TODO: Implement validation for rest of parameters
