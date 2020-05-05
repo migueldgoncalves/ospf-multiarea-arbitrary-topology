@@ -78,6 +78,7 @@ class Router:
     #  OSPF router main loop
     def main_loop(self):
         while not (self.router_shutdown_event.is_set()):  # Until router is signalled to shutdown
+            #  Sends received packets to receiving interface
             for interface_id in self.packet_pipelines:
                 pipeline = self.packet_pipelines[interface_id]
                 if not pipeline.empty():
@@ -87,6 +88,11 @@ class Router:
                     received_packet = packet.Packet.unpack_packet(packet_bytes)
                     interface_pipeline = self.interfaces[interface_id][area.PIPELINE]
                     interface_pipeline.put([received_packet, source_ip])
+
+            #  For each LSA, increases LS Age field if enough time has passed
+            for a in self.areas:
+                area_interfaces = self.areas[a].get_interfaces()
+                self.areas[a].database.increase_lsa_age(area_interfaces)
 
         #  Router signalled to shutdown
         self.shutdown_router()

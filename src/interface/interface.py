@@ -167,8 +167,10 @@ class Interface:
                     if self.neighbors[neighbor_id].neighbor_state == conf.NEIGHBOR_STATE_EXSTART:
                         #  This router is the slave
                         if utils.Utils.ipv4_to_decimal(neighbor_id) > utils.Utils.ipv4_to_decimal(conf.ROUTER_ID):
-                            self.neighbors[neighbor_id] = False
+                            self.neighbors[neighbor_id].set_neighbor_state(conf.NEIGHBOR_STATE_EXCHANGE)
+                            self.neighbors[neighbor_id].master_slave = False
                             dd_packet = packet.Packet()
+                            self.neighbors[neighbor_id].dd_sequence = incoming_packet.dd_sequence_number
                             if self.ipv4_address != '':
                                 dd_packet.create_header_v2(conf.PACKET_TYPE_DB_DESCRIPTION, conf.ROUTER_ID,
                                                            self.area_id, conf.NULL_AUTHENTICATION, conf.DEFAULT_AUTH)
@@ -182,7 +184,12 @@ class Interface:
                                     conf.MTU, conf.OPTIONS, False, True, False, self.neighbors[neighbor_id].dd_sequence,
                                     [], conf.VERSION_IPV6)
                             self.send_packet(dd_packet, source_ip)
-                            #  TODO: Continue
+                        #  This router is the master
+                        elif (not incoming_packet.body.i_bit) & (not incoming_packet.body.ms_bit) & (
+                                incoming_packet.body.dd_sequence_number == self.neighbors[neighbor_id].dd_sequence) & (
+                                utils.Utils.ipv4_to_decimal(neighbor_id) < utils.Utils.ipv4_to_decimal(conf.ROUTER_ID)):
+                            self.neighbors[neighbor_id].set_neighbor_state(conf.NEIGHBOR_STATE_EXCHANGE)
+                            self.neighbors[neighbor_id].master_slave = True
                 elif packet_type == conf.PACKET_TYPE_LS_REQUEST:
                     pass
 

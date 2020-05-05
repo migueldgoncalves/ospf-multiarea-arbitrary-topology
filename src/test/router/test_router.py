@@ -12,7 +12,7 @@ This class tests the top-level OSPF operations in the router
 '''
 
 
-#  Full successful run - 12-35 s
+#  Full successful run - 20-43 s
 class RouterTest(unittest.TestCase):
 
     command_pipeline_v2 = None
@@ -38,7 +38,7 @@ class RouterTest(unittest.TestCase):
         self.thread_v2.start()
         self.thread_v3.start()
 
-    #  Successful run - 2-10 s
+    #  Successful run - 10-18 s
     def test_constructor_successful(self):
         self.assertEqual(conf.VERSION_IPV4, self.router_v2.ospf_version)
         self.assertEqual(conf.VERSION_IPV6, self.router_v3.ospf_version)
@@ -85,6 +85,15 @@ class RouterTest(unittest.TestCase):
         self.assertTrue(self.router_v3.command_pipeline.empty())
         self.assertFalse(self.router_v2.router_shutdown_event.is_set())
         self.assertFalse(self.router_v3.router_shutdown_event.is_set())
+
+        for r in [self.router_v2, self.router_v3]:
+            for area_id in r.areas:
+                router_lsa = r.areas[area_id].database.get_lsdb([])[0]
+                time.sleep(2)
+                ls_age = router_lsa.header.ls_age
+                self.assertTrue(ls_age > 0)
+                time.sleep(2)
+                self.assertTrue(router_lsa.header.ls_age > ls_age)
 
     #  Successful run - 10-15 s
     def test_main_loop_successful(self):

@@ -1,4 +1,5 @@
 import struct
+import time
 
 import lsa.header as header
 import lsa.router as router
@@ -14,8 +15,12 @@ This class serves as an interface to LSA creation, storage and manipulation, bot
 
 
 class Lsa:
-    header = None
-    body = None
+
+    def __init__(self):
+        self.header = None
+        self.body = None
+
+        self.system_time = time.perf_counter()  # Current system time in seconds
 
     #  #  #  #  #  #  #
     #  Main methods   #
@@ -201,6 +206,16 @@ class Lsa:
         lsa_identifier = self.get_lsa_identifier()
         return (ls_type == lsa_identifier[0]) & (link_state_id == lsa_identifier[1]) & \
                (advertising_router == lsa_identifier[2])
+
+    #  Increases LS Age field, if enough time has passed
+    def increase_lsa_age(self):
+        self.header.ls_age += int(time.perf_counter() - self.system_time)
+        self.system_time = int(time.perf_counter())
+
+    #  Sets LS Age to 3600
+    def set_ls_age_max(self):
+        self.header.ls_age = 3600
+        self.system_time = int(time.perf_counter())
 
     # Given a bite stream with LSAs, returns the length of the first LSA
     @staticmethod

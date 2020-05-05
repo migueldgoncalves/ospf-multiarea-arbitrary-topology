@@ -8,15 +8,15 @@ This class represents the OSPF Link State Database and contains its data and ope
 
 
 class Lsdb:
-    router_lsa_list = []
-    network_lsa_list = []
-    intra_area_prefix_lsa_list = []  # Only for OSPFv3
-    #  Link-LSAs are stored in the appropriate interface instance
-
-    lsdb_lock = None
 
     def __init__(self):
+        self.router_lsa_list = []
+        self.network_lsa_list = []
+        self.intra_area_prefix_lsa_list = []  # Only for OSPFv3
+        #  Link-LSAs are stored in the appropriate interface instance
+
         self.lsdb_lock = threading.RLock()
+
         self.clean_lsdb([])
 
     #  Atomically returns full LSDB as a single list
@@ -99,3 +99,10 @@ class Lsdb:
             self.intra_area_prefix_lsa_list = []
             for i in interfaces:
                 i.clean_link_local_lsa_list()
+
+    #  For each LSA, increases LS Age field if enough time has passed
+    def increase_lsa_age(self, interfaces):
+        with self.lsdb_lock:
+            lsa_list = self.get_lsdb(interfaces)
+            for lsa in lsa_list:
+                lsa.increase_lsa_age()

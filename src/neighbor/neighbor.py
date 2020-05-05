@@ -99,6 +99,15 @@ class Neighbor:
     def generate_dd_sequence_number(self):
         self.dd_sequence = random.randrange(conf.MAX_VALUE_16_BITS + 1)
 
+    #  Updates the last received DB Description packet from the neighbor
+    def update_last_dd_packet(self, i_bit, m_bit, ms_bit, options, dd_sequence):
+        packet_data = [i_bit, m_bit, ms_bit, options, dd_sequence]
+        if packet_data == self.last_dd_packet:
+            return False  # Duplicate packet received from neighbor
+        else:
+            self.last_dd_packet = packet_data
+            return True
+
     #  Validates constructor parameters - Returns error message in case of failed validation
     def parameter_validation(self, neighbor_id, neighbor_options):  # TODO: Implement validation for rest of parameters
         try:

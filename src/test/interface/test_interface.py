@@ -246,7 +246,7 @@ class InterfaceTest(unittest.TestCase):
 
     #  Successful run - Instant
     def test_create_packet_successful(self):
-        new_packet = self.interface_ospfv2.create_hello_packet()
+        new_packet = self.interface_ospfv2.create_hello_packet().pack_packet()
         self.assertEqual(PACKET_BYTES, new_packet)
 
     #  Successful run - Instant
