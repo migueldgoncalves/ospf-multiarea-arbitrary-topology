@@ -2,7 +2,6 @@ import unittest
 
 import packet.hello as hello
 import conf.conf as conf
-import general.utils as utils
 
 '''
 This class tests the OSPF Hello packet class and its operations
@@ -11,19 +10,6 @@ This class tests the OSPF Hello packet class and its operations
 
 #  Full successful run - Instant
 class TestHello(unittest.TestCase):
-    utils = utils.Utils()
-
-    network_mask = '0.0.0.0'
-    hello_interval = 0
-    options = 0
-    router_priority = 0
-    router_dead_interval = 0
-    designated_router = '0.0.0.0'
-    backup_designated_router = '0.0.0.0'
-    neighbors = ()
-    interface_id = 0
-    packet_body_v2 = None
-    packet_body_v3 = None
 
     def setUp(self):
         self.network_mask = '255.255.255.0'
@@ -441,16 +427,3 @@ class TestHello(unittest.TestCase):
         self.assertEqual((False, "Invalid OSPF version"), self.packet_body_v2.parameter_validation(
             self.network_mask, self.hello_interval, self.options, self.router_priority, self.router_dead_interval,
             self.designated_router, self.backup_designated_router, self.neighbors, 0, 4))
-
-    def tearDown(self):
-        self.network_mask = ''
-        self.hello_interval = 0
-        self.options = 0
-        self.router_priority = 0
-        self.router_dead_interval = 0
-        self.designated_router = ''
-        self.backup_designated_router = ''
-        self.neighbors = ()
-        self.interface_id = 0
-        self.packet_body_v2 = None
-        self.packet_body_v3 = None

@@ -14,27 +14,13 @@ This class contains the top-level OSPF data structures and operations
 
 
 class Router:
-    ospf_version = 0
-
-    #  OSPF top-level parameters
-    router_id = '0.0.0.0'
-    areas = {}
-    interfaces = {}
-    max_ip_datagram = 0
-
-    #  Implementation-specific parameters
-    packet_socket = None
-    packet_pipelines = {}
-    interface_shutdown_events = {}
-    interface_threads = {}
-    command_pipeline = None
-    router_shutdown_event = None
-    start_time = 0
 
     def __init__(self, ospf_version, command_pipeline, router_shutdown_event):
         if ospf_version not in [conf.VERSION_IPV4, conf.VERSION_IPV6]:
             raise ValueError("Invalid OSPF version")
         self.ospf_version = ospf_version
+
+        #  OSPF top-level parameters
 
         self.router_id = conf.ROUTER_ID
         self.areas = {}
@@ -48,6 +34,8 @@ class Router:
             for interface_id in self.areas[area_id].interfaces:
                 self.interfaces[interface_id] = self.areas[area_id].interfaces[interface_id]
         self.max_ip_datagram = conf.MTU
+
+        #  Implementation-specific parameters
 
         self.packet_socket = sock.Socket()
         self.packet_pipelines = {}

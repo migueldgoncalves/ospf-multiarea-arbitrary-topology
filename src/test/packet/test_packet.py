@@ -10,16 +10,6 @@ This class tests the interface to packet creation, storage and manipulation
 
 #  Full successful run - Instant
 class PacketTest(unittest.TestCase):
-    packet_type = 0
-    router_id = '0.0.0.0'
-    area_id = '0.0.0.0'
-    auth_type = 0
-    authentication = 0
-    instance_id = 0
-    source_ipv6_address = '::'
-    destination_ipv6_address = '::'
-    packet_v2 = None
-    packet_v3 = None
 
     def setUp(self):
         self.packet_type = conf.PACKET_TYPE_HELLO
@@ -312,12 +302,3 @@ class PacketTest(unittest.TestCase):
         self.assertEqual(0, self.packet_v3.header.checksum)
         self.assertEqual(self.area_id, self.packet_v3.header.area_id)
         self.assertIsNone(self.packet_v3.body)
-
-    def tearDown(self):
-        self.packet_type = 0
-        self.router_id = ''
-        self.area_id = ''
-        self.auth_type = 0
-        self.authentication = 0
-        self.packet_v2 = None
-        self.packet_v3 = None

@@ -13,48 +13,41 @@ This class tests the neighbor operations in the router
 
 #  Full successful run - 90 s
 class TestNeighbor(unittest.TestCase):
-    neighbor_id = '0.0.0.0'
-    neighbor_interface_id = 0
-    neighbor_ipv4_address = '0.0.0.0'
-    neighbor_ipv6_address = '::'
-    neighbor_options = 0
-    neighbor_dr = '0.0.0.0'
-    neighbor_bdr = '0.0.0.0'
-    neighbor_v2 = None
-    neighbor_v3 = None
-
-    start_time = 0
 
     def setUp(self):
         self.start_time = int(time.perf_counter())
         time.sleep(1)  # Difference between current time of test and current time of neighbor timer will be 1 s
 
         self.neighbor_id = '1.1.1.1'
-        self.neighbor_interface_id = 1
+        self.neighbor_priority = 1
+        self.neighbor_interface_id = 2
         self.neighbor_ipv4_address = '222.222.1.1'
         self.neighbor_ipv6_address = '1::1'
-        self.neighbor_options = 2
-        self.neighbor_dr = '0.0.0.0'
-        self.neighbor_bdr = '0.0.0.0'
-        self.neighbor_v2 = neighbor.Neighbor(self.neighbor_id, 0, self.neighbor_ipv4_address, self.neighbor_options,
-                                             self.neighbor_dr, self.neighbor_bdr)
-        self.neighbor_v3 = neighbor.Neighbor(self.neighbor_id, self.neighbor_interface_id, self.neighbor_ipv6_address,
+        self.neighbor_options = 3
+        self.neighbor_dr = '1.1.1.1'
+        self.neighbor_bdr = '2.2.2.2'
+        self.neighbor_v2 = neighbor.Neighbor(self.neighbor_id, self.neighbor_priority, 0, self.neighbor_ipv4_address,
                                              self.neighbor_options, self.neighbor_dr, self.neighbor_bdr)
+        self.neighbor_v3 = neighbor.Neighbor(self.neighbor_id, self.neighbor_priority, self.neighbor_interface_id,
+                                             self.neighbor_ipv6_address, self.neighbor_options, self.neighbor_dr,
+                                             self.neighbor_bdr)
 
     #  Successful run - 1 s
     def test_constructor_successful(self):
         self.assertEqual(self.neighbor_id, self.neighbor_v2.neighbor_id)
+        self.assertEqual(self.neighbor_priority, self.neighbor_v2.neighbor_priority)
         self.assertEqual(self.neighbor_ipv4_address, self.neighbor_v2.neighbor_ip_address)
         self.assertEqual(self.neighbor_options, self.neighbor_v2.neighbor_options)
-        self.assertEqual(conf.NEIGHBOR_STATE_INIT, self.neighbor_v2.neighbor_state)
+        self.assertEqual(conf.NEIGHBOR_STATE_DOWN, self.neighbor_v2.neighbor_state)
         self.assertEqual(self.neighbor_dr, self.neighbor_v2.neighbor_dr)
         self.assertEqual(self.neighbor_bdr, self.neighbor_v2.neighbor_bdr)
 
         self.assertEqual(self.neighbor_id, self.neighbor_v3.neighbor_id)
+        self.assertEqual(self.neighbor_priority, self.neighbor_v3.neighbor_priority)
         self.assertEqual(self.neighbor_interface_id, self.neighbor_v3.neighbor_interface_id)
         self.assertEqual(self.neighbor_ipv6_address, self.neighbor_v3.neighbor_ip_address)
         self.assertEqual(self.neighbor_options, self.neighbor_v3.neighbor_options)
-        self.assertEqual(conf.NEIGHBOR_STATE_INIT, self.neighbor_v3.neighbor_state)
+        self.assertEqual(conf.NEIGHBOR_STATE_DOWN, self.neighbor_v3.neighbor_state)
         self.assertEqual(self.neighbor_dr, self.neighbor_v3.neighbor_dr)
         self.assertEqual(self.neighbor_bdr, self.neighbor_v3.neighbor_bdr)
 
@@ -76,11 +69,11 @@ class TestNeighbor(unittest.TestCase):
     #  Successful run - 1 s
     def test_constructor_invalid_parameters(self):
         with self.assertRaises(ValueError):
-            neighbor.Neighbor('', self.neighbor_interface_id, self.neighbor_ipv4_address, self.neighbor_options,
-                              self.neighbor_dr, self.neighbor_bdr)
+            neighbor.Neighbor('', self.neighbor_priority, self.neighbor_interface_id, self.neighbor_ipv4_address,
+                              self.neighbor_options, self.neighbor_dr, self.neighbor_bdr)
         with self.assertRaises(ValueError):
-            neighbor.Neighbor(self.neighbor_id, self.neighbor_interface_id, self.neighbor_ipv6_address, -1,
-                              self.neighbor_dr, self.neighbor_bdr)
+            neighbor.Neighbor(self.neighbor_id, self.neighbor_priority, self.neighbor_interface_id,
+                              self.neighbor_ipv6_address, -1, self.neighbor_dr, self.neighbor_bdr)
 
     #  Successful run - 42 s
     def test_is_expired(self):
@@ -140,5 +133,3 @@ class TestNeighbor(unittest.TestCase):
     def tearDown(self):
         self.neighbor_v2.delete_neighbor()
         self.neighbor_v3.delete_neighbor()
-        self.neighbor_v2 = None
-        self.neighbor_v3 = None

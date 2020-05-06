@@ -11,20 +11,6 @@ This class tests the OSPF Database Description packet class and its operations
 
 #  Full successful run - Instant
 class TestDBDescription(unittest.TestCase):
-    interface_mtu = 0
-    options = 0
-    i_bit = False
-    m_bit = False
-    ms_bit = False
-    dd_sequence_number = 0
-    lsa_header_1 = None
-    lsa_header_2 = None
-    lsa_header_3 = None
-    lsa_header_4 = None
-    lsa_header_5 = None
-
-    db_description_ospfv2 = None
-    db_description_ospfv3 = None
 
     def setUp(self):
         self.interface_mtu = 1
@@ -367,13 +353,3 @@ class TestDBDescription(unittest.TestCase):
         self.assertEqual((False, "Invalid OSPF version"), db_description.DBDescription.parameter_validation(
             self.interface_mtu, self.options, self.i_bit, self.m_bit, self.ms_bit, self.dd_sequence_number,
             (self.lsa_header_1,), 4))
-
-    def tearDown(self):
-        self.lsa_header_1 = None
-        self.lsa_header_2 = None
-        self.lsa_header_3 = None
-        self.lsa_header_4 = None
-        self.lsa_header_5 = None
-
-        self.db_description_ospfv2 = None
-        self.db_description_ospfv3 = None

@@ -20,28 +20,13 @@ PACKET_BYTES = b'\x02\x01\x00,\x04\x04\x04\x04\x00\x00\x00\x00\xf4\x96\x00\x00\x
 
 #  Full successful run - 129-156 s
 class InterfaceTest(unittest.TestCase):
-    interface_identifier = ''
-    ipv4_address = '0.0.0.0'
-    ipv6_address = '::'
-    network_mask = 0
-    link_prefixes = []
-    area_id = '0.0.0.0'
-    interface_pipeline_v2 = None
-    interface_pipeline_v3 = None
-    interface_shutdown_v2 = None
-    interface_shutdown_v3 = None
-
-    interface_ospfv2 = None
-    interface_ospfv3 = None
-
-    utils = utils.Utils()
 
     def setUp(self):
         self.interface_identifier = conf.INTERFACE_NAMES[0]
-        self.ipv4_address = self.utils.get_ipv4_address_from_interface_name(conf.INTERFACE_NAMES[0])
-        self.ipv6_address = self.utils.get_ipv6_link_local_address_from_interface_name(conf.INTERFACE_NAMES[0])
-        self.network_mask = self.utils.get_ipv4_network_mask_from_interface_name(conf.INTERFACE_NAMES[0])
-        self.link_prefixes = self.utils.get_ipv6_prefix_from_interface_name(conf.INTERFACE_NAMES[0])
+        self.ipv4_address = utils.Utils.get_ipv4_address_from_interface_name(conf.INTERFACE_NAMES[0])
+        self.ipv6_address = utils.Utils.get_ipv6_link_local_address_from_interface_name(conf.INTERFACE_NAMES[0])
+        self.network_mask = utils.Utils.get_ipv4_network_mask_from_interface_name(conf.INTERFACE_NAMES[0])
+        self.link_prefixes = utils.Utils.get_ipv6_prefix_from_interface_name(conf.INTERFACE_NAMES[0])
         self.area_id = conf.INTERFACE_AREAS[0]
         self.interface_pipeline_v2 = queue.Queue()
         self.interface_pipeline_v3 = queue.Queue()
@@ -49,10 +34,10 @@ class InterfaceTest(unittest.TestCase):
         self.interface_shutdown_v3 = threading.Event()
         self.interface_ospfv2 = interface.Interface(
             self.interface_identifier, self.ipv4_address, '', self.network_mask, [], self.area_id,
-            self.interface_pipeline_v2, self.interface_shutdown_v2)
+            self.interface_pipeline_v2, self.interface_shutdown_v2, conf.VERSION_IPV4)
         self.interface_ospfv3 = interface.Interface(
             self.interface_identifier, '', self.ipv6_address, '', self.link_prefixes, self.area_id,
-            self.interface_pipeline_v3, self.interface_shutdown_v3)
+            self.interface_pipeline_v3, self.interface_shutdown_v3, conf.VERSION_IPV6)
 
     #  Successful run - 21-36 s
     def test_interface_loop_packet_sending_successful(self):
@@ -324,11 +309,3 @@ class InterfaceTest(unittest.TestCase):
         self.interface_ospfv3.add_link_local_lsa(lsa_2)
         self.interface_ospfv3.clean_link_local_lsa_list()
         self.assertEqual(0, len(self.interface_ospfv3.link_local_lsa_list))
-
-    def tearDown(self):
-        self.interface_pipeline_v2 = None
-        self.interface_pipeline_v3 = None
-        self.interface_shutdown_v2 = None
-        self.interface_shutdown_v3 = None
-        self.interface_ospfv2 = None
-        self.interface_ospfv3 = None

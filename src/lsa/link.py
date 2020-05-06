@@ -19,18 +19,12 @@ PREFIX_BASE_FORMAT_STRING = "> B B H"
 
 class Link(body.Body):  # 24 bytes + 4-20 bytes / prefix
 
-    router_priority = 0  # 1 byte
-    options = 0  # 3 bytes
-    link_local_address = '::'  # 16 bytes
-    prefix_number = 0  # 4 bytes
-    prefixes = []  # 4-20 bytes / prefix
-
     def __init__(self, router_priority, options, link_local_address):
-        self.router_priority = router_priority
-        self.options = options
-        self.link_local_address = link_local_address
-        self.prefix_number = 0
-        self.prefixes = []
+        self.router_priority = router_priority  # 1 byte
+        self.options = options  # 3 bytes
+        self.link_local_address = link_local_address  # 16 bytes
+        self.prefix_number = 0  # 4 bytes
+        self.prefixes = []  # 4-20 bytes / prefix
 
     #  Adds data for one prefix to the LSA body
     def add_prefix_info(self, prefix_length, prefix_options, prefix):

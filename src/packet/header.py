@@ -18,38 +18,31 @@ OSPFV3_FORMAT_STRING = "> B B H L L H B B"
 
 class Header:  # OSPFv2 - 24 bytes; OSPFv3 - 16 bytes
 
-    utils = utils.Utils()
-
-    version = 0  # 1 byte
-    packet_type = 0  # 1 byte
-    length = 0  # 2 bytes
-    router_id = '0.0.0.0'  # 4 bytes
-    area_id = '0.0.0.0'  # 4 bytes
-    checksum = 0  # 2 bytes
-    auth_type = 0  # 2 bytes - Only for OSPFv2
-    authentication = 0  # 8 bytes - Only for OSPFv2
-    instance_id = 0  # 1 byte - Only for OSPFv3 (last byte in OSPFv3 header is set to 0)
-
     def __init__(self, version, packet_type, router_id, area_id, auth_type, authentication, instance_id):
         is_valid, message = self.parameter_validation(
             version, packet_type, router_id, area_id, auth_type, authentication, instance_id)
         if not is_valid:  # At least one of the parameters failed validation
             raise ValueError(message)
 
-        self.version = version
-        self.packet_type = packet_type
-        self.router_id = router_id
-        self.area_id = area_id
+        self.version = version  # 1 byte
+        self.packet_type = packet_type  # 1 byte
+        self.length = 0  # 2 bytes
+        self.router_id = router_id  # 4 bytes
+        self.area_id = area_id  # 4 bytes
+        self.checksum = 0  # 2 bytes
         if self.version == conf.VERSION_IPV4:
-            self.auth_type = auth_type
-            self.authentication = authentication
+            self.auth_type = auth_type  # 2 bytes - Only for OSPFv2
+            self.authentication = authentication  # 8 bytes - Only for OSPFv2
+            self.instance_id = 0
         else:
-            self.instance_id = instance_id
+            self.auth_type = 0
+            self.authentication = 0
+            self.instance_id = instance_id  # 1 byte - Only for OSPFv3 (last byte in OSPFv3 header is set to 0)
 
     #  Converts set of parameters to a byte object suitable to be sent and recognized as the header of an OSPF packet
     def pack_header(self):
-        decimal_router_id = self.utils.ipv4_to_decimal(self.router_id)
-        decimal_area_id = self.utils.ipv4_to_decimal(self.area_id)
+        decimal_router_id = utils.Utils.ipv4_to_decimal(self.router_id)
+        decimal_area_id = utils.Utils.ipv4_to_decimal(self.area_id)
         if self.version == conf.VERSION_IPV4:
             return struct.pack(OSPFV2_FORMAT_STRING, self.version, self.packet_type, self.length, decimal_router_id,
                                decimal_area_id, self.checksum, self.auth_type, self.authentication)
@@ -101,9 +94,9 @@ class Header:  # OSPFv2 - 24 bytes; OSPFv3 - 16 bytes
             if packet_type not in [conf.PACKET_TYPE_HELLO, conf.PACKET_TYPE_DB_DESCRIPTION, conf.PACKET_TYPE_LS_REQUEST,
                                    conf.PACKET_TYPE_LS_UPDATE, conf.PACKET_TYPE_LS_ACKNOWLEDGMENT]:
                 return False, "Invalid packet type"
-            if not self.utils.is_ipv4_address(router_id):
+            if not utils.Utils.is_ipv4_address(router_id):
                 return False, "Invalid router ID"
-            if not self.utils.is_ipv4_address(area_id):
+            if not utils.Utils.is_ipv4_address(area_id):
                 return False, "Invalid area ID"
             if (auth_type not in [conf.NULL_AUTHENTICATION, conf.SIMPLE_PASSWORD, conf.CRYPTOGRAPHIC_AUTHENTICATION])\
                     & (version == conf.VERSION_IPV4):

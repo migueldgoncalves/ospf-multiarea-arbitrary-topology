@@ -15,16 +15,10 @@ FORMAT_STRING = "> L"
 
 class Network(body.Body):  # OSPFv2 and OSPFv3 - 4 bytes + 4 bytes / link
 
-    network_mask = '0.0.0.0'  # 4 bytes - Only for OSPFv2
-    options = 0  # 3 bytes - Only for OSPFv3
-    attached_routers = []  # 4 bytes / router
-
-    version = 0
-
     def __init__(self, network_mask, options, attached_routers, version):
-        self.network_mask = network_mask
-        self.options = options
-        self.attached_routers = attached_routers
+        self.network_mask = network_mask  # 4 bytes - Only for OSPFv2
+        self.options = options  # 3 bytes - Only for OSPFv3
+        self.attached_routers = attached_routers  # 4 bytes / router
         self.version = version
 
     #  Creates byte object suitable to be sent and recognized as the body of an OSPF Network-LSA

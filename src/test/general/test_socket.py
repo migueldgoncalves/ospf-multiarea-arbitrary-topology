@@ -25,9 +25,6 @@ OTHER_ROUTER_ID = '1.1.1.1'
 
 #  Full successful run - 42-82 s
 class SocketTest(unittest.TestCase):
-    pipeline = None
-    shutdown = None
-    socket = None
 
     def setUp(self):
         self.pipeline = queue.Queue()
@@ -284,11 +281,6 @@ class SocketTest(unittest.TestCase):
             sock.Socket.send_ipv6(sock.Socket(), DATA_TO_SEND_OSPFV2, conf.ALL_OSPF_ROUTERS_IPV6, '')
         with self.assertRaises(ValueError):
             sock.Socket.send_ipv6(sock.Socket(), DATA_TO_SEND_OSPFV2, conf.ALL_OSPF_ROUTERS_IPV6, '        ')
-
-    def tearDown(self):
-        self.pipeline = None
-        self.shutdown = None
-        self.socket = None
 
 
 if __name__ == '__main__':

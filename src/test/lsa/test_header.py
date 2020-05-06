@@ -10,15 +10,6 @@ This class tests the OSPF LSA header class and its operations
 
 #  Full successful run - Instant
 class TestHeader(unittest.TestCase):
-    ls_age = 0
-    options = 0
-    ls_type = 0
-    link_state_id = '0.0.0.0'
-    advertising_router = '0.0.0.0'
-    ls_sequence_number = 0
-
-    header_ospfv2 = None
-    header_ospfv3 = None
 
     def setUp(self):
         self.ls_age = 1
@@ -296,13 +287,3 @@ class TestHeader(unittest.TestCase):
         self.assertEqual(header.OSPFV3_FORMAT_STRING, header.Header.get_format_string(conf.VERSION_IPV6))
         with self.assertRaises(ValueError):
             header.Header.get_format_string(1)
-
-    def tearDown(self):
-        self.ls_age = 0
-        self.options = 0
-        self.ls_type = 0
-        self.link_state_id = '0.0.0.0'
-        self.advertising_router = '0.0.0.0'
-        self.ls_sequence_number = 0
-        self.header_ospfv2 = None
-        self.header_ospfv3 = None

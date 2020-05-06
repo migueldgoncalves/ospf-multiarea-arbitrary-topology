@@ -7,8 +7,9 @@ This class performs the timer operations in the router
 
 class Timer:
 
-    initial_time = 0
-    timeout = 0
+    def __init__(self):
+        self.initial_time = 0
+        self.timeout = 0
 
     #  Implements a single-shot timer - Fires if timeout is reached, can be reset indefinite times
     def single_shot_timer(self, reset, timeout, shutdown, seconds):

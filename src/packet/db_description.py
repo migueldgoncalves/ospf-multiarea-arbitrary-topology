@@ -18,29 +18,19 @@ OSPFV3_BASE_FORMAT_STRING = "> L H H L"
 
 class DBDescription(body.Body):  # OSPFv2 - 8 bytes + 20 bytes / LSA Header; OSPFv3 - 12 bytes + 20 bytes / LSA Header
 
-    interface_mtu = 0  # 2 bytes
-    options = 0  # 1 byte in OSPFv2, 3 bytes in OSPFv3
-    i_bit = False  # Init bit
-    m_bit = False  # More bit
-    ms_bit = False  # Master/Slave bit
-    dd_sequence_number = 0  # 4 bytes
-    lsa_headers = ()  # 20 bytes / LSA Header
-
-    version = 0
-
     def __init__(self, interface_mtu, options, i_bit, m_bit, ms_bit, dd_sequence_number, lsa_headers, version):
         is_valid, message = self.parameter_validation(
             interface_mtu, options, i_bit, m_bit, ms_bit, dd_sequence_number, lsa_headers, version)
         if not is_valid:  # At least one of the parameters failed validation
             raise ValueError(message)
 
-        self.interface_mtu = interface_mtu
-        self.options = options
-        self.i_bit = i_bit
-        self.m_bit = m_bit
-        self.ms_bit = ms_bit
-        self.dd_sequence_number = dd_sequence_number
-        self.lsa_headers = lsa_headers
+        self.interface_mtu = interface_mtu  # 2 bytes
+        self.options = options  # 1 byte in OSPFv2, 3 bytes in OSPFv3
+        self.i_bit = i_bit  # Init bit
+        self.m_bit = m_bit  # More bit
+        self.ms_bit = ms_bit  # Master/Slave bit
+        self.dd_sequence_number = dd_sequence_number  # 4 bytes
+        self.lsa_headers = lsa_headers  # 20 bytes / LSA Header
         self.version = version
 
     #  Creates byte object suitable to be sent and recognized as the body of an OSPF Database Description packet

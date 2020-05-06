@@ -19,18 +19,12 @@ PREFIX_BASE_FORMAT_STRING = "> B B H"
 
 class IntraAreaPrefix(body.Body):  # 12 bytes + 4-20 bytes / prefix
 
-    prefix_number = 0  # 2 bytes
-    referenced_ls_type = 0  # 2 bytes
-    referenced_link_state_id = '0.0.0.0'  # 4 bytes
-    referenced_advertising_router = '0.0.0.0'  # 4 bytes
-    prefixes = []  # 4-20 bytes / prefix
-
     def __init__(self, referenced_ls_type, referenced_link_state_id, referenced_advertising_router):
-        self.prefix_number = 0
-        self.referenced_ls_type = referenced_ls_type
-        self.referenced_link_state_id = referenced_link_state_id
-        self.referenced_advertising_router = referenced_advertising_router
-        self.prefixes = []
+        self.prefix_number = 0  # 2 bytes
+        self.referenced_ls_type = referenced_ls_type  # 2 bytes
+        self.referenced_link_state_id = referenced_link_state_id  # 4 bytes
+        self.referenced_advertising_router = referenced_advertising_router  # 4 bytes
+        self.prefixes = []  # 4-20 bytes / prefix
 
     #  Adds data for one prefix to the LSA body
     def add_prefix_info(self, prefix_length, prefix_options, metric, prefix):

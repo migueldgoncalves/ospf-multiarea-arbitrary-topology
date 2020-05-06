@@ -10,14 +10,6 @@ This class tests the OSPF packet header class and its operations
 
 #  Full successful run - Instant
 class TestHeader(unittest.TestCase):
-    packet_type = 0
-    router_id = '0.0.0.0'
-    area_id = '0.0.0.0'
-    auth_type = 0
-    authentication = 0
-    instance_id = 0
-    header_ospfv2 = None
-    header_ospfv3 = None
 
     def setUp(self):
         self.packet_type = conf.PACKET_TYPE_HELLO
@@ -348,13 +340,3 @@ class TestHeader(unittest.TestCase):
         self.assertEqual(header.OSPFV3_FORMAT_STRING, header.Header.get_format_string(conf.VERSION_IPV6))
         with self.assertRaises(ValueError):
             header.Header.get_format_string(1)
-
-    def tearDown(self):
-        self.packet_type = 0
-        self.router_id = ''
-        self.area_id = ''
-        self.auth_type = 0
-        self.authentication = 0
-        self.instance_id = 0
-        self.header_ospfv2 = None
-        self.header_ospfv3 = None

@@ -15,11 +15,8 @@ FORMAT_STRING = "> L L L"  # Determines the format of the byte object to be crea
 
 class LSRequest(body.Body):  # OSPFv2 and OSPFv3 - 12 bytes / LSA identifier
 
-    lsa_identifiers = []  # 12 bytes / LSA identifier
-    version = 0
-
     def __init__(self, version):
-        self.lsa_identifiers = []
+        self.lsa_identifiers = []  # 12 bytes / LSA identifier
         self.version = version
 
     #  Adds data for one LSA identifier to the packet

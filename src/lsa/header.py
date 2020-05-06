@@ -16,19 +16,6 @@ OSPFV3_FORMAT_STRING = "> H H L L L H H"
 
 
 class Header:  # OSPFv2 and OSPFv3 - 20 bytes
-    
-    utils = utils.Utils()
-    
-    ls_age = 0  # 2 bytes
-    options = 0  # 1 byte - Only for OSPFv2
-    ls_type = 0  # 1 byte in OSPFv2, 2 bytes in OSPFv3
-    link_state_id = '0.0.0.0'  # 4 bytes
-    advertising_router = '0.0.0.0'  # 4 bytes
-    ls_sequence_number = 0  # 4 bytes
-    ls_checksum = 0  # 2 bytes
-    length = 0  # 2 bytes
-
-    ospf_version = 0
 
     def __init__(self, ls_age, options, ls_type, link_state_id, advertising_router, ls_sequence_number, version):
         is_valid, message = self.parameter_validation(
@@ -37,18 +24,22 @@ class Header:  # OSPFv2 and OSPFv3 - 20 bytes
             raise ValueError(message)
 
         self.ospf_version = version
-        self.ls_age = ls_age
+        self.ls_age = ls_age  # 2 bytes
         if version == conf.VERSION_IPV4:
-            self.options = options
-        self.ls_type = ls_type
-        self.link_state_id = link_state_id
-        self.advertising_router = advertising_router
-        self.ls_sequence_number = ls_sequence_number
+            self.options = options  # 1 byte - Only for OSPFv2
+        else:
+            self.options = 0
+        self.ls_type = ls_type  # 1 byte in OSPFv2, 2 bytes in OSPFv3
+        self.link_state_id = link_state_id  # 4 bytes
+        self.advertising_router = advertising_router  # 4 bytes
+        self.ls_sequence_number = ls_sequence_number  # 4 bytes
+        self.ls_checksum = 0  # 2 bytes
+        self.length = 0  # 2 bytes
 
     #  Converts set of parameters to a byte object suitable to be sent and recognized as the header of an OSPF LSA
     def pack_header(self):
-        decimal_link_state_id = self.utils.ipv4_to_decimal(self.link_state_id)
-        decimal_advertising_router = self.utils.ipv4_to_decimal(self.advertising_router)
+        decimal_link_state_id = utils.Utils.ipv4_to_decimal(self.link_state_id)
+        decimal_advertising_router = utils.Utils.ipv4_to_decimal(self.advertising_router)
         if self.ospf_version == conf.VERSION_IPV4:
             return struct.pack(OSPFV2_FORMAT_STRING, self.ls_age, self.options, self.ls_type, decimal_link_state_id,
                                decimal_advertising_router, self.ls_sequence_number, self.ls_checksum, self.length)
@@ -102,9 +93,9 @@ class Header:  # OSPFv2 and OSPFv3 - 20 bytes
             if (version == conf.VERSION_IPV6) & (
                     s1_s2_bits not in [conf.LINK_LOCAL_SCOPING, conf.AREA_SCOPING, conf.AS_SCOPING]):
                 return False, "Invalid values for S1 and S2 bits"
-            if not self.utils.is_ipv4_address(link_state_id):
+            if not utils.Utils.is_ipv4_address(link_state_id):
                 return False, "Invalid Link State ID"
-            if (not self.utils.is_ipv4_address(advertising_router)) | (advertising_router == '0.0.0.0'):
+            if (not utils.Utils.is_ipv4_address(advertising_router)) | (advertising_router == '0.0.0.0'):
                 return False, "Invalid Advertising Router"
             if (ls_sequence_number < 0) | (ls_sequence_number > conf.MAX_VALUE_32_BITS) |\
                     (ls_sequence_number == 0x80000000):  # Sequence Number 0x80000000 is unused

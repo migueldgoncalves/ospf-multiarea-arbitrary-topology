@@ -8,11 +8,8 @@ This class represents the body of an OSPF Link State Acknowledgement packet and 
 
 class LSAcknowledgement(body.Body):  # OSPFv2 and OSPFv3 - 20 bytes / LSA header
 
-    lsa_headers = []  # 20 bytes / LSA header
-    version = 0
-
     def __init__(self, version):
-        self.lsa_headers = []
+        self.lsa_headers = []  # 20 bytes / LSA header
         self.version = version
 
     #  Adds one LSA header to the packet

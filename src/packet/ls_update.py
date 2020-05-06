@@ -14,13 +14,9 @@ FORMAT_STRING = "> L"  # Determines the format of the byte object to be created
 
 class LSUpdate(body.Body):  # OSPFv2 and OSPFv3 - 4 bytes + 20+ bytes / LSA
 
-    lsa_number = 0  # 4 bytes
-    lsa_list = []  # 20+ bytes / LSA
-    version = 0
-
     def __init__(self, version):
-        self.lsa_number = 0
-        self.lsa_list = []
+        self.lsa_number = 0  # 4 bytes
+        self.lsa_list = []  # 20+ bytes / LSA
         self.version = version
 
     #  Adds one full LSA to the packet

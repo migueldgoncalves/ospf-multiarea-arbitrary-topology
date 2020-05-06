@@ -12,11 +12,6 @@ This class tests the area operations in the router
 #  Full successful run - 12-13 s
 class AreaTest(unittest.TestCase):
 
-    area_id = '0.0.0.0'
-    external_routing_capable = False
-    area_v2 = None
-    area_v3 = None
-
     def setUp(self):
         self.area_id = '0.0.0.0'
         self.external_routing_capable = True
@@ -173,5 +168,3 @@ class AreaTest(unittest.TestCase):
         time.sleep(1)  # Required for successful tear down
         self.area_v2.shutdown_area()
         self.area_v3.shutdown_area()
-        self.area_v2 = None
-        self.area_v3 = None

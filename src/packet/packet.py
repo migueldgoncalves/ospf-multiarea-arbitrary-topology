@@ -23,11 +23,12 @@ FORMAT_STRING = "> B"
 
 
 class Packet:
-    header = None
-    body = None
-    source_ipv6_address = '::'  # Required for OSPFv3 packet checksum calculation
-    destination_ipv6_address = '::'
-    utils = utils.Utils()
+    
+    def __init__(self):
+        self.header = None
+        self.body = None
+        self.source_ipv6_address = '::'  # Required for OSPFv3 packet checksum calculation
+        self.destination_ipv6_address = '::'
 
     #  #  #  #  #  #  #
     #  Main methods   #
@@ -202,9 +203,9 @@ class Packet:
             header_bytes = self.header.pack_header()  # Without the checksum
             body_bytes = self.body.pack_packet_body()
             if self.header.version == conf.VERSION_IPV4:
-                checksum = self.utils.create_checksum_ospfv2(header_bytes + body_bytes)
+                checksum = utils.Utils.create_checksum_ospfv2(header_bytes + body_bytes)
             else:
-                checksum = self.utils.create_checksum_ospfv3(
+                checksum = utils.Utils.create_checksum_ospfv3(
                     header_bytes + body_bytes, self.source_ipv6_address, self.destination_ipv6_address)
 
             self.header.set_checksum(checksum)

@@ -15,18 +15,6 @@ This class tests the LSDB operations in the router
 
 #  Full successful run - Instant
 class TestLsdb(unittest.TestCase):
-    interface_ospfv2 = None
-    interface_ospfv3 = None
-
-    lsa_ospfv2_1 = None
-    lsa_ospfv2_2 = None
-    lsa_ospfv3_1 = None
-    lsa_ospfv3_2 = None
-    lsa_ospfv3_3 = None
-    lsa_ospfv3_4 = None
-
-    lsdb_ospfv2 = None
-    lsdb_ospfv3 = None
     
     def setUp(self):
         interface_identifier = conf.INTERFACE_NAMES[0]
@@ -41,10 +29,10 @@ class TestLsdb(unittest.TestCase):
         interface_shutdown_v3 = threading.Event()
         self.interface_ospfv2 = interface.Interface(
             interface_identifier, ipv4_address, '', network_mask, [], area_id, interface_pipeline_v2,
-            interface_shutdown_v2)
+            interface_shutdown_v2, conf.VERSION_IPV4)
         self.interface_ospfv3 = interface.Interface(
             interface_identifier, '', ipv6_address, '', link_prefixes, area_id, interface_pipeline_v3,
-            interface_shutdown_v3)
+            interface_shutdown_v3, conf.VERSION_IPV6)
 
         self.lsa_ospfv2_1 = lsa.Lsa()
         self.lsa_ospfv2_2 = lsa.Lsa()
@@ -217,13 +205,6 @@ class TestLsdb(unittest.TestCase):
         self.assertEqual(1, self.lsdb_ospfv3.get_lsdb([self.interface_ospfv3])[0].header.ls_type)
         self.assertEqual(2, self.lsdb_ospfv3.get_lsdb([self.interface_ospfv3])[1].header.ls_type)
         self.assertEqual(9, self.lsdb_ospfv3.get_lsdb([self.interface_ospfv3])[2].header.ls_type)
-
-    def tearDown(self):
-        self.interface_ospfv2 = None
-        self.interface_ospfv3 = None
-
-        self.lsdb_ospfv2 = None
-        self.lsdb_ospfv3 = None
 
     def populateLsdb(self):
         self.lsdb_ospfv2.router_lsa_list.append(self.lsa_ospfv2_1)

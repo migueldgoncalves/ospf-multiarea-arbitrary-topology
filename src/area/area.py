@@ -19,23 +19,15 @@ SHUTDOWN_EVENT = 3
 
 
 class Area:
-    ospf_version = 0
-
-    area_id = '0.0.0.0'  # 0.0.0.0 - Backbone area
-    interfaces = {}  # Contains as key their identifier, and as value the list above mentioned
-    external_routing_capable = False
-    database = None
-
-    utils = utils.Utils()
 
     def __init__(self, ospf_version, area_id, external_routing_capable):
         if ospf_version not in [conf.VERSION_IPV4, conf.VERSION_IPV6]:
             raise ValueError("Invalid OSPF version")
-        if not self.utils.is_ipv4_address(area_id):
+        if not utils.Utils.is_ipv4_address(area_id):
             raise ValueError("Invalid Area ID")
         self.ospf_version = ospf_version
-        self.area_id = area_id
-        self.interfaces = {}
+        self.area_id = area_id  # 0.0.0.0 - Backbone area
+        self.interfaces = {}  # Contains as key their identifier, and as value the list above mentioned
         self.external_routing_capable = external_routing_capable
 
         #  LSDB initialization
@@ -70,15 +62,15 @@ class Area:
         pipeline = queue.Queue()
         shutdown = threading.Event()
         if self.ospf_version == conf.VERSION_IPV4:
-            ip_address = self.utils.get_ipv4_address_from_interface_name(interface_id)
-            network_mask = self.utils.get_ipv4_network_mask_from_interface_name(interface_id)
+            ip_address = utils.Utils.get_ipv4_address_from_interface_name(interface_id)
+            network_mask = utils.Utils.get_ipv4_network_mask_from_interface_name(interface_id)
             new_interface = interface.Interface(interface_id, ip_address, '', network_mask, [], self.area_id,
-                                                pipeline, shutdown)
+                                                pipeline, shutdown, self.ospf_version)
         else:
-            ip_address = self.utils.get_ipv6_link_local_address_from_interface_name(interface_id)
-            link_prefix = self.utils.get_ipv6_prefix_from_interface_name(interface_id)
+            ip_address = utils.Utils.get_ipv6_link_local_address_from_interface_name(interface_id)
+            link_prefix = utils.Utils.get_ipv6_prefix_from_interface_name(interface_id)
             new_interface = interface.Interface(interface_id, '', ip_address, '', [link_prefix],
-                                                self.area_id, pipeline, shutdown)
+                                                self.area_id, pipeline, shutdown, self.ospf_version)
 
         interface_thread = threading.Thread(target=new_interface.interface_loop)
 

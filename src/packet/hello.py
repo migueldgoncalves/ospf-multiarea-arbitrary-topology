@@ -19,20 +19,6 @@ EXTRA_FORMAT_STRING = " L"  # Must be added to the base format string for every 
 
 class Hello(body.Body):  # OSPFv2 and OSPFv3 - 20 bytes + 4 bytes / neighbor
 
-    utils = utils.Utils()
-
-    interface_id = 0  # 4 bytes - Only for OSPFv3
-    network_mask = '0.0.0.0'  # 4 bytes - Only for OSPFv2
-    hello_interval = 0  # 2 bytes
-    options = 0  # 1 byte in OSPFv2, 3 bytes in OSPFv3
-    router_priority = 0  # 1 byte
-    router_dead_interval = 0  # 4 bytes in OSPFv2, 2 bytes in OSPFv3
-    designated_router = '0.0.0.0'  # 4 bytes
-    backup_designated_router = '0.0.0.0'  # 4 bytes
-    neighbors = ()  # 4 bytes / neighbor
-
-    version = 0
-
     def __init__(self, network_mask, hello_interval, options, router_priority, router_dead_interval,
                  designated_router, backup_designated_router, neighbors, interface_id, version):
         is_valid, message = self.parameter_validation(
@@ -41,30 +27,30 @@ class Hello(body.Body):  # OSPFv2 and OSPFv3 - 20 bytes + 4 bytes / neighbor
         if not is_valid:  # At least one of the parameters failed validation
             raise ValueError(message)
 
-        self.network_mask = network_mask
-        self.hello_interval = hello_interval
-        self.options = options
-        self.router_priority = router_priority
-        self.router_dead_interval = router_dead_interval
-        self.designated_router = designated_router
-        self.backup_designated_router = backup_designated_router
-        self.neighbors = neighbors
-        self.interface_id = interface_id
+        self.network_mask = network_mask  # 4 bytes - Only for OSPFv2
+        self.hello_interval = hello_interval  # 2 bytes
+        self.options = options  # 1 byte in OSPFv2, 3 bytes in OSPFv3
+        self.router_priority = router_priority  # 1 byte
+        self.router_dead_interval = router_dead_interval  # 4 bytes in OSPFv2, 2 bytes in OSPFv3
+        self.designated_router = designated_router  # 4 bytes
+        self.backup_designated_router = backup_designated_router  # 4 bytes
+        self.neighbors = neighbors  # 4 bytes / neighbor
+        self.interface_id = interface_id  # 4 bytes - Only for OSPFv3
         self.version = version
 
     #  Converts set of parameters to byte object suitable to be sent and recognized as the body of an OSPF Hello packet
     def pack_packet_body(self):
-        decimal_designated_router = self.utils.ipv4_to_decimal(self.designated_router)
-        decimal_backup_designated_router = self.utils.ipv4_to_decimal(self.backup_designated_router)
+        decimal_designated_router = utils.Utils.ipv4_to_decimal(self.designated_router)
+        decimal_backup_designated_router = utils.Utils.ipv4_to_decimal(self.backup_designated_router)
 
         if self.version == conf.VERSION_IPV4:
-            decimal_network_mask = self.utils.ipv4_to_decimal(self.network_mask)
+            decimal_network_mask = utils.Utils.ipv4_to_decimal(self.network_mask)
             base_packed_data = struct.pack(
                 OSPFV2_BASE_FORMAT_STRING, decimal_network_mask, self.hello_interval, self.options,
                 self.router_priority, self.router_dead_interval, decimal_designated_router,
                 decimal_backup_designated_router)
         else:
-            decimal_interface_id = self.utils.ipv4_to_decimal(self.interface_id)
+            decimal_interface_id = utils.Utils.ipv4_to_decimal(self.interface_id)
             base_packed_data = struct.pack(
                 OSPFV3_BASE_FORMAT_STRING, decimal_interface_id, (self.router_priority << 3 * conf.BYTE_SIZE) +
                 self.options, self.hello_interval, self.router_dead_interval, decimal_designated_router,
@@ -73,7 +59,7 @@ class Hello(body.Body):  # OSPFv2 and OSPFv3 - 20 bytes + 4 bytes / neighbor
         packed_data = base_packed_data
         #  Adds neighbors one by one to the Hello packet
         for n in self.neighbors:
-            decimal_neighbor = self.utils.ipv4_to_decimal(n)
+            decimal_neighbor = utils.Utils.ipv4_to_decimal(n)
             extra_packed_data = struct.pack(">" + EXTRA_FORMAT_STRING, decimal_neighbor)
             packed_data += extra_packed_data
         return packed_data
@@ -154,7 +140,7 @@ class Hello(body.Body):  # OSPFv2 and OSPFv3 - 20 bytes + 4 bytes / neighbor
     def parameter_validation(self, network_mask, hello_interval, options, router_priority, router_dead_interval,
                              designated_router, backup_designated_router, neighbors, interface_id, version):
         try:
-            if (not self.utils.is_ipv4_network_mask(network_mask)) & (version == conf.VERSION_IPV4):
+            if (not utils.Utils.is_ipv4_network_mask(network_mask)) & (version == conf.VERSION_IPV4):
                 return False, "Invalid network mask"
             if not (0 <= hello_interval <= conf.MAX_VALUE_16_BITS):
                 return False, "Invalid Hello interval"
@@ -168,13 +154,13 @@ class Hello(body.Body):  # OSPFv2 and OSPFv3 - 20 bytes + 4 bytes / neighbor
                 return False, "Invalid router dead interval"
             if (not (0 <= router_dead_interval <= conf.MAX_VALUE_16_BITS)) & (version == conf.VERSION_IPV6):  # OSPFv3
                 return False, "Invalid router dead interval"
-            if not self.utils.is_ipv4_address(designated_router):
+            if not utils.Utils.is_ipv4_address(designated_router):
                 return False, "Invalid Designated Router"
-            if not self.utils.is_ipv4_address(backup_designated_router):
+            if not utils.Utils.is_ipv4_address(backup_designated_router):
                 return False, "Invalid Backup Designated Router"
             if len(neighbors) > 0:
                 for neighbor_id in neighbors:
-                    if not self.utils.is_ipv4_address(neighbor_id):
+                    if not utils.Utils.is_ipv4_address(neighbor_id):
                         return False, "Invalid Neighbor(s)"
             if (not (0 <= interface_id <= conf.MAX_VALUE_32_BITS)) & (version == conf.VERSION_IPV6):
                 return False, "Invalid interface ID"

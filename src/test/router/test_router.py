@@ -15,15 +15,6 @@ This class tests the top-level OSPF operations in the router
 #  Full successful run - 20-43 s
 class RouterTest(unittest.TestCase):
 
-    command_pipeline_v2 = None
-    command_pipeline_v3 = None
-    shutdown_event_v2 = None
-    shutdown_event_v3 = None
-    thread_v2 = None
-    thread_v3 = None
-    router_v2 = None
-    router_v3 = None
-
     def setUp(self):
         self.command_pipeline_v2 = queue.Queue()
         self.command_pipeline_v3 = queue.Queue()
@@ -114,13 +105,5 @@ class RouterTest(unittest.TestCase):
     def tearDown(self):
         self.shutdown_event_v2.set()
         self.shutdown_event_v3.set()
-        self.command_pipeline_v2 = None
-        self.command_pipeline_v3 = None
-        self.shutdown_event_v2 = None
-        self.shutdown_event_v3 = None
         self.thread_v2.join()
         self.thread_v3.join()
-        self.thread_v2 = None
-        self.thread_v3 = None
-        self.router_v2 = None
-        self.router_v3 = None

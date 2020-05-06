@@ -15,10 +15,6 @@ OFFSET = 1
 
 #  Full successful run - 11-12 s
 class TimerTest(unittest.TestCase):
-    reset = None
-    timeout = None
-    shutdown = None
-    timer = None
 
     def setUp(self):
         self.reset = threading.Event()
