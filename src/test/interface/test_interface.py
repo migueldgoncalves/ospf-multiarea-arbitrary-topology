@@ -34,10 +34,10 @@ class InterfaceTest(unittest.TestCase):
         self.interface_shutdown_v3 = threading.Event()
         self.interface_ospfv2 = interface.Interface(
             self.interface_identifier, self.ipv4_address, '', self.network_mask, [], self.area_id,
-            self.interface_pipeline_v2, self.interface_shutdown_v2, conf.VERSION_IPV4)
+            self.interface_pipeline_v2, self.interface_shutdown_v2, conf.VERSION_IPV4, None)
         self.interface_ospfv3 = interface.Interface(
             self.interface_identifier, '', self.ipv6_address, '', self.link_prefixes, self.area_id,
-            self.interface_pipeline_v3, self.interface_shutdown_v3, conf.VERSION_IPV6)
+            self.interface_pipeline_v3, self.interface_shutdown_v3, conf.VERSION_IPV6, None)
 
     #  Successful run - 21-36 s
     def test_interface_loop_packet_sending_successful(self):
@@ -145,7 +145,7 @@ class InterfaceTest(unittest.TestCase):
         thread_socket_v3.start()
 
         #  Listens for a packet from the neighbor acknowledging this router
-        #  Neighbor goes to 2-WAY state
+        #  Neighbor goes to EXSTART state
         while True:  # OSPFv2
             if not socket_pipeline_v2.empty():
                 byte_array = socket_pipeline_v2.get()[0]
@@ -165,15 +165,15 @@ class InterfaceTest(unittest.TestCase):
         time.sleep(10)
         self.assertEqual(1, len(self.interface_ospfv2.neighbors))
         self.assertEqual(1, len(self.interface_ospfv3.neighbors))
-        self.assertEqual(conf.NEIGHBOR_STATE_2_WAY, self.interface_ospfv2.neighbors['1.1.1.1'].neighbor_state)
-        self.assertEqual(conf.NEIGHBOR_STATE_2_WAY, self.interface_ospfv3.neighbors['1.1.1.1'].neighbor_state)
+        self.assertEqual(conf.NEIGHBOR_STATE_EXSTART, self.interface_ospfv2.neighbors['1.1.1.1'].neighbor_state)
+        self.assertEqual(conf.NEIGHBOR_STATE_EXSTART, self.interface_ospfv3.neighbors['1.1.1.1'].neighbor_state)
         self.interface_pipeline_v2.put([two_way_v2, '222.222.1.1'])
         self.interface_pipeline_v3.put([two_way_v3, 'fe80::c001:18ff:fe34:10'])
         time.sleep(conf.ROUTER_DEAD_INTERVAL - 5)  # More than 40 s will have passed since original Hello packet
         self.assertEqual(1, len(self.interface_ospfv2.neighbors))  # New Hello packet resets neighbor timer
         self.assertEqual(1, len(self.interface_ospfv3.neighbors))
-        self.assertEqual(conf.NEIGHBOR_STATE_2_WAY, self.interface_ospfv2.neighbors['1.1.1.1'].neighbor_state)
-        self.assertEqual(conf.NEIGHBOR_STATE_2_WAY, self.interface_ospfv3.neighbors['1.1.1.1'].neighbor_state)
+        self.assertEqual(conf.NEIGHBOR_STATE_EXSTART, self.interface_ospfv2.neighbors['1.1.1.1'].neighbor_state)
+        self.assertEqual(conf.NEIGHBOR_STATE_EXSTART, self.interface_ospfv3.neighbors['1.1.1.1'].neighbor_state)
         time.sleep(6)
         self.assertEqual(0, len(self.interface_ospfv2.neighbors))  # Neighbor timer expired
         self.assertEqual(0, len(self.interface_ospfv3.neighbors))
@@ -182,8 +182,8 @@ class InterfaceTest(unittest.TestCase):
         time.sleep(1)
         self.assertEqual(1, len(self.interface_ospfv2.neighbors))  # Neighbor is recognized again
         self.assertEqual(1, len(self.interface_ospfv3.neighbors))
-        self.assertEqual(conf.NEIGHBOR_STATE_2_WAY, self.interface_ospfv2.neighbors['1.1.1.1'].neighbor_state)
-        self.assertEqual(conf.NEIGHBOR_STATE_2_WAY, self.interface_ospfv3.neighbors['1.1.1.1'].neighbor_state)
+        self.assertEqual(conf.NEIGHBOR_STATE_EXSTART, self.interface_ospfv2.neighbors['1.1.1.1'].neighbor_state)
+        self.assertEqual(conf.NEIGHBOR_STATE_EXSTART, self.interface_ospfv3.neighbors['1.1.1.1'].neighbor_state)
 
         #  Interface receives another packet from neighbor not acknowledging this router
         #  Neighbor goes to INIT state
@@ -209,14 +209,14 @@ class InterfaceTest(unittest.TestCase):
         thread_interface_v3.start()
 
         #  Interface receives another packet from neighbor acknowledging this router
-        #  Neighbor this time jumps to 2-WAY state
+        #  Neighbor this time jumps to EXSTART state
         self.interface_pipeline_v2.put([two_way_v2, '222.222.1.1'])
         self.interface_pipeline_v3.put([two_way_v3, 'fe80::c001:18ff:fe34:10'])
         time.sleep(1)
         self.assertEqual(1, len(self.interface_ospfv2.neighbors))
         self.assertEqual(1, len(self.interface_ospfv3.neighbors))
-        self.assertEqual(conf.NEIGHBOR_STATE_2_WAY, self.interface_ospfv2.neighbors['1.1.1.1'].neighbor_state)
-        self.assertEqual(conf.NEIGHBOR_STATE_2_WAY, self.interface_ospfv3.neighbors['1.1.1.1'].neighbor_state)
+        self.assertEqual(conf.NEIGHBOR_STATE_EXSTART, self.interface_ospfv2.neighbors['1.1.1.1'].neighbor_state)
+        self.assertEqual(conf.NEIGHBOR_STATE_EXSTART, self.interface_ospfv3.neighbors['1.1.1.1'].neighbor_state)
 
         #  Final shutdown
         #  Neighbor goes to DOWN state and is deleted

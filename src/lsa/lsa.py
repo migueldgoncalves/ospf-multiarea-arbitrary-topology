@@ -209,7 +209,10 @@ class Lsa:
 
     #  Increases LS Age field, if enough time has passed
     def increase_lsa_age(self):
-        self.header.ls_age += int(time.perf_counter() - self.system_time)
+        if self.header.ls_age < conf.MAX_AGE:
+            self.header.ls_age += int(time.perf_counter() - self.system_time)
+            if self.header.ls_age > conf.MAX_AGE:
+                self.header.ls_age = conf.MAX_AGE
         self.system_time = int(time.perf_counter())
 
     #  Sets LS Age to 3600

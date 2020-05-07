@@ -65,12 +65,12 @@ class Area:
             ip_address = utils.Utils.get_ipv4_address_from_interface_name(interface_id)
             network_mask = utils.Utils.get_ipv4_network_mask_from_interface_name(interface_id)
             new_interface = interface.Interface(interface_id, ip_address, '', network_mask, [], self.area_id,
-                                                pipeline, shutdown, self.ospf_version)
+                                                pipeline, shutdown, self.ospf_version, self.database)
         else:
             ip_address = utils.Utils.get_ipv6_link_local_address_from_interface_name(interface_id)
             link_prefix = utils.Utils.get_ipv6_prefix_from_interface_name(interface_id)
             new_interface = interface.Interface(interface_id, '', ip_address, '', [link_prefix],
-                                                self.area_id, pipeline, shutdown, self.ospf_version)
+                                                self.area_id, pipeline, shutdown, self.ospf_version, self.database)
 
         interface_thread = threading.Thread(target=new_interface.interface_loop)
 

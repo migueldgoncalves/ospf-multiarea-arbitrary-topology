@@ -60,6 +60,9 @@ class Neighbor:
     #  Stops timer thread so that neighbor can be deleted
     def delete_neighbor(self):
         self.set_neighbor_state(conf.NEIGHBOR_STATE_DOWN)
+        self.ls_retransmission_list = []
+        self.db_summary_list = []
+        self.ls_request_list = []
         self.shutdown.set()
         self.thread.join()
 

@@ -16,7 +16,7 @@ This class represents the OSPF interface and contains its data and operations
 class Interface:
 
     def __init__(self, physical_identifier, ipv4_address, ipv6_address, network_mask, link_prefixes, area_id, pipeline,
-                 interface_shutdown, version):
+                 interface_shutdown, version, lsdb):
 
         #  OSPF interface parameters
 
@@ -60,6 +60,8 @@ class Interface:
                 conf.PACKET_TYPE_HELLO, conf.ROUTER_ID, area_id, self.instance_id, source_address, destination_address)
         self.hello_thread = None
         self.lsa_lock = threading.RLock()  # For controlling access to interface LSA list
+        self.lsdb = lsdb  # Reference to the area LSDB
+        #  TODO: Implement retransmission timer
 
         self.hello_timer = timer.Timer()
         self.offset = 0
@@ -84,7 +86,7 @@ class Interface:
             #  Deletes neighbors that reached timeout
             for n in list(self.neighbors):
                 if self.neighbors[n].is_expired():  # Neighbors that reached timeout can be deleted
-                    self.delete_neighbor(n)
+                    self.event_inactivity_timer(n)
 
             #  Processes incoming packets
             if not self.pipeline.empty():
@@ -125,33 +127,85 @@ class Interface:
                     #  Existing neighbor
                     self.event_hello_received(incoming_packet, source_ip, neighbor_id)
 
-                elif packet_type == conf.PACKET_TYPE_DB_DESCRIPTION:
-                    if self.neighbors[neighbor_id].neighbor_state == conf.NEIGHBOR_STATE_EXSTART:
+                if neighbor_id not in self.neighbors:  # Packet does not come from a neighbor router
+                    continue
+
+                if packet_type == conf.PACKET_TYPE_DB_DESCRIPTION:
+                    if incoming_packet.body.interface_mtu > self.max_ip_datagram:
+                        continue  # Neighbor MTU too large
+
+                    neighbor_router = self.neighbors[neighbor_id]
+                    neighbor_state = neighbor_router.neighbor_state
+
+                    if neighbor_state == conf.NEIGHBOR_STATE_DOWN:
+                        continue
+
+                    if neighbor_state == conf.NEIGHBOR_STATE_INIT:
+                        self.event_2_way_received(neighbor_router, neighbor_id, source_ip)
+
+                    if neighbor_state == conf.NEIGHBOR_STATE_2_WAY:
+                        continue
+
+                    neighbor_options = incoming_packet.body.options
+                    neighbor_i_bit = incoming_packet.body.i_bit
+                    neighbor_m_bit = incoming_packet.body.m_bit
+                    neighbor_ms_bit = incoming_packet.body.ms_bit
+                    neighbor_lsa_headers = incoming_packet.body.lsa_headers
+
+                    if neighbor_state == conf.NEIGHBOR_STATE_EXSTART:
                         #  This router is the slave
-                        if utils.Utils.ipv4_to_decimal(neighbor_id) > utils.Utils.ipv4_to_decimal(conf.ROUTER_ID):
-                            self.neighbors[neighbor_id].set_neighbor_state(conf.NEIGHBOR_STATE_EXCHANGE)
-                            self.neighbors[neighbor_id].master_slave = False
-                            dd_packet = packet.Packet()
-                            self.neighbors[neighbor_id].dd_sequence = incoming_packet.dd_sequence_number
-                            if self.version == conf.VERSION_IPV4:
-                                dd_packet.create_header_v2(conf.PACKET_TYPE_DB_DESCRIPTION, conf.ROUTER_ID,
-                                                           self.area_id, conf.NULL_AUTHENTICATION, conf.DEFAULT_AUTH)
-                                dd_packet.create_db_description_packet_body(
-                                    conf.MTU, conf.OPTIONS, False, True, False, self.neighbors[neighbor_id].dd_sequence,
-                                    [], conf.VERSION_IPV4)
-                            else:
-                                dd_packet.create_header_v3(conf.PACKET_TYPE_DB_DESCRIPTION, conf.ROUTER_ID,
-                                                           self.area_id, self.instance_id, self.ipv6_address, source_ip)
-                                dd_packet.create_db_description_packet_body(
-                                    conf.MTU, conf.OPTIONS, False, True, False, self.neighbors[neighbor_id].dd_sequence,
-                                    [], conf.VERSION_IPV6)
-                            self.send_packet(dd_packet, source_ip)
+                        if neighbor_i_bit & neighbor_m_bit & neighbor_ms_bit:
+                            if len(neighbor_lsa_headers) == 0:
+                                if utils.Utils.ipv4_to_decimal(neighbor_id) > \
+                                        utils.Utils.ipv4_to_decimal(conf.ROUTER_ID):
+                                    neighbor_router.master_slave = False
+                                    neighbor_router.dd_sequence = incoming_packet.body.dd_sequence_number
+                                    neighbor_router.neighbor_options = neighbor_options
+                                    self.event_negotiation_done(neighbor_router)
                         #  This router is the master
-                        elif (not incoming_packet.body.i_bit) & (not incoming_packet.body.ms_bit) & (
-                                incoming_packet.body.dd_sequence_number == self.neighbors[neighbor_id].dd_sequence) & (
-                                utils.Utils.ipv4_to_decimal(neighbor_id) < utils.Utils.ipv4_to_decimal(conf.ROUTER_ID)):
-                            self.neighbors[neighbor_id].set_neighbor_state(conf.NEIGHBOR_STATE_EXCHANGE)
-                            self.neighbors[neighbor_id].master_slave = True
+                        elif (not incoming_packet.body.i_bit) & (not incoming_packet.body.ms_bit):
+                            if incoming_packet.body.dd_sequence_number == neighbor_router.dd_sequence:
+                                if utils.Utils.ipv4_to_decimal(neighbor_id) < \
+                                        utils.Utils.ipv4_to_decimal(conf.ROUTER_ID):
+                                    neighbor_router.master_slave = True
+                                    neighbor_router.neighbor_options = neighbor_options
+                                    self.event_negotiation_done(neighbor_router)
+                        else:
+                            continue
+
+                    if neighbor_state == conf.NEIGHBOR_STATE_EXCHANGE:
+                        #  TODO: Implement resending if incoming packet is duplicate
+                        invalid_ls_type = False
+                        for header in incoming_packet.body.lsa_headers:
+                            if ((self.version == conf.VERSION_IPV4) & (
+                                    header.ls_type not in [conf.LSA_TYPE_ROUTER, conf.LSA_TYPE_NETWORK])) | (
+                                    (self.version == conf.VERSION_IPV6) & (
+                                    header.ls_type not in [conf.LSA_TYPE_ROUTER, conf.LSA_TYPE_NETWORK,
+                                                           conf.LSA_TYPE_INTRA_AREA_PREFIX, conf.LSA_TYPE_LINK])):
+                                invalid_ls_type = True
+                            else:  # LSA with valid type
+                                local_lsa = self.lsdb.get_lsa(header.ls_type, header.link_state_id,
+                                                              header.advertising_router, [self])
+                                #  TODO: Implement LSA instance comparison
+                                if local_lsa is None:  # This router does not have the LSA
+                                    neighbor_router.ls_request_list.append(header)
+                        if invalid_ls_type:
+                            continue  # TODO: Invoke event SeqNumberMismatch
+
+                        if neighbor_router.master_slave:  # This router is the master
+                            if incoming_packet.body.dd_sequence_number != neighbor_router.dd_sequence:
+                                continue  # TODO: Invoke event SeqNumberMismatch
+                            #  TODO: Continue
+                        else:  # This router is the slave
+                            if incoming_packet.body.dd_sequence_number != (neighbor_router.dd_sequence + 1):
+                                continue  # TODO: Invoke event SeqNumberMismatch
+                            #  TODO: Continue
+
+                    if neighbor_state == conf.NEIGHBOR_STATE_LOADING:
+                        pass
+
+                    if neighbor_state == conf.NEIGHBOR_STATE_FULL:
+                        pass
 
                 elif packet_type == conf.PACKET_TYPE_LS_REQUEST:
                     pass
@@ -193,8 +247,8 @@ class Interface:
 
     #  Performs shutdown operations on the interface
     def shutdown_interface(self):
-        for n in self.neighbors:  # Stops timer thread in all neighbors
-            self.neighbors[n].delete_neighbor()
+        for n in list(self.neighbors):  # Stops timer thread in all neighbors
+            self.event_kill_nbr(n)
         self.neighbors = {}  # Cleans neighbor list - It will be reconstructed if interface is reactivated
         self.timer_shutdown.set()
         self.hello_thread.join()
@@ -245,8 +299,16 @@ class Interface:
             pass
 
     #  NegotiationDone event
-    def event_negotiation_done(self):
-        pass
+    def event_negotiation_done(self, neighbor_router):
+        neighbor_router.set_neighbor_state(conf.NEIGHBOR_STATE_EXCHANGE)
+        lsdb_summary = self.lsdb.get_lsa_headers([self])
+        current_lsa_list = []
+        for header in lsdb_summary:
+            if header.ls_age == conf.MAX_AGE:
+                neighbor_router.ls_retransmission_list.append(header)
+            else:
+                current_lsa_list.append(header)
+        neighbor_router.db_summary_list = current_lsa_list
 
     #  ExchangeDone event
     def event_exchange_done(self):
@@ -258,7 +320,7 @@ class Interface:
 
     #  AdjOK? event
     def event_adj_ok(self):
-        pass
+        pass  # TODO: Implement event after DR election is implemented
 
     #  SeqNumberMismatch event
     def event_seq_number_mismatch(self):
@@ -269,12 +331,14 @@ class Interface:
         pass
 
     #  KillNbr event
-    def event_kill_nbr(self):
-        pass
+    def event_kill_nbr(self, neighbor_id):
+        if neighbor_id in self.neighbors:
+            self.neighbors[neighbor_id].delete_neighbor()  # Stops neighbor timer thread
+            self.neighbors.pop(neighbor_id)
 
     #  InactivityTimer event
-    def event_inactivity_timer(self):
-        pass
+    def event_inactivity_timer(self, neighbor_id):
+        self.event_kill_nbr(neighbor_id)
 
     #  1-WayReceived event
     def event_1_way_received(self, neighbor_router):
@@ -309,12 +373,6 @@ class Interface:
             if self.neighbors[n].neighbor_state not in [conf.NEIGHBOR_STATE_DOWN, conf.NEIGHBOR_STATE_INIT]:
                 adjacent_neighbors += 1
         return adjacent_neighbors
-
-    #  Deletes a neighbor from the list of active neighbors
-    def delete_neighbor(self, neighbor_id):
-        if neighbor_id in self.neighbors:
-            self.neighbors[neighbor_id].delete_neighbor()  # Stops neighbor timer thread
-            self.neighbors.pop(neighbor_id)
 
     #  Given interface physical identifier, returns an unique OSPF interface identifier
     @staticmethod
