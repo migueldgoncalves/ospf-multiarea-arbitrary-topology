@@ -82,7 +82,6 @@ class Neighbor:
         else:
             self.dd_sequence += 1
 
-
     #  Updates the last received DB Description packet from the neighbor
     def update_last_dd_packet(self, i_bit, m_bit, ms_bit, options, dd_sequence):
         packet_data = [i_bit, m_bit, ms_bit, options, dd_sequence]
@@ -93,7 +92,8 @@ class Neighbor:
             return True
 
     #  Validates constructor parameters - Returns error message in case of failed validation
-    def parameter_validation(self, neighbor_id, neighbor_options):  # TODO: Implement validation for rest of parameters
+    @staticmethod
+    def parameter_validation(neighbor_id, neighbor_options):  # TODO: Implement validation for rest of parameters
         try:
             if not utils.Utils.is_ipv4_address(neighbor_id):
                 return False, "Invalid neighbor ID"
