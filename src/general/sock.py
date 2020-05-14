@@ -49,7 +49,7 @@ class Socket:
             data = s.recvfrom(conf.MTU)  # Includes IP header
             array = Socket.process_ipv4_data(data[0])  # [packet_byte_stream, source_ip_address]
             #  If packet is not from itself OR if packets from itself are allowed
-            if (array[1] != socket.gethostbyname(socket.gethostname())) | accept_self_packets:
+            if (array[1] != utils.Utils.get_ipv4_address_from_interface_name(interface)) | accept_self_packets:
                 pipeline.put(array)
         s.close()
 
@@ -83,9 +83,10 @@ class Socket:
             data = s.recvfrom(conf.MTU)  # Does not include IP header
             packet_bytes = data[0]
             source_ip_address = data[1][0].split('%')[0]
-            link_local_address = socket.getaddrinfo(socket.gethostname(), PORT, socket.AF_INET6)[3][4][0]
+            link_local_address = utils.Utils.get_ipv6_link_local_address_from_interface_name(interface)
+            global_address = utils.Utils.get_ipv6_global_address_from_interface_name(interface)
             #  If packet is not from itself OR if packets from itself are allowed
-            if (source_ip_address != link_local_address) | accept_self_packets:
+            if (source_ip_address != link_local_address) | (source_ip_address != global_address) | accept_self_packets:
                 pipeline.put([packet_bytes, source_ip_address])
         s.close()
 

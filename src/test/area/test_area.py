@@ -59,7 +59,7 @@ class AreaTest(unittest.TestCase):
         self.assertEqual(1, len(self.area_v2.database.get_lsdb(self.area_v2.get_interfaces())))
         self.assertEqual(1, len(self.area_v3.database.get_lsdb(self.area_v3.get_interfaces())))
         self.assertEqual(1, self.area_v2.database.get_lsdb(self.area_v2.get_interfaces())[0].header.ls_type)
-        self.assertEqual(1, self.area_v3.database.get_lsdb(self.area_v3.get_interfaces())[0].header.ls_type)
+        self.assertEqual(0x2001, self.area_v3.database.get_lsdb(self.area_v3.get_interfaces())[0].header.ls_type)
 
     #  Successful run - 1 s
     def test_constructor_invalid_parameters(self):

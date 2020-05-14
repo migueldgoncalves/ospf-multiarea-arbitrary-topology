@@ -37,7 +37,7 @@ class TestHeader(unittest.TestCase):
     #  Successful run - Instant
     def test_constructor_v3_successful(self):
         self.assertEqual(self.ls_age, self.header_ospfv3.ls_age)
-        self.assertEqual(self.ls_type, self.header_ospfv3.ls_type)
+        self.assertEqual(self.ls_type + 0x2000, self.header_ospfv3.ls_type)
         self.assertEqual(self.link_state_id, self.header_ospfv3.link_state_id)
         self.assertEqual(self.advertising_router, self.header_ospfv3.advertising_router)
         self.assertEqual(self.ls_sequence_number, self.header_ospfv3.ls_sequence_number)
@@ -280,6 +280,20 @@ class TestHeader(unittest.TestCase):
         self.assertEqual(2, header.Header.get_s1_s2_bits(24575))
         self.assertEqual(3, header.Header.get_s1_s2_bits(24576))
         self.assertEqual(3, header.Header.get_s1_s2_bits(32767))
+
+    #  Successful run - Instant
+    def test_get_ls_type(self):
+        self.assertEqual(0, header.Header.get_ls_type(0))
+        self.assertEqual(conf.LSA_TYPE_ROUTER, header.Header.get_ls_type(1))
+        self.assertEqual(conf.LSA_TYPE_NETWORK, header.Header.get_ls_type(2))
+        self.assertEqual(conf.LSA_TYPE_LINK, header.Header.get_ls_type(8))
+        self.assertEqual(conf.LSA_TYPE_INTRA_AREA_PREFIX, header.Header.get_ls_type(9))
+        self.assertEqual(8191, header.Header.get_ls_type(8191))
+        self.assertEqual(0, header.Header.get_ls_type(8192))
+        self.assertEqual(conf.LSA_TYPE_ROUTER, header.Header.get_ls_type(8193))
+        self.assertEqual(conf.LSA_TYPE_NETWORK, header.Header.get_ls_type(8194))
+        self.assertEqual(conf.LSA_TYPE_LINK, header.Header.get_ls_type(8200))
+        self.assertEqual(conf.LSA_TYPE_INTRA_AREA_PREFIX, header.Header.get_ls_type(8201))
 
     #  Successful run - Instant
     def test_format_string(self):

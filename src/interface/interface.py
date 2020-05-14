@@ -181,11 +181,12 @@ class Interface:
                         #  TODO: Implement resending if incoming packet is duplicate
                         invalid_ls_type = False
                         for header in incoming_packet.body.lsa_headers:
-                            if ((self.version == conf.VERSION_IPV4) & (header.ls_type not in [
+                            #  TODO: Consider other types of LSAs
+                            if ((self.version == conf.VERSION_IPV4) & (header.get_ls_type(header.ls_type) not in [
                                 conf.LSA_TYPE_ROUTER, conf.LSA_TYPE_NETWORK])) | (
-                                    (self.version == conf.VERSION_IPV6) & (header.ls_type not in [
-                                    conf.LSA_TYPE_ROUTER + 0x2000, conf.LSA_TYPE_NETWORK + 0x2000,
-                                    conf.LSA_TYPE_INTRA_AREA_PREFIX + 0x2000, conf.LSA_TYPE_LINK])):
+                                    (self.version == conf.VERSION_IPV6) & (header.get_ls_type(header.ls_type) not in [
+                                    conf.LSA_TYPE_ROUTER, conf.LSA_TYPE_NETWORK, conf.LSA_TYPE_INTRA_AREA_PREFIX,
+                                    conf.LSA_TYPE_LINK])):
                                 invalid_ls_type = True
                             else:  # LSA with valid type
                                 local_lsa = self.lsdb.get_lsa(header.ls_type, header.link_state_id,
@@ -252,18 +253,13 @@ class Interface:
                     lsa_not_found = False
                     self.ls_update_packet.create_ls_update_packet_body(self.version)
                     for lsa_identifier in incoming_packet.body.lsa_identifiers:
-                        #  TODO: Obtain LS Type value using body class methods
                         ls_type = lsa_identifier[0]
-                        if (self.version == conf.VERSION_IPV6) & (lsa_identifier[0] < 0):
-                            ls_type = lsa_identifier[0] + 0x2000
-                        if (self.version == conf.VERSION_IPV6) & (ls_type in [  # TODO: Fix?
-                                conf.LSA_TYPE_ROUTER, conf.LSA_TYPE_NETWORK, conf.LSA_TYPE_INTRA_AREA_PREFIX]):
-                            ls_type += 0x2000
                         decimal_link_state_id = utils.Utils.ipv4_to_decimal(lsa_identifier[1])  # TODO: Fix?
+                        advertising_router = lsa_identifier[2]
                         if self.version == conf.VERSION_IPV6:
-                            full_lsa = self.lsdb.get_lsa(ls_type, decimal_link_state_id, lsa_identifier[2], [self])
+                            full_lsa = self.lsdb.get_lsa(ls_type, decimal_link_state_id, advertising_router, [self])
                         else:
-                            full_lsa = self.lsdb.get_lsa(ls_type, lsa_identifier[1], lsa_identifier[2], [self])
+                            full_lsa = self.lsdb.get_lsa(ls_type, lsa_identifier[1], advertising_router, [self])
                         if full_lsa is None:
                             lsa_not_found = True
                         else:
@@ -384,9 +380,6 @@ class Interface:
         lsdb_summary = self.lsdb.get_lsa_headers([self])
         current_lsa_list = []
         for header in lsdb_summary:
-            if (self.version == conf.VERSION_IPV6) & (header.ls_type in [conf.LSA_TYPE_ROUTER, conf.LSA_TYPE_NETWORK,
-                                                                         conf.LSA_TYPE_INTRA_AREA_PREFIX]):
-                header.ls_type += 0x2000  # TODO: Fix?
             if header.ls_age == conf.MAX_AGE:
                 neighbor_router.ls_retransmission_list.append(header)
             else:
@@ -421,11 +414,7 @@ class Interface:
                     neighbor_router.neighbor_ip_address)
             self.ls_request_packet.create_ls_request_packet_body(self.version)
             for header in neighbor_router.ls_request_list:
-                if (self.version == conf.VERSION_IPV6) & (not (header.ls_type == conf.LSA_TYPE_LINK)):
-                    ls_type = header.ls_type - 0x2000  # TODO: Obtain LS Type value using Header class methods
-                else:
-                    ls_type = header.ls_type
-                self.ls_request_packet.add_lsa_info(ls_type, header.link_state_id, header.advertising_router)
+                self.ls_request_packet.add_lsa_info(header.ls_type, header.link_state_id, header.advertising_router)
             self.send_packet(self.ls_request_packet, neighbor_router.neighbor_ip_address)
 
     #  LoadingDone event

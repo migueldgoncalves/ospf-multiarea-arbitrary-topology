@@ -39,13 +39,6 @@ class Lsa:
         if self.body is None:
             raise ValueError("LSA body is not set")
 
-        # Sets flooding scope to area scope
-        if (self.header.ospf_version == conf.VERSION_IPV6) & (self.header.ls_type != conf.LSA_TYPE_LINK) &\
-                (self.header.ls_type < 0x2000):
-            self.header.ls_type += 0x2000
-            self.set_lsa_length()
-            self.set_lsa_checksum()
-
         header_bytes = self.header.pack_header()
         body_bytes = self.body.pack_lsa_body()
         return header_bytes + body_bytes
@@ -54,11 +47,6 @@ class Lsa:
     def pack_header(self):
         if self.header is None:
             raise ValueError("LSA header is not set")
-        if (self.header.ospf_version == conf.VERSION_IPV6) & (self.header.ls_type != conf.LSA_TYPE_LINK) & \
-                (self.header.ls_type < 0x2000):
-            self.header.ls_type += 0x2000
-            self.set_lsa_length()
-            self.set_lsa_checksum()
         header_bytes = self.header.pack_header()
         return header_bytes
 
@@ -79,16 +67,10 @@ class Lsa:
         lsa.header = header.Header.unpack_header(header_bytes, lsa_version)
         if lsa_type == conf.LSA_TYPE_ROUTER:
             lsa.body = router.Router.unpack_lsa_body(body_bytes, lsa_version)
-            if lsa_version == conf.VERSION_IPV6:
-                lsa.header.ls_type -= 0x2000  # Removes flooding scope from LS Type field
         elif lsa_type == conf.LSA_TYPE_NETWORK:
             lsa.body = network.Network.unpack_lsa_body(body_bytes, lsa_version)
-            if lsa_version == conf.VERSION_IPV6:
-                lsa.header.ls_type -= 0x2000
         elif (lsa_type == conf.LSA_TYPE_INTRA_AREA_PREFIX) & (lsa_version == conf.VERSION_IPV6):
             lsa.body = intra_area_prefix.IntraAreaPrefix.unpack_lsa_body(body_bytes, 0)
-            if lsa_version == conf.VERSION_IPV6:
-                lsa.header.ls_type -= 0x2000
         elif (lsa_type == conf.LSA_TYPE_LINK) & (lsa_version == conf.VERSION_IPV6):
             lsa.body = link.Link.unpack_lsa_body(body_bytes, 0)
         else:
@@ -101,12 +83,9 @@ class Lsa:
     def unpack_header(lsa_bytes, lsa_version):
         if len(lsa_bytes) < conf.LSA_HEADER_LENGTH:
             raise ValueError("LSA byte stream is too short")
-        lsa_type = Lsa.get_lsa_type_from_bytes(lsa_bytes)
         lsa = Lsa()
         header_bytes = lsa_bytes[:conf.LSA_HEADER_LENGTH]
         lsa.header = header.Header.unpack_header(header_bytes, lsa_version)
-        if (lsa_version == conf.VERSION_IPV6) & (lsa_type != conf.LSA_TYPE_LINK):
-            lsa.header.ls_type -= 0x2000
         return lsa
 
     #  Adds an OSPF Router-LSA body to the LSA with the provided arguments
@@ -136,6 +115,9 @@ class Lsa:
     #  Adds an OSPF Intra-Area-Prefix-LSA body to the LSA with the provided arguments
     def create_intra_area_prefix_lsa_body(
             self, referenced_ls_type, referenced_link_state_id, referenced_advertising_router):
+        if (self.get_ospf_version() == conf.VERSION_IPV6) & (referenced_ls_type != conf.LSA_TYPE_LINK) & (
+                referenced_ls_type < 0x2000):
+            referenced_ls_type += 0x2000
         self.body = intra_area_prefix.IntraAreaPrefix(
             referenced_ls_type, referenced_link_state_id, referenced_advertising_router)
         self.set_lsa_length()
@@ -187,10 +169,7 @@ class Lsa:
 
     #  Returns type of current LSA, without flooding scope if any
     def get_lsa_type_from_lsa(self):
-        ls_type = self.header.ls_type
-        if ls_type > 0x2000:
-            ls_type -= 0x2000
-        return ls_type
+        return self.header.get_ls_type(self.header.ls_type)
 
     #  Returns identifier of current LSA
     def get_lsa_identifier(self):
@@ -201,8 +180,6 @@ class Lsa:
 
     #  Returns True if LSA identifier matches current LSA
     def is_lsa_identifier_equal(self, ls_type, link_state_id, advertising_router):
-        if ls_type > 0x2000:
-            ls_type -= 0x2000
         lsa_identifier = self.get_lsa_identifier()
         return (ls_type == lsa_identifier[0]) & (link_state_id == lsa_identifier[1]) & \
                (advertising_router == lsa_identifier[2])
@@ -219,6 +196,9 @@ class Lsa:
     def set_ls_age_max(self):
         self.header.ls_age = 3600
         self.system_time = int(time.perf_counter())
+
+    def get_ospf_version(self):
+        return self.header.ospf_version
 
     # Given a bite stream with LSAs, returns the length of the first LSA
     @staticmethod

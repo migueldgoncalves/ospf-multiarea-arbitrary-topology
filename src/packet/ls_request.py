@@ -21,6 +21,9 @@ class LSRequest(body.Body):  # OSPFv2 and OSPFv3 - 12 bytes / LSA identifier
 
     #  Adds data for one LSA identifier to the packet
     def add_lsa_info(self, ls_type, link_state_id, advertising_router):
+        #  TODO: COnsider other types of LSAs
+        if (self.version == conf.VERSION_IPV6) & (ls_type != conf.LSA_TYPE_LINK) & (ls_type < 0x2000):
+            ls_type += 0x2000
         self.lsa_identifiers.append([ls_type, link_state_id, advertising_router])
 
     #  Creates byte object suitable to be sent and recognized as the body of an OSPF Link State Request packet
@@ -28,8 +31,6 @@ class LSRequest(body.Body):  # OSPFv2 and OSPFv3 - 12 bytes / LSA identifier
         body_bytes = b''
         for i in self.lsa_identifiers:
             ls_type = i[0]
-            if (self.version == conf.VERSION_IPV6) & (ls_type != conf.LSA_TYPE_LINK):
-                ls_type += 0x2000
             decimal_link_state_id = utils.Utils.ipv4_to_decimal(i[1])
             decimal_advertising_router = utils.Utils.ipv4_to_decimal(i[2])
             body_bytes += struct.pack(FORMAT_STRING, ls_type, decimal_link_state_id, decimal_advertising_router)
@@ -42,8 +43,6 @@ class LSRequest(body.Body):  # OSPFv2 and OSPFv3 - 12 bytes / LSA identifier
         for i in range(len(body_bytes) // 12):
             body_tuple = struct.unpack(FORMAT_STRING, body_bytes[i*12:(i+1)*12])
             ls_type = body_tuple[0]
-            if (version == conf.VERSION_IPV6) & (ls_type != conf.LSA_TYPE_LINK):
-                ls_type -= 0x2000
             link_state_id = utils.Utils.decimal_to_ipv4(body_tuple[1])
             advertising_router = utils.Utils.decimal_to_ipv4(body_tuple[2])
             new_packet.add_lsa_info(ls_type, link_state_id, advertising_router)

@@ -250,7 +250,7 @@ class TestLSAcknowledgement(unittest.TestCase):
 
         unpacked_lsa = unpacked_body.lsa_headers[0]
         self.assertEqual(10, unpacked_lsa.header.ls_age)
-        self.assertEqual(1, unpacked_lsa.header.ls_type)
+        self.assertEqual(0x2001, unpacked_lsa.header.ls_type)
         self.assertEqual('0.0.0.0', unpacked_lsa.header.link_state_id)
         self.assertEqual('1.1.1.1', unpacked_lsa.header.advertising_router)
         self.assertEqual(0x80000006, unpacked_lsa.header.ls_sequence_number)
@@ -260,7 +260,7 @@ class TestLSAcknowledgement(unittest.TestCase):
 
         unpacked_lsa = unpacked_body.lsa_headers[1]
         self.assertEqual(291, unpacked_lsa.header.ls_age)
-        self.assertEqual(1, unpacked_lsa.header.ls_type)
+        self.assertEqual(0x2001, unpacked_lsa.header.ls_type)
         self.assertEqual('0.0.0.0', unpacked_lsa.header.link_state_id)
         self.assertEqual('2.2.2.2', unpacked_lsa.header.advertising_router)
         self.assertEqual(0x80000004, unpacked_lsa.header.ls_sequence_number)
@@ -270,7 +270,7 @@ class TestLSAcknowledgement(unittest.TestCase):
 
         unpacked_lsa = unpacked_body.lsa_headers[2]
         self.assertEqual(9, unpacked_lsa.header.ls_age)
-        self.assertEqual(1, unpacked_lsa.header.ls_type)
+        self.assertEqual(0x2001, unpacked_lsa.header.ls_type)
         self.assertEqual('0.0.0.0', unpacked_lsa.header.link_state_id)
         self.assertEqual('3.3.3.3', unpacked_lsa.header.advertising_router)
         self.assertEqual(0x80000006, unpacked_lsa.header.ls_sequence_number)
@@ -280,7 +280,7 @@ class TestLSAcknowledgement(unittest.TestCase):
 
         unpacked_lsa = unpacked_body.lsa_headers[3]
         self.assertEqual(10, unpacked_lsa.header.ls_age)
-        self.assertEqual(2, unpacked_lsa.header.ls_type)
+        self.assertEqual(0x2002, unpacked_lsa.header.ls_type)
         self.assertEqual('0.0.0.4', unpacked_lsa.header.link_state_id)
         self.assertEqual('1.1.1.1', unpacked_lsa.header.advertising_router)
         self.assertEqual(0x80000001, unpacked_lsa.header.ls_sequence_number)
@@ -290,7 +290,7 @@ class TestLSAcknowledgement(unittest.TestCase):
 
         unpacked_lsa = unpacked_body.lsa_headers[4]
         self.assertEqual(299, unpacked_lsa.header.ls_age)
-        self.assertEqual(2, unpacked_lsa.header.ls_type)
+        self.assertEqual(0x2002, unpacked_lsa.header.ls_type)
         self.assertEqual('0.0.0.5', unpacked_lsa.header.link_state_id)
         self.assertEqual('2.2.2.2', unpacked_lsa.header.advertising_router)
         self.assertEqual(0x80000001, unpacked_lsa.header.ls_sequence_number)
@@ -300,7 +300,7 @@ class TestLSAcknowledgement(unittest.TestCase):
 
         unpacked_lsa = unpacked_body.lsa_headers[5]
         self.assertEqual(299, unpacked_lsa.header.ls_age)
-        self.assertEqual(2, unpacked_lsa.header.ls_type)
+        self.assertEqual(0x2002, unpacked_lsa.header.ls_type)
         self.assertEqual('0.0.0.4', unpacked_lsa.header.link_state_id)
         self.assertEqual('3.3.3.3', unpacked_lsa.header.advertising_router)
         self.assertEqual(0x80000001, unpacked_lsa.header.ls_sequence_number)
@@ -320,7 +320,7 @@ class TestLSAcknowledgement(unittest.TestCase):
 
         unpacked_lsa = unpacked_body.lsa_headers[7]
         self.assertEqual(298, unpacked_lsa.header.ls_age)
-        self.assertEqual(9, unpacked_lsa.header.ls_type)
+        self.assertEqual(0x2009, unpacked_lsa.header.ls_type)
         self.assertEqual('0.0.0.0', unpacked_lsa.header.link_state_id)
         self.assertEqual('1.1.1.1', unpacked_lsa.header.advertising_router)
         self.assertEqual(0x80000003, unpacked_lsa.header.ls_sequence_number)
@@ -330,7 +330,7 @@ class TestLSAcknowledgement(unittest.TestCase):
 
         unpacked_lsa = unpacked_body.lsa_headers[8]
         self.assertEqual(10, unpacked_lsa.header.ls_age)
-        self.assertEqual(9, unpacked_lsa.header.ls_type)
+        self.assertEqual(0x2009, unpacked_lsa.header.ls_type)
         self.assertEqual('0.0.16.0', unpacked_lsa.header.link_state_id)
         self.assertEqual('1.1.1.1', unpacked_lsa.header.advertising_router)
         self.assertEqual(0x80000001, unpacked_lsa.header.ls_sequence_number)
@@ -340,7 +340,7 @@ class TestLSAcknowledgement(unittest.TestCase):
 
         unpacked_lsa = unpacked_body.lsa_headers[9]
         self.assertEqual(299, unpacked_lsa.header.ls_age)
-        self.assertEqual(9, unpacked_lsa.header.ls_type)
+        self.assertEqual(0x2009, unpacked_lsa.header.ls_type)
         self.assertEqual('0.0.0.0', unpacked_lsa.header.link_state_id)
         self.assertEqual('2.2.2.2', unpacked_lsa.header.advertising_router)
         self.assertEqual(0x80000003, unpacked_lsa.header.ls_sequence_number)
@@ -350,7 +350,7 @@ class TestLSAcknowledgement(unittest.TestCase):
 
         unpacked_lsa = unpacked_body.lsa_headers[10]
         self.assertEqual(299, unpacked_lsa.header.ls_age)
-        self.assertEqual(9, unpacked_lsa.header.ls_type)
+        self.assertEqual(0x2009, unpacked_lsa.header.ls_type)
         self.assertEqual('0.0.20.0', unpacked_lsa.header.link_state_id)
         self.assertEqual('2.2.2.2', unpacked_lsa.header.advertising_router)
         self.assertEqual(0x80000001, unpacked_lsa.header.ls_sequence_number)
@@ -360,7 +360,7 @@ class TestLSAcknowledgement(unittest.TestCase):
 
         unpacked_lsa = unpacked_body.lsa_headers[11]
         self.assertEqual(299, unpacked_lsa.header.ls_age)
-        self.assertEqual(9, unpacked_lsa.header.ls_type)
+        self.assertEqual(0x2009, unpacked_lsa.header.ls_type)
         self.assertEqual('0.0.0.0', unpacked_lsa.header.link_state_id)
         self.assertEqual('3.3.3.3', unpacked_lsa.header.advertising_router)
         self.assertEqual(0x80000003, unpacked_lsa.header.ls_sequence_number)
@@ -370,7 +370,7 @@ class TestLSAcknowledgement(unittest.TestCase):
 
         unpacked_lsa = unpacked_body.lsa_headers[12]
         self.assertEqual(299, unpacked_lsa.header.ls_age)
-        self.assertEqual(9, unpacked_lsa.header.ls_type)
+        self.assertEqual(0x2009, unpacked_lsa.header.ls_type)
         self.assertEqual('0.0.16.0', unpacked_lsa.header.link_state_id)
         self.assertEqual('3.3.3.3', unpacked_lsa.header.advertising_router)
         self.assertEqual(0x80000001, unpacked_lsa.header.ls_sequence_number)
@@ -380,7 +380,7 @@ class TestLSAcknowledgement(unittest.TestCase):
 
         unpacked_lsa = unpacked_body.lsa_headers[13]
         self.assertEqual(1, unpacked_lsa.header.ls_age)
-        self.assertEqual(1, unpacked_lsa.header.ls_type)
+        self.assertEqual(0x2001, unpacked_lsa.header.ls_type)
         self.assertEqual('0.0.0.0', unpacked_lsa.header.link_state_id)
         self.assertEqual('1.1.1.1', unpacked_lsa.header.advertising_router)
         self.assertEqual(0x80000007, unpacked_lsa.header.ls_sequence_number)
@@ -390,7 +390,7 @@ class TestLSAcknowledgement(unittest.TestCase):
 
         unpacked_lsa = unpacked_body.lsa_headers[14]
         self.assertEqual(2, unpacked_lsa.header.ls_age)
-        self.assertEqual(1, unpacked_lsa.header.ls_type)
+        self.assertEqual(0x2001, unpacked_lsa.header.ls_type)
         self.assertEqual('0.0.0.0', unpacked_lsa.header.link_state_id)
         self.assertEqual('2.2.2.2', unpacked_lsa.header.advertising_router)
         self.assertEqual(0x80000005, unpacked_lsa.header.ls_sequence_number)
@@ -400,7 +400,7 @@ class TestLSAcknowledgement(unittest.TestCase):
 
         unpacked_lsa = unpacked_body.lsa_headers[15]
         self.assertEqual(2, unpacked_lsa.header.ls_age)
-        self.assertEqual(9, unpacked_lsa.header.ls_type)
+        self.assertEqual(0x2009, unpacked_lsa.header.ls_type)
         self.assertEqual('0.0.0.0', unpacked_lsa.header.link_state_id)
         self.assertEqual('2.2.2.2', unpacked_lsa.header.advertising_router)
         self.assertEqual(0x80000004, unpacked_lsa.header.ls_sequence_number)

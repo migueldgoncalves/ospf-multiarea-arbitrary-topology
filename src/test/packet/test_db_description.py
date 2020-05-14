@@ -108,15 +108,15 @@ class TestDBDescription(unittest.TestCase):
         packet_body = db_description.DBDescription(self.interface_mtu, self.options, True, True, True,
                                                    self.dd_sequence_number, (), conf.VERSION_IPV6)
         self.assertEqual(packet_body_bytes, packet_body.pack_packet_body())
-        packet_body_bytes = b'\x00\x00\x00\x02\x00\x01\x00\x03\x00\x00\x00\x03\x00Z\x00\x03\x00\x00\x00d\x03\x03\x03' \
+        packet_body_bytes = b'\x00\x00\x00\x02\x00\x01\x00\x03\x00\x00\x00\x03\x00Z \x03\x00\x00\x00d\x03\x03\x03' \
                             b'\x03\x00\x00\x00n\x00\x00\x00\x00'
         packet_body = db_description.DBDescription(
             self.interface_mtu, self.options, self.i_bit, self.m_bit, self.ms_bit, self.dd_sequence_number,
             (self.lsa_header_3,), conf.VERSION_IPV6)
         self.assertEqual(packet_body_bytes, packet_body.pack_packet_body())
-        packet_body_bytes = b'\x00\x00\x00\x02\x00\x01\x00\x03\x00\x00\x00\x03\x00Z\x00\x03\x00\x00\x00d\x03\x03\x03' \
-                            b'\x03\x00\x00\x00n\x00\x00\x00\x00\x00x\x00\x04\x00\x00\x00\x82\x04\x04\x04\x04\x00\x00' \
-                            b'\x00\x8c\x00\x00\x00\x00\x00\x96\x00\x05\x00\x00\x00\xa0\x05\x05\x05\x05\x00\x00\x00' \
+        packet_body_bytes = b'\x00\x00\x00\x02\x00\x01\x00\x03\x00\x00\x00\x03\x00Z \x03\x00\x00\x00d\x03\x03\x03' \
+                            b'\x03\x00\x00\x00n\x00\x00\x00\x00\x00x \x04\x00\x00\x00\x82\x04\x04\x04\x04\x00\x00' \
+                            b'\x00\x8c\x00\x00\x00\x00\x00\x96 \x05\x00\x00\x00\xa0\x05\x05\x05\x05\x00\x00\x00' \
                             b'\xaa\x00\x00\x00\x00'
         packet_body = db_description.DBDescription(
             self.interface_mtu, self.options, self.i_bit, self.m_bit, self.ms_bit, self.dd_sequence_number,

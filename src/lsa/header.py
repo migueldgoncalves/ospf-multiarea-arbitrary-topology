@@ -1,4 +1,5 @@
 import struct
+import math
 
 import general.utils as utils
 import conf.conf as conf
@@ -29,7 +30,11 @@ class Header:  # OSPFv2 and OSPFv3 - 20 bytes
             self.options = options  # 1 byte - Only for OSPFv2
         else:
             self.options = 0
-        self.ls_type = ls_type  # 1 byte in OSPFv2, 2 bytes in OSPFv3
+        #  TODO: Consider other types of LSAs
+        if (version == conf.VERSION_IPV4) | (ls_type == conf.LSA_TYPE_LINK) | (ls_type > 0x2000):
+            self.ls_type = ls_type  # 1 byte in OSPFv2, 2 bytes in OSPFv3
+        else:
+            self.ls_type = ls_type + 0x2000
         self.link_state_id = link_state_id  # 4 bytes
         self.advertising_router = advertising_router  # 4 bytes
         self.ls_sequence_number = ls_sequence_number  # 4 bytes
@@ -114,8 +119,13 @@ class Header:  # OSPFv2 and OSPFv3 - 20 bytes
     #  Gets S1 and S2 bits value from LS Type value in OSPFv3 LSA header
     @staticmethod
     def get_s1_s2_bits(ls_type):
-        first_3_bytes = ls_type >> 13
-        return first_3_bytes & 0x3  # S1 and S2 bits are respectively 3rd and 2nd bits of LS Type in OSPFv3
+        first_3_bits = ls_type >> 13
+        return first_3_bits & 0x3  # S1 and S2 bits are respectively 3rd and 2nd bits of LS Type in OSPFv3
+
+    #  Gets LS Type from broader LS Type value (in OSPFv3) or returns itself (OSPFv2)
+    @staticmethod
+    def get_ls_type(ls_type):
+        return ls_type & int(math.pow(2, 13) - 1)  # Actual LS Type value occupies last 13 bits of field in OSPFv3
 
     @staticmethod
     def get_format_string(version):

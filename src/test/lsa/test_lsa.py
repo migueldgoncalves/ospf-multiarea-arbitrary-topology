@@ -105,7 +105,7 @@ class TestLsa(unittest.TestCase):
                      b'\x00\x05\x02\x02\x02\x02'
         unpacked_lsa = lsa.Lsa.unpack_lsa(body_bytes, conf.VERSION_IPV6)
         self.assertEqual(1, unpacked_lsa.header.ls_age)
-        self.assertEqual(1, unpacked_lsa.header.ls_type)
+        self.assertEqual(0x2001, unpacked_lsa.header.ls_type)
         self.assertEqual('0.0.0.0', unpacked_lsa.header.link_state_id)
         self.assertEqual('2.2.2.2', unpacked_lsa.header.advertising_router)
         self.assertEqual(2147483655, unpacked_lsa.header.ls_sequence_number)
@@ -139,7 +139,7 @@ class TestLsa(unittest.TestCase):
                      b'\x02\x02\x02\x01\x01\x01\x01'
         unpacked_lsa = lsa.Lsa.unpack_lsa(body_bytes, conf.VERSION_IPV6)
         self.assertEqual(1, unpacked_lsa.header.ls_age)
-        self.assertEqual(2, unpacked_lsa.header.ls_type)
+        self.assertEqual(0x2002, unpacked_lsa.header.ls_type)
         self.assertEqual('0.0.0.5', unpacked_lsa.header.link_state_id)
         self.assertEqual('2.2.2.2', unpacked_lsa.header.advertising_router)
         self.assertEqual(2147483650, unpacked_lsa.header.ls_sequence_number)
@@ -154,7 +154,7 @@ class TestLsa(unittest.TestCase):
                      b'\x00\x02\x02\x02\x02@\x00\x00\n \x01\r\xb8\xca\xfe\x00\x04'
         unpacked_lsa = lsa.Lsa.unpack_lsa(body_bytes, conf.VERSION_IPV6)
         self.assertEqual(1, unpacked_lsa.header.ls_age)
-        self.assertEqual(9, unpacked_lsa.header.ls_type)
+        self.assertEqual(0x2009, unpacked_lsa.header.ls_type)
         self.assertEqual('0.0.0.0', unpacked_lsa.header.link_state_id)
         self.assertEqual('2.2.2.2', unpacked_lsa.header.advertising_router)
         self.assertEqual(2147483653, unpacked_lsa.header.ls_sequence_number)
@@ -162,7 +162,7 @@ class TestLsa(unittest.TestCase):
         self.assertEqual(42828, unpacked_lsa.header.ls_checksum)
         self.assertEqual(44, unpacked_lsa.header.length)
         self.assertEqual(1, unpacked_lsa.body.prefix_number)
-        self.assertEqual(1, unpacked_lsa.body.referenced_ls_type)
+        self.assertEqual(0x2001, unpacked_lsa.body.referenced_ls_type)
         self.assertEqual('0.0.0.0', unpacked_lsa.body.referenced_link_state_id)
         self.assertEqual('2.2.2.2', unpacked_lsa.body.referenced_advertising_router)
         self.assertEqual([[64, 0, 10, '2001:db8:cafe:4::']], unpacked_lsa.body.prefixes)

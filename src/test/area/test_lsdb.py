@@ -78,9 +78,9 @@ class TestLsdb(unittest.TestCase):
 
         retrieved_lsdb = self.lsdb_ospfv3.get_lsdb([self.interface_ospfv3])
         self.assertEqual(4, len(retrieved_lsdb))
-        self.assertEqual(1, retrieved_lsdb[0].header.ls_type)
-        self.assertEqual(2, retrieved_lsdb[1].header.ls_type)
-        self.assertEqual(9, retrieved_lsdb[2].header.ls_type)
+        self.assertEqual(0x2001, retrieved_lsdb[0].header.ls_type)
+        self.assertEqual(0x2002, retrieved_lsdb[1].header.ls_type)
+        self.assertEqual(0x2009, retrieved_lsdb[2].header.ls_type)
         self.assertEqual(8, retrieved_lsdb[3].header.ls_type)
 
         #  Get a LSA
@@ -104,9 +104,9 @@ class TestLsdb(unittest.TestCase):
 
         retrieved_headers = self.lsdb_ospfv3.get_lsa_headers([self.interface_ospfv3])
         self.assertEqual(4, len(retrieved_headers))
-        self.assertEqual(1, retrieved_headers[0].ls_type)
-        self.assertEqual(2, retrieved_headers[1].ls_type)
-        self.assertEqual(9, retrieved_headers[2].ls_type)
+        self.assertEqual(0x2001, retrieved_headers[0].ls_type)
+        self.assertEqual(0x2002, retrieved_headers[1].ls_type)
+        self.assertEqual(0x2009, retrieved_headers[2].ls_type)
         self.assertEqual(8, retrieved_headers[3].ls_type)
 
         #  Get a LSA header
@@ -141,7 +141,7 @@ class TestLsdb(unittest.TestCase):
         self.assertEqual(4, len(self.lsdb_ospfv3.get_lsdb([self.interface_ospfv3])))
         self.lsdb_ospfv3.delete_lsa(1, '0.0.0.0', '2.2.2.2', [self.interface_ospfv3])
         self.assertEqual(3, len(self.lsdb_ospfv3.get_lsdb([self.interface_ospfv3])))
-        self.assertEqual(9, self.lsdb_ospfv3.get_lsdb([self.interface_ospfv3])[1].header.ls_type)
+        self.assertEqual(0x2009, self.lsdb_ospfv3.get_lsdb([self.interface_ospfv3])[1].header.ls_type)
         self.lsdb_ospfv3.delete_lsa(1, '0.0.0.0', '2.2.2.2', [self.interface_ospfv3])
         self.assertEqual(3, len(self.lsdb_ospfv3.get_lsdb([self.interface_ospfv3])))
         self.lsdb_ospfv3.delete_lsa(2, '0.0.0.5', '2.2.2.2', [self.interface_ospfv3])
@@ -184,14 +184,14 @@ class TestLsdb(unittest.TestCase):
 
         self.lsdb_ospfv3.add_lsa(self.lsa_ospfv3_1)
         self.assertEqual(1, len(self.lsdb_ospfv3.get_lsdb([self.interface_ospfv3])))
-        self.assertEqual(1, self.lsdb_ospfv3.get_lsdb([self.interface_ospfv3])[0].header.ls_type)
+        self.assertEqual(0x2001, self.lsdb_ospfv3.get_lsdb([self.interface_ospfv3])[0].header.ls_type)
         self.assertEqual(2147483655, self.lsdb_ospfv3.get_lsdb([self.interface_ospfv3])[0].header.ls_sequence_number)
         lsa_ospfv3_5 = lsa.Lsa()
         lsa_ospfv3_5.create_header(1, 0, 1, '0.0.0.0', '2.2.2.2', 10000, conf.VERSION_IPV6)
         lsa_ospfv3_5.create_router_lsa_body(False, False, False, 51, conf.VERSION_IPV6)
         self.lsdb_ospfv3.add_lsa(lsa_ospfv3_5)
         self.assertEqual(1, len(self.lsdb_ospfv3.get_lsdb([self.interface_ospfv3])))
-        self.assertEqual(1, self.lsdb_ospfv3.get_lsdb([self.interface_ospfv3])[0].header.ls_type)
+        self.assertEqual(0x2001, self.lsdb_ospfv3.get_lsdb([self.interface_ospfv3])[0].header.ls_type)
         self.assertEqual(10000, self.lsdb_ospfv3.get_lsdb([self.interface_ospfv3])[0].header.ls_sequence_number)
         lsa_ospfv3_6 = lsa.Lsa()
         lsa_ospfv3_6.create_header(1, 0, 9, '5.5.5.5', '2.2.2.2', 2147483653, conf.VERSION_IPV6)
@@ -202,9 +202,9 @@ class TestLsdb(unittest.TestCase):
         self.assertEqual('5.5.5.5', self.lsdb_ospfv3.get_lsdb([self.interface_ospfv3])[1].header.link_state_id)
         self.lsdb_ospfv3.add_lsa(self.lsa_ospfv3_2)
         self.assertEqual(3, len(self.lsdb_ospfv3.get_lsdb([self.interface_ospfv3])))
-        self.assertEqual(1, self.lsdb_ospfv3.get_lsdb([self.interface_ospfv3])[0].header.ls_type)
-        self.assertEqual(2, self.lsdb_ospfv3.get_lsdb([self.interface_ospfv3])[1].header.ls_type)
-        self.assertEqual(9, self.lsdb_ospfv3.get_lsdb([self.interface_ospfv3])[2].header.ls_type)
+        self.assertEqual(0x2001, self.lsdb_ospfv3.get_lsdb([self.interface_ospfv3])[0].header.ls_type)
+        self.assertEqual(0x2002, self.lsdb_ospfv3.get_lsdb([self.interface_ospfv3])[1].header.ls_type)
+        self.assertEqual(0x2009, self.lsdb_ospfv3.get_lsdb([self.interface_ospfv3])[2].header.ls_type)
 
     def populateLsdb(self):
         self.lsdb_ospfv2.router_lsa_list.append(self.lsa_ospfv2_1)

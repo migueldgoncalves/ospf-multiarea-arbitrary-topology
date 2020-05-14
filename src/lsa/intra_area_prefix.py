@@ -1,4 +1,5 @@
 import struct
+import math
 
 import lsa.body as body
 import conf.conf as conf
@@ -34,10 +35,9 @@ class IntraAreaPrefix(body.Body):  # 12 bytes + 4-20 bytes / prefix
 
     #  Creates byte object suitable to be sent and recognized as the body of an OSPF Intra-Area-Prefix-LSA
     def pack_lsa_body(self):
-        referenced_ls_type = self.referenced_ls_type + 0x2000
         decimal_referenced_link_state_id = utils.Utils.ipv4_to_decimal(self.referenced_link_state_id)
         decimal_referenced_advertising_router = utils.Utils.ipv4_to_decimal(self.referenced_advertising_router)
-        body_bytes = struct.pack(BASE_FORMAT_STRING, self.prefix_number, referenced_ls_type,
+        body_bytes = struct.pack(BASE_FORMAT_STRING, self.prefix_number, self.referenced_ls_type,
                                  decimal_referenced_link_state_id, decimal_referenced_advertising_router)
         for p in self.prefixes:
             prefix_length = p[0]
@@ -68,7 +68,7 @@ class IntraAreaPrefix(body.Body):  # 12 bytes + 4-20 bytes / prefix
     def unpack_lsa_body(body_bytes, version):
         first_fields = struct.unpack(BASE_FORMAT_STRING, body_bytes[:12])
         prefix_number = first_fields[0]
-        referenced_ls_type = first_fields[1] - 0x2000
+        referenced_ls_type = first_fields[1]
         referenced_link_state_id = utils.Utils.decimal_to_ipv4(first_fields[2])
         referenced_advertising_router = utils.Utils.decimal_to_ipv4(first_fields[3])
         unpacked_body = IntraAreaPrefix(referenced_ls_type, referenced_link_state_id, referenced_advertising_router)
@@ -109,3 +109,16 @@ class IntraAreaPrefix(body.Body):  # 12 bytes + 4-20 bytes / prefix
             unpacked_body.add_prefix_info(prefix_length, prefix_options, metric, prefix)
 
         return unpacked_body
+
+    #  Gets U-bit value from Referenced LS Type value in OSPFv3
+    def get_referenced_u_bit(self):
+        return self.referenced_ls_type >> 15  # U-bit is 1st bit of LS Type in OSPFv3
+
+    #  Gets S1 and S2 bits value from Referenced LS Type value in OSPFv3
+    def get_referenced_s1_s2_bits(self):
+        first_3_bits = self.referenced_ls_type >> 13
+        return first_3_bits & 0x3  # S1 and S2 bits are respectively 3rd and 2nd bits of LS Type in OSPFv3
+
+    #  Gets Referenced LS Type from broader LS Type value (in OSPFv3) or returns itself (OSPFv2)
+    def get_referenced_ls_type(self):
+        return self.referenced_ls_type & int(math.pow(2, 13) - 1)  # Actual LS Type value is in last 13 bits in OSPFv3
