@@ -86,7 +86,7 @@ class Socket:
             link_local_address = utils.Utils.get_ipv6_link_local_address_from_interface_name(interface)
             global_address = utils.Utils.get_ipv6_global_address_from_interface_name(interface)
             #  If packet is not from itself OR if packets from itself are allowed
-            if (source_ip_address != link_local_address) | (source_ip_address != global_address) | accept_self_packets:
+            if (source_ip_address not in [link_local_address, global_address]) | accept_self_packets:
                 pipeline.put([packet_bytes, source_ip_address])
         s.close()
 

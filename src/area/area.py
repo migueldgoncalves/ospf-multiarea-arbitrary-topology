@@ -36,7 +36,7 @@ class Area:
         if ospf_version == conf.VERSION_IPV4:
             link_state_id = conf.ROUTER_ID
         else:
-            link_state_id = 0
+            link_state_id = '0.0.0.0'
         router_lsa.create_header(conf.INITIAL_LS_AGE, conf.OPTIONS, conf.LSA_TYPE_ROUTER, link_state_id, conf.ROUTER_ID,
                                  conf.INITIAL_SEQUENCE_NUMBER, ospf_version)
         if ospf_version == conf.VERSION_IPV4:

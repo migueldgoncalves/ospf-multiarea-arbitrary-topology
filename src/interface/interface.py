@@ -65,7 +65,6 @@ class Interface:
         self.hello_thread = None
         self.lsa_lock = threading.RLock()  # For controlling access to interface LSA list
         self.lsdb = lsdb  # Reference to the area LSDB
-        #  TODO: Implement retransmission timer
 
         self.hello_timer = timer.Timer()
         self.offset = 0
@@ -91,6 +90,14 @@ class Interface:
             for n in list(self.neighbors):
                 if self.neighbors[n].is_expired():  # Neighbors that reached timeout can be deleted
                     self.event_inactivity_timer(n)
+
+            #  Retransmits last DD Description, LS Request or LS Update packet to neighbor, if needed
+            for n in list(self.neighbors):
+                if self.neighbors[n].is_retransmission_time():
+                    packet_to_send = self.neighbors[n].last_sent_packet
+                    destination_address = self.neighbors[n].neighbor_ip_address
+                    if packet_to_send is not None:  # Safety check
+                        self.send_packet(packet_to_send, destination_address)
 
             #  Processes incoming packets
             if not self.pipeline.empty():
@@ -178,6 +185,8 @@ class Interface:
                             continue
 
                     if neighbor_router.neighbor_state == conf.NEIGHBOR_STATE_EXCHANGE:
+                        #  TODO: Check if this verification is in the right place
+                        neighbor_router.stop_retransmission_timer()
                         #  TODO: Implement resending if incoming packet is duplicate
                         invalid_ls_type = False
                         for header in incoming_packet.body.lsa_headers:
@@ -254,12 +263,9 @@ class Interface:
                     self.ls_update_packet.create_ls_update_packet_body(self.version)
                     for lsa_identifier in incoming_packet.body.lsa_identifiers:
                         ls_type = lsa_identifier[0]
-                        decimal_link_state_id = utils.Utils.ipv4_to_decimal(lsa_identifier[1])  # TODO: Fix?
+                        link_state_id = lsa_identifier[1]
                         advertising_router = lsa_identifier[2]
-                        if self.version == conf.VERSION_IPV6:
-                            full_lsa = self.lsdb.get_lsa(ls_type, decimal_link_state_id, advertising_router, [self])
-                        else:
-                            full_lsa = self.lsdb.get_lsa(ls_type, lsa_identifier[1], advertising_router, [self])
+                        full_lsa = self.lsdb.get_lsa(ls_type, link_state_id, advertising_router, [self])
                         if full_lsa is None:
                             lsa_not_found = True
                         else:
@@ -337,7 +343,7 @@ class Interface:
     #  HelloReceived event
     def event_hello_received(self, incoming_packet, source_ip, neighbor_id):
         neighbor_router = self.neighbors[neighbor_id]
-        neighbor_router.reset_timer()
+        neighbor_router.reset_inactivity_timer()
         time.sleep(0.1)  # Required to immediately give the CPU to the neighbor timer thread
         if neighbor_router.neighbor_state == conf.NEIGHBOR_STATE_DOWN:
             neighbor_router.set_neighbor_state(conf.NEIGHBOR_STATE_INIT)
@@ -371,6 +377,8 @@ class Interface:
                         conf.MTU, conf.OPTIONS, True, True, True, self.neighbors[neighbor_id].dd_sequence, [],
                         conf.VERSION_IPV6)
                 self.send_packet(self.dd_packet, source_ip)
+                neighbor_router.last_sent_packet = self.dd_packet
+                neighbor_router.start_retransmission_timer()
         else:  # Nothing to do
             pass
 

@@ -11,7 +11,7 @@ This class tests the neighbor operations in the router
 #  TODO: Implement validation and testing of None parameters
 
 
-#  Full successful run - 90 s
+#  Full successful run - 102-103 s
 class TestNeighbor(unittest.TestCase):
 
     def setUp(self):
@@ -52,19 +52,27 @@ class TestNeighbor(unittest.TestCase):
         self.assertEqual(self.neighbor_bdr, self.neighbor_v3.neighbor_bdr)
 
         self.assertIsNotNone(self.neighbor_v2.inactivity_timer)
+        self.assertIsNotNone(self.neighbor_v2.retransmission_timer)
         self.assertIsNotNone(self.neighbor_v3.inactivity_timer)
+        self.assertIsNotNone(self.neighbor_v3.retransmission_timer)
         self.assertTrue(self.neighbor_v2.inactivity_timer.initial_time > self.start_time)
         self.assertTrue(self.neighbor_v3.inactivity_timer.initial_time > self.start_time)
 
-        self.assertTrue(self.neighbor_v2.thread.isAlive())
-        self.assertTrue(self.neighbor_v3.thread.isAlive())
+        self.assertTrue(self.neighbor_v2.inactivity_thread.isAlive())
+        self.assertIsNone(self.neighbor_v2.retransmission_thread)
+        self.assertTrue(self.neighbor_v3.inactivity_thread.isAlive())
+        self.assertIsNone(self.neighbor_v3.retransmission_thread)
 
         self.assertFalse(self.neighbor_v2.reset.is_set())
         self.assertFalse(self.neighbor_v3.reset.is_set())
-        self.assertFalse(self.neighbor_v2.timeout.is_set())
-        self.assertFalse(self.neighbor_v3.timeout.is_set())
-        self.assertFalse(self.neighbor_v2.shutdown.is_set())
-        self.assertFalse(self.neighbor_v3.shutdown.is_set())
+        self.assertFalse(self.neighbor_v2.inactivity_timeout.is_set())
+        self.assertFalse(self.neighbor_v2.retransmission_timeout.is_set())
+        self.assertFalse(self.neighbor_v3.inactivity_timeout.is_set())
+        self.assertFalse(self.neighbor_v3.retransmission_timeout.is_set())
+        self.assertFalse(self.neighbor_v2.inactivity_shutdown.is_set())
+        self.assertFalse(self.neighbor_v2.retransmission_shutdown.is_set())
+        self.assertFalse(self.neighbor_v3.inactivity_shutdown.is_set())
+        self.assertFalse(self.neighbor_v3.retransmission_shutdown.is_set())
 
     #  Successful run - 1 s
     def test_constructor_invalid_parameters(self):
@@ -82,29 +90,60 @@ class TestNeighbor(unittest.TestCase):
         self.assertTrue(self.neighbor_v2.is_expired())
 
         self.assertFalse(self.neighbor_v2.reset.is_set())
-        self.assertTrue(self.neighbor_v2.timeout.is_set())
-        self.assertFalse(self.neighbor_v2.shutdown.is_set())
+        self.assertTrue(self.neighbor_v2.inactivity_timeout.is_set())
+        self.assertFalse(self.neighbor_v2.inactivity_shutdown.is_set())
 
     #  Successful run - 42 s
-    def test_reset_timer(self):
+    def test_reset_inactivity_timer(self):
         self.assertFalse(self.neighbor_v2.is_expired())
         time.sleep(conf.ROUTER_DEAD_INTERVAL / 2)
-        self.neighbor_v2.reset_timer()
+        self.neighbor_v2.reset_inactivity_timer()
         time.sleep((conf.ROUTER_DEAD_INTERVAL / 2) + 1)
         self.assertFalse(self.neighbor_v2.is_expired())
 
         self.assertFalse(self.neighbor_v2.reset.is_set())
-        self.assertFalse(self.neighbor_v2.timeout.is_set())
-        self.assertFalse(self.neighbor_v2.shutdown.is_set())
+        self.assertFalse(self.neighbor_v2.inactivity_timeout.is_set())
+        self.assertFalse(self.neighbor_v2.inactivity_shutdown.is_set())
+
+    #  Successful run - 12 s
+    def test_retransmission_timer(self):
+        for i in range(2):
+            self.assertFalse(self.neighbor_v2.is_retransmission_time())
+            self.assertFalse(self.neighbor_v3.is_retransmission_time())
+            self.neighbor_v2.start_retransmission_timer()
+            self.neighbor_v3.start_retransmission_timer()
+            self.assertFalse(self.neighbor_v2.is_retransmission_time())
+            self.assertFalse(self.neighbor_v3.is_retransmission_time())
+            self.assertFalse(self.neighbor_v2.retransmission_timeout.is_set())
+            self.assertFalse(self.neighbor_v3.retransmission_timeout.is_set())
+            self.assertTrue(self.neighbor_v2.retransmission_thread.isAlive())
+            self.assertTrue(self.neighbor_v3.retransmission_thread.isAlive())
+
+            time.sleep(5)
+            self.assertTrue(self.neighbor_v2.is_retransmission_time())
+            self.assertTrue(self.neighbor_v3.is_retransmission_time())
+            self.assertFalse(self.neighbor_v2.retransmission_timeout.is_set())  # Timeout flag is cleared by method
+            self.assertFalse(self.neighbor_v3.retransmission_timeout.is_set())
+
+            if i == 0:
+                self.neighbor_v2.stop_retransmission_timer()
+                self.neighbor_v3.stop_retransmission_timer()
+                time.sleep(1)
+                self.assertFalse(self.neighbor_v2.retransmission_thread.isAlive())
+                self.assertFalse(self.neighbor_v3.retransmission_thread.isAlive())
+                self.neighbor_v2.retransmission_timeout.set()
+                self.neighbor_v3.retransmission_timeout.set()
+                self.assertFalse(self.neighbor_v2.is_retransmission_time())
+                self.assertFalse(self.neighbor_v3.is_retransmission_time())
 
     #  Successful run - 2 s
     def test_delete_neighbor(self):
-        self.assertFalse(self.neighbor_v2.shutdown.is_set())
+        self.assertFalse(self.neighbor_v2.inactivity_shutdown.is_set())
         self.neighbor_v2.delete_neighbor()
         time.sleep(1)
         self.assertFalse(self.neighbor_v2.reset.is_set())
-        self.assertTrue(self.neighbor_v2.timeout.is_set())
-        self.assertTrue(self.neighbor_v2.shutdown.is_set())
+        self.assertTrue(self.neighbor_v2.inactivity_timeout.is_set())
+        self.assertTrue(self.neighbor_v2.inactivity_shutdown.is_set())
 
     #  Successful run - 1 s
     def test_parameter_validation_successful(self):

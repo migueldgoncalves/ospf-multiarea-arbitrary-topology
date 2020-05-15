@@ -21,7 +21,7 @@ class LSRequest(body.Body):  # OSPFv2 and OSPFv3 - 12 bytes / LSA identifier
 
     #  Adds data for one LSA identifier to the packet
     def add_lsa_info(self, ls_type, link_state_id, advertising_router):
-        #  TODO: COnsider other types of LSAs
+        #  TODO: Consider other types of LSAs
         if (self.version == conf.VERSION_IPV6) & (ls_type != conf.LSA_TYPE_LINK) & (ls_type < 0x2000):
             ls_type += 0x2000
         self.lsa_identifiers.append([ls_type, link_state_id, advertising_router])

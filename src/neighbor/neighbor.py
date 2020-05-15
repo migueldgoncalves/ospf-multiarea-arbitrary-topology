@@ -39,23 +39,54 @@ class Neighbor:
 
         #  Implementation-specific parameters
         self.reset = threading.Event()
-        self.timeout = threading.Event()
-        self.shutdown = threading.Event()
+        self.inactivity_timeout = threading.Event()
+        self.retransmission_timeout = threading.Event()
+        self.inactivity_shutdown = threading.Event()
+        self.retransmission_shutdown = threading.Event()
+        self.last_sent_packet = None  # Last DD Description, LS Request or LS Update sent to neighbor
 
         #  Sets timer that monitors neighbor last activity
         timeout_seconds = conf.ROUTER_DEAD_INTERVAL
         self.inactivity_timer = timer.Timer()
-        self.thread = threading.Thread(target=self.inactivity_timer.single_shot_timer,
-                                       args=(self.reset, self.timeout, self.shutdown, timeout_seconds))
-        self.thread.start()
+        self.inactivity_thread = threading.Thread(
+            target=self.inactivity_timer.single_shot_timer,
+            args=(self.reset, self.inactivity_timeout, self.inactivity_shutdown, timeout_seconds))
+        self.inactivity_thread.start()
 
-    #  Returns True if timer has fired - No activity from neighbor was received lately
+        #  Packet retransmission timer
+        self.retransmission_timer = timer.Timer()
+        self.retransmission_thread = None
+
+    #  Starts retransmission timer
+    def start_retransmission_timer(self):
+        self.retransmission_timeout.clear()
+        self.retransmission_shutdown.clear()
+        self.retransmission_thread = threading.Thread(
+            target=self.retransmission_timer.interval_timer,
+            args=(0, self.retransmission_timeout, self.retransmission_shutdown, conf.RETRANSMISSION_INTERVAL))
+        self.retransmission_thread.start()
+
+    #  Returns True if inactivity timer has fired - No activity from neighbor was received lately
     def is_expired(self):
-        return self.timeout.is_set()
+        return self.inactivity_timeout.is_set()
 
-    #  Resets timer - Activity from neighbor has just been received
-    def reset_timer(self):
+    #  Returns True if retransmission timer has fired and resets flag if so
+    def is_retransmission_time(self):
+        if self.retransmission_timeout.is_set() & (self.retransmission_thread is not None):
+            if self.retransmission_thread.isAlive():
+                self.retransmission_timeout.clear()
+                return True
+        return False
+
+    #  Resets inactivity timer - Activity from neighbor has just been received
+    def reset_inactivity_timer(self):
         self.reset.set()
+
+    #  Stops retransmission timer
+    def stop_retransmission_timer(self):
+        if self.retransmission_thread is not None:
+            self.retransmission_shutdown.set()
+            self.retransmission_thread.join()
 
     #  Stops timer thread so that neighbor can be deleted
     def delete_neighbor(self):
@@ -63,8 +94,9 @@ class Neighbor:
         self.ls_retransmission_list = []
         self.db_summary_list = []
         self.ls_request_list = []
-        self.shutdown.set()
-        self.thread.join()
+        self.inactivity_shutdown.set()
+        self.inactivity_thread.join()
+        self.stop_retransmission_timer()
 
     #  Changes neighbor state and prints a message
     def set_neighbor_state(self, new_state):

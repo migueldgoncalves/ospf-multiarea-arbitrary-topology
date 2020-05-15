@@ -173,7 +173,7 @@ class Lsa:
 
     #  Returns identifier of current LSA
     def get_lsa_identifier(self):
-        ls_type = self.get_lsa_type_from_lsa()
+        ls_type = self.header.ls_type
         link_state_id = self.header.link_state_id
         advertising_router = self.header.advertising_router
         return [ls_type, link_state_id, advertising_router]
