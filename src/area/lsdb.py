@@ -19,8 +19,8 @@ class Lsdb:
 
         self.clean_lsdb([])
 
-    #  Atomically returns full LSDB as a single list
-    def get_lsdb(self, interfaces):
+    #  Atomically returns full LSDB or part of it as a single list
+    def get_lsdb(self, interfaces, identifiers):
         with self.lsdb_lock:
             lsa_list = []
             lsa_list.extend(self.router_lsa_list)
@@ -28,24 +28,35 @@ class Lsdb:
             lsa_list.extend(self.intra_area_prefix_lsa_list)
             for i in interfaces:
                 lsa_list.extend(i.get_link_local_lsa_list())
-            return lsa_list
+            requested_lsa_list = []
+            for lsa in lsa_list:
+                #  If no identifier list is provided, all LSAs are returned
+                if identifiers is None:
+                    requested_lsa_list.append(lsa)
+                elif lsa.get_lsa_identifier() in identifiers:
+                    requested_lsa_list.append(lsa)
+            return requested_lsa_list
 
     #  Atomically returns a LSA given its identifier, if present
     def get_lsa(self, ls_type, link_state_id, advertising_router, interfaces):
         with self.lsdb_lock:
-            lsa_list = self.get_lsdb(interfaces)
+            lsa_list = self.get_lsdb(interfaces, None)
             for lsa in lsa_list:
                 if lsa.is_lsa_identifier_equal(ls_type, link_state_id, advertising_router):
                     return lsa
             return None
 
-    #  Atomically returns headers of full LSDB as a single list
-    def get_lsa_headers(self, interfaces):
+    #  Atomically returns headers of full LSDB or part of it as a single list
+    def get_lsa_headers(self, interfaces, identifiers):
         with self.lsdb_lock:
-            lsa_list = self.get_lsdb(interfaces)
+            lsa_list = self.get_lsdb(interfaces, None)
             lsa_headers = []
             for lsa in lsa_list:
-                lsa_headers.append(lsa.header)
+                #  If no identifier list is provided, all LSA headers are returned
+                if identifiers is None:
+                    lsa_headers.append(lsa.header)
+                elif lsa.get_lsa_identifier() in identifiers:
+                    lsa_headers.append(lsa.header)
             return lsa_headers
 
     #  Atomically returns a LSA header given its identifier, if present
@@ -103,6 +114,6 @@ class Lsdb:
     #  For each LSA, increases LS Age field if enough time has passed
     def increase_lsa_age(self, interfaces):
         with self.lsdb_lock:
-            lsa_list = self.get_lsdb(interfaces)
+            lsa_list = self.get_lsdb(interfaces, None)
             for lsa in lsa_list:
                 lsa.increase_lsa_age()

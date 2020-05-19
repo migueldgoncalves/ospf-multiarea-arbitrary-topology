@@ -127,6 +127,10 @@ class Header:  # OSPFv2 and OSPFv3 - 20 bytes
     def get_ls_type(ls_type):
         return ls_type & int(math.pow(2, 13) - 1)  # Actual LS Type value occupies last 13 bits of field in OSPFv3
 
+    #  Returns identifier of current LSA
+    def get_lsa_identifier(self):
+        return [self.ls_type, self.link_state_id, self.advertising_router]
+
     @staticmethod
     def get_format_string(version):
         if version == conf.VERSION_IPV4:

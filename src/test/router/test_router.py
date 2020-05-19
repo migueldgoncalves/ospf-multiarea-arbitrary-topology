@@ -79,7 +79,7 @@ class RouterTest(unittest.TestCase):
 
         for r in [self.router_v2, self.router_v3]:
             for area_id in r.areas:
-                router_lsa = r.areas[area_id].database.get_lsdb([])[0]
+                router_lsa = r.areas[area_id].database.get_lsdb([], None)[0]
                 time.sleep(2)
                 ls_age = router_lsa.header.ls_age
                 self.assertTrue(ls_age > 0)

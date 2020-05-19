@@ -161,6 +161,7 @@ class Interface:
                     neighbor_m_bit = incoming_packet.body.m_bit
                     neighbor_ms_bit = incoming_packet.body.ms_bit
                     neighbor_lsa_headers = incoming_packet.body.lsa_headers
+                    received_at_exstart_state = False  # For packets processed both at Exstart and Exchange states
 
                     if neighbor_router.neighbor_state == conf.NEIGHBOR_STATE_EXSTART:
                         #  This router is the slave
@@ -180,6 +181,7 @@ class Interface:
                                     neighbor_router.master_slave = True
                                     neighbor_router.dd_sequence += 1
                                     neighbor_router.neighbor_options = neighbor_options
+                                    received_at_exstart_state = True
                                     self.event_negotiation_done(neighbor_router)
                         else:
                             continue
@@ -202,15 +204,20 @@ class Interface:
                                                               header.advertising_router, [self])
                                 #  TODO: Implement LSA instance comparison
                                 if local_lsa is None:  # This router does not have the LSA
-                                    neighbor_router.ls_request_list.append(header)
+                                    neighbor_router.add_lsa_identifier(
+                                        neighbor_router.ls_request_list, header.get_lsa_identifier())
                         if invalid_ls_type:
-                            continue  # TODO: Invoke event SeqNumberMismatch
+                            self.event_seq_number_mismatch(neighbor_router, source_ip)
+                            continue
+                        if received_at_exstart_state:
+                            continue  # Packet was received at Exstart state - All processing has been done
 
                         if neighbor_router.master_slave:  # This router is the master
                             if incoming_packet.body.dd_sequence_number != neighbor_router.dd_sequence:
-                                continue  # TODO: Invoke event SeqNumberMismatch
+                                self.event_seq_number_mismatch(neighbor_router, source_ip)
+                                continue
                             neighbor_router.dd_sequence += 1
-                            neighbor_router.db_summary_list = []  # All of this router LSAs are acknowledged
+                            neighbor_router.db_summary_list = []  # All of this router LSAs are acknowledged  # TODO: Improve
                             #  This router and neighbor acknowledged that they have no more LSA headers to send
                             if (not incoming_packet.body.m_bit) & (not self.dd_packet.body.m_bit):
                                 self.event_exchange_done(neighbor_router)
@@ -218,16 +225,18 @@ class Interface:
                                 #  Sends DB Description packet with M-bit clear
                                 self.dd_packet.create_db_description_packet_body(
                                     self.max_ip_datagram, conf.OPTIONS, False, False, True, neighbor_router.dd_sequence,
-                                    neighbor_router.db_summary_list, self.version)
+                                    self.lsdb.get_lsa_headers([self], neighbor_router.db_summary_list), self.version)
                                 self.send_packet(self.dd_packet, neighbor_router.neighbor_ip_address)
                             #  TODO: Implement case where LSA headers are sent in more than 1 DB Description packet
                         else:  # This router is the slave
                             if incoming_packet.body.dd_sequence_number != (neighbor_router.dd_sequence + 1):
-                                continue  # TODO: Invoke event SeqNumberMismatch
+                                self.event_seq_number_mismatch(neighbor_router, source_ip)
+                                continue
                             neighbor_router.dd_sequence = incoming_packet.body.dd_sequence_number
                             #  Previous packet sent by slave is acknowledged
                             for header in self.dd_packet.body.lsa_headers:
-                                neighbor_router.db_summary_list.remove(header)
+                                neighbor_router.delete_lsa_identifier(
+                                    neighbor_router.db_summary_list, header.get_lsa_identifier())
                             if len(neighbor_router.db_summary_list) == 0:
                                 m_bit = True
                             else:
@@ -235,16 +244,15 @@ class Interface:
                             #  Sends DB Description packet as response to master
                             self.dd_packet.create_db_description_packet_body(
                                 self.max_ip_datagram, conf.OPTIONS, False, m_bit, False, neighbor_router.dd_sequence,
-                                neighbor_router.db_summary_list, self.version)
+                                self.lsdb.get_lsa_headers([self], neighbor_router.db_summary_list), self.version)
                             self.send_packet(self.dd_packet, neighbor_router.neighbor_ip_address)
                             if (not m_bit) & (not incoming_packet.body.m_bit):
                                 self.event_exchange_done(neighbor_router)
 
-                    if neighbor_router.neighbor_state == conf.NEIGHBOR_STATE_LOADING:
-                        pass  # TODO
-
-                    if neighbor_router.neighbor_state == conf.NEIGHBOR_STATE_FULL:
-                        pass  # TODO
+                    if neighbor_router.neighbor_state in [conf.NEIGHBOR_STATE_LOADING, conf.NEIGHBOR_STATE_FULL]:
+                        #  TODO: Implement reception of duplicate packets both as master and as slave
+                        #  self.event_seq_number_mismatch(neighbor_router, source_ip)
+                        continue
 
                 elif packet_type == conf.PACKET_TYPE_LS_REQUEST:
                     neighbor_router = self.neighbors[neighbor_id]
@@ -271,12 +279,23 @@ class Interface:
                         else:
                             self.ls_update_packet.add_lsa(full_lsa)
                     if lsa_not_found:
-                        continue  # TODO: Implement event BadLSReq
+                        self.event_bad_ls_req(neighbor_router, source_ip)
+                        continue
                     self.send_packet(self.ls_update_packet, neighbor_router.neighbor_ip_address)
 
                 elif packet_type == conf.PACKET_TYPE_LS_UPDATE:
                     neighbor_router = self.neighbors[neighbor_id]
-                    neighbor_router.ls_request_list = []  # TODO: Implement retransmission of LS Request packets
+                    if neighbor_router.neighbor_state not in [
+                            conf.NEIGHBOR_STATE_EXCHANGE, conf.NEIGHBOR_STATE_LOADING, conf.NEIGHBOR_STATE_FULL]:
+                        continue
+
+                    lsa_identifiers = []
+                    for lsa in incoming_packet.body.lsa_list:
+                        lsa_identifiers.append(lsa.get_lsa_identifier())
+                    for identifier in lsa_identifiers:
+                        neighbor_router.delete_lsa_identifier(neighbor_router.ls_request_list, identifier)  # If there
+                    # TODO: Implement retransmission of LS Request packets
+
                     for new_lsa in incoming_packet.body.lsa_list:
                         #  TODO: Compare instances of the same LSA
                         if self.lsdb.get_lsa(new_lsa.header.ls_type, new_lsa.header.link_state_id,
@@ -294,10 +313,12 @@ class Interface:
                     for new_lsa in incoming_packet.body.lsa_list:
                         self.ls_acknowledgement_packet.add_lsa_header(new_lsa.header)
                     self.send_packet(self.ls_acknowledgement_packet, neighbor_router.neighbor_ip_address)
-                    self.event_loading_done(neighbor_router)
+
+                    if len(neighbor_router.ls_request_list) == 0:
+                        self.event_loading_done(neighbor_router)
 
                 elif packet_type == conf.PACKET_TYPE_LS_ACKNOWLEDGMENT:
-                    pass
+                    pass  # TODO: Implement
 
                 else:
                     pass
@@ -364,18 +385,19 @@ class Interface:
             else:  # Routers can become fully adjacent
                 neighbor_router.set_neighbor_state(conf.NEIGHBOR_STATE_EXSTART)
                 neighbor_router.generate_dd_sequence_number()
+                neighbor_router.master_slave = True
                 if self.version == conf.VERSION_IPV4:
                     self.dd_packet.create_header_v2(conf.PACKET_TYPE_DB_DESCRIPTION, conf.ROUTER_ID,
                                                     self.area_id, conf.NULL_AUTHENTICATION, conf.DEFAULT_AUTH)
                     self.dd_packet.create_db_description_packet_body(
-                        conf.MTU, conf.OPTIONS, True, True, True, self.neighbors[neighbor_id].dd_sequence, [],
-                        conf.VERSION_IPV4)
+                        conf.MTU, conf.OPTIONS, True, True, neighbor_router.master_slave,
+                        self.neighbors[neighbor_id].dd_sequence, [], conf.VERSION_IPV4)
                 else:
                     self.dd_packet.create_header_v3(conf.PACKET_TYPE_DB_DESCRIPTION, conf.ROUTER_ID,
                                                     self.area_id, self.instance_id, self.ipv6_address, source_ip)
                     self.dd_packet.create_db_description_packet_body(
-                        conf.MTU, conf.OPTIONS, True, True, True, self.neighbors[neighbor_id].dd_sequence, [],
-                        conf.VERSION_IPV6)
+                        conf.MTU, conf.OPTIONS, True, True, neighbor_router.master_slave,
+                        self.neighbors[neighbor_id].dd_sequence, [], conf.VERSION_IPV6)
                 self.send_packet(self.dd_packet, source_ip)
                 neighbor_router.last_sent_packet = self.dd_packet
                 neighbor_router.start_retransmission_timer()
@@ -385,14 +407,13 @@ class Interface:
     #  NegotiationDone event
     def event_negotiation_done(self, neighbor_router):
         neighbor_router.set_neighbor_state(conf.NEIGHBOR_STATE_EXCHANGE)
-        lsdb_summary = self.lsdb.get_lsa_headers([self])
-        current_lsa_list = []
+        lsdb_summary = self.lsdb.get_lsa_headers([self], None)
+        neighbor_router.db_summary_list = []
         for header in lsdb_summary:
             if header.ls_age == conf.MAX_AGE:
-                neighbor_router.ls_retransmission_list.append(header)
+                neighbor_router.add_lsa_identifier(neighbor_router.ls_retransmission_list, header.get_lsa_identifier())
             else:
-                current_lsa_list.append(header)
-        neighbor_router.db_summary_list = current_lsa_list
+                neighbor_router.add_lsa_identifier(neighbor_router.db_summary_list, header.get_lsa_identifier())
         if neighbor_router.master_slave:  # This router is the master
             if self.version == conf.VERSION_IPV4:
                 self.dd_packet.create_header_v2(conf.PACKET_TYPE_DB_DESCRIPTION, conf.ROUTER_ID, self.area_id,
@@ -403,7 +424,7 @@ class Interface:
                     neighbor_router.neighbor_ip_address)
             self.dd_packet.create_db_description_packet_body(
                 self.max_ip_datagram, conf.OPTIONS, False, True, True, neighbor_router.dd_sequence,
-                neighbor_router.db_summary_list, self.version)
+                self.lsdb.get_lsa_headers([self], neighbor_router.db_summary_list), self.version)  # TODO: Case where not all LSAs fit in one packet
             self.send_packet(self.dd_packet, neighbor_router.neighbor_ip_address)
 
     #  ExchangeDone event
@@ -421,8 +442,8 @@ class Interface:
                     conf.PACKET_TYPE_LS_REQUEST, conf.ROUTER_ID, self.area_id, self.instance_id, self.ipv6_address,
                     neighbor_router.neighbor_ip_address)
             self.ls_request_packet.create_ls_request_packet_body(self.version)
-            for header in neighbor_router.ls_request_list:
-                self.ls_request_packet.add_lsa_info(header.ls_type, header.link_state_id, header.advertising_router)
+            for identifier in neighbor_router.ls_request_list:
+                self.ls_request_packet.add_lsa_info(identifier[0], identifier[1], identifier[2])
             self.send_packet(self.ls_request_packet, neighbor_router.neighbor_ip_address)
 
     #  LoadingDone event
@@ -434,12 +455,32 @@ class Interface:
         pass  # TODO: Implement event after DR election is implemented
 
     #  SeqNumberMismatch event
-    def event_seq_number_mismatch(self):
-        pass
+    def event_seq_number_mismatch(self, neighbor_router, source_ip):
+        neighbor_router.set_neighbor_state(conf.NEIGHBOR_STATE_EXSTART)
+        neighbor_router.ls_retransmission_list = []
+        neighbor_router.db_summary_list = []
+        neighbor_router.ls_request_list = []
+        neighbor_router.dd_sequence += 1
+        neighbor_router.master_slave = True
+        if self.version == conf.VERSION_IPV4:
+            self.dd_packet.create_header_v2(conf.PACKET_TYPE_DB_DESCRIPTION, conf.ROUTER_ID, self.area_id,
+                                            conf.NULL_AUTHENTICATION, conf.DEFAULT_AUTH)
+            self.dd_packet.create_db_description_packet_body(
+                conf.MTU, conf.OPTIONS, True, True, neighbor_router.master_slave, neighbor_router.dd_sequence, [],
+                conf.VERSION_IPV4)
+        else:
+            self.dd_packet.create_header_v3(conf.PACKET_TYPE_DB_DESCRIPTION, conf.ROUTER_ID, self.area_id,
+                                            self.instance_id, self.ipv6_address, source_ip)
+            self.dd_packet.create_db_description_packet_body(
+                conf.MTU, conf.OPTIONS, True, True, neighbor_router.master_slave, neighbor_router.dd_sequence, [],
+                conf.VERSION_IPV6)
+        self.send_packet(self.dd_packet, source_ip)
+        neighbor_router.last_sent_packet = self.dd_packet
+        neighbor_router.start_retransmission_timer()
 
     #  BadLSReq event
-    def event_bad_ls_req(self):
-        pass
+    def event_bad_ls_req(self, neighbor_router, source_ip):
+        self.event_seq_number_mismatch(neighbor_router, source_ip)
 
     #  KillNbr event
     def event_kill_nbr(self, neighbor_id):
