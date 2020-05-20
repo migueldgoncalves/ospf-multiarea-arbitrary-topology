@@ -108,6 +108,10 @@ class Interface:
                 packet_type = incoming_packet.header.packet_type
                 neighbor_id = incoming_packet.header.router_id
 
+                #  Packet does not come from a neighbor router
+                if (packet_type != conf.PACKET_TYPE_HELLO) & (neighbor_id not in self.neighbors):
+                    continue
+
                 if packet_type == conf.PACKET_TYPE_HELLO:
                     #  Checks if Hello packet values match interface values
                     neighbor_network_mask = incoming_packet.body.network_mask
@@ -138,32 +142,27 @@ class Interface:
                     #  Existing neighbor
                     self.event_hello_received(incoming_packet, source_ip, neighbor_id)
 
-                if neighbor_id not in self.neighbors:  # Packet does not come from a neighbor router
-                    continue
-
-                if packet_type == conf.PACKET_TYPE_DB_DESCRIPTION:
-                    if incoming_packet.body.interface_mtu > self.max_ip_datagram:
-                        continue  # Neighbor MTU too large
-
+                elif packet_type == conf.PACKET_TYPE_DB_DESCRIPTION:
                     neighbor_router = self.neighbors[neighbor_id]
-
-                    if neighbor_router.neighbor_state == conf.NEIGHBOR_STATE_DOWN:
-                        continue
-
-                    if neighbor_router.neighbor_state == conf.NEIGHBOR_STATE_INIT:
-                        self.event_2_way_received(neighbor_router, neighbor_id, source_ip)
-
-                    if neighbor_router.neighbor_state == conf.NEIGHBOR_STATE_2_WAY:
-                        continue
-
                     neighbor_options = incoming_packet.body.options
                     neighbor_i_bit = incoming_packet.body.i_bit
                     neighbor_m_bit = incoming_packet.body.m_bit
                     neighbor_ms_bit = incoming_packet.body.ms_bit
                     neighbor_lsa_headers = incoming_packet.body.lsa_headers
-                    received_at_exstart_state = False  # For packets processed both at Exstart and Exchange states
 
-                    if neighbor_router.neighbor_state == conf.NEIGHBOR_STATE_EXSTART:
+                    if incoming_packet.body.interface_mtu > self.max_ip_datagram:
+                        continue  # Neighbor MTU too large
+
+                    if neighbor_router.neighbor_state == conf.NEIGHBOR_STATE_DOWN:
+                        continue
+
+                    elif neighbor_router.neighbor_state == conf.NEIGHBOR_STATE_INIT:
+                        self.event_2_way_received(neighbor_router, neighbor_id, source_ip)
+
+                    elif neighbor_router.neighbor_state == conf.NEIGHBOR_STATE_2_WAY:
+                        continue
+
+                    elif neighbor_router.neighbor_state == conf.NEIGHBOR_STATE_EXSTART:
                         #  This router is the slave
                         if neighbor_i_bit & neighbor_m_bit & neighbor_ms_bit:
                             if len(neighbor_lsa_headers) == 0:
@@ -181,50 +180,35 @@ class Interface:
                                     neighbor_router.master_slave = True
                                     neighbor_router.dd_sequence += 1
                                     neighbor_router.neighbor_options = neighbor_options
-                                    received_at_exstart_state = True
                                     self.event_negotiation_done(neighbor_router)
+                                    self.update_ls_request_list(neighbor_router, incoming_packet, source_ip)
                         else:
                             continue
 
-                    if neighbor_router.neighbor_state == conf.NEIGHBOR_STATE_EXCHANGE:
-                        #  TODO: Check if this verification is in the right place
-                        neighbor_router.stop_retransmission_timer()
-                        #  TODO: Implement resending if incoming packet is duplicate
-                        invalid_ls_type = False
-                        for header in incoming_packet.body.lsa_headers:
-                            #  TODO: Consider other types of LSAs
-                            if ((self.version == conf.VERSION_IPV4) & (header.get_ls_type(header.ls_type) not in [
-                                conf.LSA_TYPE_ROUTER, conf.LSA_TYPE_NETWORK])) | (
-                                    (self.version == conf.VERSION_IPV6) & (header.get_ls_type(header.ls_type) not in [
-                                    conf.LSA_TYPE_ROUTER, conf.LSA_TYPE_NETWORK, conf.LSA_TYPE_INTRA_AREA_PREFIX,
-                                    conf.LSA_TYPE_LINK])):
-                                invalid_ls_type = True
-                            else:  # LSA with valid type
-                                local_lsa = self.lsdb.get_lsa(header.ls_type, header.link_state_id,
-                                                              header.advertising_router, [self])
-                                #  TODO: Implement LSA instance comparison
-                                if local_lsa is None:  # This router does not have the LSA
-                                    neighbor_router.add_lsa_identifier(
-                                        neighbor_router.ls_request_list, header.get_lsa_identifier())
-                        if invalid_ls_type:
+                    elif neighbor_router.neighbor_state == conf.NEIGHBOR_STATE_EXCHANGE:
+                        #  Stores new LSA headers in the LS Request list of the neighbor
+                        invalid_ls_type = self.update_ls_request_list(neighbor_router, incoming_packet, source_ip)
+                        if invalid_ls_type:  # At least one LSA with invalid type was detected
                             self.event_seq_number_mismatch(neighbor_router, source_ip)
                             continue
-                        if received_at_exstart_state:
-                            continue  # Packet was received at Exstart state - All processing has been done
+                        #  Removes acknowledged LSAs from DB Summary list
+                        for header in incoming_packet.body.lsa_headers:
+                            lsa_identifier = header.get_lsa_identifier()
+                            neighbor_router.delete_lsa_identifier(neighbor_router.db_summary_list, lsa_identifier)
+                        m_bit = (len(neighbor_router.db_summary_list) == 0)
 
                         if neighbor_router.master_slave:  # This router is the master
                             if incoming_packet.body.dd_sequence_number != neighbor_router.dd_sequence:
                                 self.event_seq_number_mismatch(neighbor_router, source_ip)
                                 continue
                             neighbor_router.dd_sequence += 1
-                            neighbor_router.db_summary_list = []  # All of this router LSAs are acknowledged  # TODO: Improve
                             #  This router and neighbor acknowledged that they have no more LSA headers to send
                             if (not incoming_packet.body.m_bit) & (not self.dd_packet.body.m_bit):
                                 self.event_exchange_done(neighbor_router)
                             else:
-                                #  Sends DB Description packet with M-bit clear
+                                #  Sends DB Description packet with either M-bit clear or more LSA headers
                                 self.dd_packet.create_db_description_packet_body(
-                                    self.max_ip_datagram, conf.OPTIONS, False, False, True, neighbor_router.dd_sequence,
+                                    self.max_ip_datagram, conf.OPTIONS, False, m_bit, True, neighbor_router.dd_sequence,
                                     self.lsdb.get_lsa_headers([self], neighbor_router.db_summary_list), self.version)
                                 self.send_packet(self.dd_packet, neighbor_router.neighbor_ip_address)
                             #  TODO: Implement case where LSA headers are sent in more than 1 DB Description packet
@@ -233,14 +217,6 @@ class Interface:
                                 self.event_seq_number_mismatch(neighbor_router, source_ip)
                                 continue
                             neighbor_router.dd_sequence = incoming_packet.body.dd_sequence_number
-                            #  Previous packet sent by slave is acknowledged
-                            for header in self.dd_packet.body.lsa_headers:
-                                neighbor_router.delete_lsa_identifier(
-                                    neighbor_router.db_summary_list, header.get_lsa_identifier())
-                            if len(neighbor_router.db_summary_list) == 0:
-                                m_bit = True
-                            else:
-                                m_bit = False
                             #  Sends DB Description packet as response to master
                             self.dd_packet.create_db_description_packet_body(
                                 self.max_ip_datagram, conf.OPTIONS, False, m_bit, False, neighbor_router.dd_sequence,
@@ -249,9 +225,11 @@ class Interface:
                             if (not m_bit) & (not incoming_packet.body.m_bit):
                                 self.event_exchange_done(neighbor_router)
 
-                    if neighbor_router.neighbor_state in [conf.NEIGHBOR_STATE_LOADING, conf.NEIGHBOR_STATE_FULL]:
+                    elif neighbor_router.neighbor_state in [conf.NEIGHBOR_STATE_LOADING, conf.NEIGHBOR_STATE_FULL]:
                         #  TODO: Implement reception of duplicate packets both as master and as slave
-                        #  self.event_seq_number_mismatch(neighbor_router, source_ip)
+                        self.event_seq_number_mismatch(neighbor_router, source_ip)
+
+                    else:
                         continue
 
                 elif packet_type == conf.PACKET_TYPE_LS_REQUEST:
@@ -528,6 +506,28 @@ class Interface:
             if self.neighbors[n].neighbor_state not in [conf.NEIGHBOR_STATE_DOWN, conf.NEIGHBOR_STATE_INIT]:
                 adjacent_neighbors += 1
         return adjacent_neighbors
+
+    #  Given a DB Description packet, stores its LSA headers in the respective neighbor LS Request list if needed
+    def update_ls_request_list(self, neighbor_router, incoming_packet, source_ip):
+        #  TODO: Check if this verification is in the right place
+        neighbor_router.stop_retransmission_timer()
+        #  TODO: Implement resending if incoming packet is duplicate
+        invalid_ls_type = False
+        for header in incoming_packet.body.lsa_headers:
+            #  TODO: Consider other types of LSAs
+            if ((self.version == conf.VERSION_IPV4) & (header.get_ls_type(header.ls_type) not in [
+                conf.LSA_TYPE_ROUTER, conf.LSA_TYPE_NETWORK])) | ((self.version == conf.VERSION_IPV6) & (
+                    header.get_ls_type(header.ls_type) not in [
+                    conf.LSA_TYPE_ROUTER, conf.LSA_TYPE_NETWORK, conf.LSA_TYPE_INTRA_AREA_PREFIX, conf.LSA_TYPE_LINK])):
+                invalid_ls_type = True
+            else:  # LSA with valid type
+                local_lsa = self.lsdb.get_lsa(header.ls_type, header.link_state_id,
+                                              header.advertising_router, [self])
+                #  TODO: Implement LSA instance comparison
+                if local_lsa is None:  # This router does not have the LSA
+                    neighbor_router.add_lsa_identifier(
+                        neighbor_router.ls_request_list, header.get_lsa_identifier())
+        return invalid_ls_type
 
     #  Given interface physical identifier, returns an unique OSPF interface identifier
     @staticmethod
