@@ -21,6 +21,7 @@ class Interface:
         #  OSPF interface parameters
 
         self.type = conf.BROADCAST_INTERFACE  # TODO: Create point-to-point interface
+        self.state = conf.INTERFACE_STATE_DOWN
         self.physical_identifier = physical_identifier  # Ex: ens33 - Interface identifier given by the OS
         #  Just for OSPFv3 - Interface identifier given by OSPF
         self.ospf_identifier = Interface.ospf_identifier_generator(self.physical_identifier, conf.INTERFACE_NAMES)
@@ -181,13 +182,13 @@ class Interface:
                                     neighbor_router.dd_sequence += 1
                                     neighbor_router.neighbor_options = neighbor_options
                                     self.event_negotiation_done(neighbor_router)
-                                    self.update_ls_request_list(neighbor_router, incoming_packet, source_ip)
+                                    self.update_ls_request_list(neighbor_router, incoming_packet)
                         else:
                             continue
 
                     elif neighbor_router.neighbor_state == conf.NEIGHBOR_STATE_EXCHANGE:
                         #  Stores new LSA headers in the LS Request list of the neighbor
-                        invalid_ls_type = self.update_ls_request_list(neighbor_router, incoming_packet, source_ip)
+                        invalid_ls_type = self.update_ls_request_list(neighbor_router, incoming_packet)
                         if invalid_ls_type:  # At least one LSA with invalid type was detected
                             self.event_seq_number_mismatch(neighbor_router, source_ip)
                             continue
@@ -336,6 +337,133 @@ class Interface:
         self.hello_thread.join()
 
     #  #  #  #  #  #  #  #  #  #  #  #  #
+    #  Interface event handling methods  #
+    #  #  #  #  #  #  #  #  #  #  #  #  #
+
+    #  InterfaceUp event
+    def event_interface_up(self):
+        pass
+
+    #  WaitTimer event
+    def event_wait_timer(self):
+        pass
+
+    #  BackupSeen event
+    def event_backup_seen(self):
+        pass
+
+    #  NeighborChange event
+    def event_neighbor_change(self):
+        pass
+
+    #  TODO: Implement loopback events?
+
+    #  InterfaceDown event
+    def event_interface_down(self):
+        pass
+
+    #  Election algorithm - Step 1
+    def election_algorithm_step_1(self):
+        known_routers = [[conf.ROUTER_ID, conf.ROUTER_PRIORITY, self.designated_router, self.backup_designated_router]]
+        for neighbor_id in self.neighbors:
+            neighbor_structure = self.neighbors[neighbor_id]
+            known_routers.append([neighbor_structure.neighbor_id, neighbor_structure.neighbor_priority,
+                                  neighbor_structure.neighbor_dr, neighbor_structure.neighbor_bdr])
+        return known_routers
+
+    #  Election algorithm - Step 2
+    @staticmethod
+    def election_algorithm_step_2(known_routers):
+        group_1 = []
+        group_2 = []
+        for router_data in known_routers:
+            router_id = router_data[0]
+            router_priority = router_data[1]
+            router_dr = router_data[2]
+            router_bdr = router_data[3]
+            if (router_dr == router_id) | (router_priority == 0):  # Router declares itself as DR or priority is 0
+                pass
+            elif (router_bdr == router_id) & (router_dr != router_id):  # Router declares itself as BDR only
+                group_1.append(router_data)
+            else:
+                group_2.append(router_data)
+        if len(group_1) > 0:
+            group_to_process = group_1
+        elif len(group_2) > 0:
+            group_to_process = group_2
+        else:  # All routers declare themselves as DR - No BDR can be found
+            return '0.0.0.0'
+        return Interface.rank_routers(group_to_process)  # RID of BDR
+
+    #  Election algorithm - Step 3
+    @staticmethod
+    def election_algorithm_step_3(known_routers, determined_bdr):
+        declared_as_dr = []
+        for router_data in known_routers:
+            router_id = router_data[0]
+            router_priority = router_data[1]
+            router_dr = router_data[2]
+            if (router_dr == router_id) & (router_priority > 0):  # Router declares itself as DR and priority is not 0
+                declared_as_dr.append(router_data)
+        if len(declared_as_dr) > 0:
+            return Interface.rank_routers(declared_as_dr)
+        else:  # If no router declares itself as DR, the DR becomes the BDR from the previous step
+            return determined_bdr
+
+    #  Election algorithm - Step 4
+    def election_algorithm_step_4(self, determined_dr, determined_bdr, first_run):
+        #  Steps 2 and 3 can only be rerun eventually if it is the algorithm first run
+        if first_run:
+            #  This router has become DR or BDR
+            if (conf.ROUTER_ID not in [self.designated_router, self.backup_designated_router]) & (
+                    conf.ROUTER_ID in [determined_dr, determined_bdr]):
+                return True
+            #  This router is no longer the DR
+            elif (conf.ROUTER_ID == self.designated_router) & (conf.ROUTER_ID != determined_dr):
+                return True
+            #  This router is no longer the BDR
+            elif (conf.ROUTER_ID == self.backup_designated_router) & (conf.ROUTER_ID != determined_bdr):
+                return True
+        return False  # This router maintains its status - Step 5 will be run next
+
+    #  Election algorithm - Step 5
+    def election_algorithm_step_5(self, determined_dr, determined_bdr):
+        if conf.ROUTER_ID == determined_dr:
+            self.set_interface_state(conf.INTERFACE_STATE_DR)  # Nothing is done if state is already the desired one
+        elif conf.ROUTER_ID == determined_bdr:
+            self.set_interface_state(conf.INTERFACE_STATE_BACKUP)
+        else:
+            self.set_interface_state(conf.INTERFACE_STATE_DROTHER)
+
+    #  Given a list of RIDs, returns the first RID according to router priority, then by RID
+    @staticmethod
+    def rank_routers(router_list):
+        router_priorities = [conf.ROUTER_PRIORITY]
+        for router_data in router_list:
+            if router_data[1] not in router_priorities:
+                router_priorities.append(router_data[1])
+        router_priorities.sort()
+        sorted_routers = []
+        for priority in router_priorities:
+            same_priority = []
+            for router_data in router_list:
+                if router_data[1] == priority:
+                    same_priority.append(utils.Utils.ipv4_to_decimal(router_data[0]))
+            same_priority.sort()
+            sorted_routers.extend(same_priority)
+        for i in range(len(sorted_routers)):
+            sorted_routers[i] = utils.Utils.decimal_to_ipv4(sorted_routers[i])
+        return sorted_routers[len(sorted_routers) - 1]  # First router
+
+    #  Changes interface state and prints a message
+    def set_interface_state(self, new_state):
+        old_state = self.state
+        if new_state != old_state:
+            print("OSPFv" + str(self.version), "interface", self.physical_identifier,
+                  "changed state from", old_state, "to", new_state)
+            self.state = new_state
+
+    #  #  #  #  #  #  #  #  #  #  #  #  #
     #  Neighbor event handling methods  #
     #  #  #  #  #  #  #  #  #  #  #  #  #
 
@@ -425,7 +553,8 @@ class Interface:
             self.send_packet(self.ls_request_packet, neighbor_router.neighbor_ip_address)
 
     #  LoadingDone event
-    def event_loading_done(self, neighbor_router):
+    @staticmethod
+    def event_loading_done(neighbor_router):
         neighbor_router.set_neighbor_state(conf.NEIGHBOR_STATE_FULL)
 
     #  AdjOK? event
@@ -463,7 +592,7 @@ class Interface:
     #  KillNbr event
     def event_kill_nbr(self, neighbor_id):
         if neighbor_id in self.neighbors:
-            self.neighbors[neighbor_id].delete_neighbor()  # Stops neighbor timer thread
+            self.neighbors[neighbor_id].delete_neighbor()  # Stops neighbor timer threads
             self.neighbors.pop(neighbor_id)
 
     #  InactivityTimer event
@@ -471,7 +600,8 @@ class Interface:
         self.event_kill_nbr(neighbor_id)
 
     #  1-WayReceived event
-    def event_1_way_received(self, neighbor_router):
+    @staticmethod
+    def event_1_way_received(neighbor_router):
         if neighbor_router.neighbor_state not in [conf.NEIGHBOR_STATE_DOWN, conf.NEIGHBOR_STATE_INIT]:
             neighbor_router.set_neighbor_state(conf.NEIGHBOR_STATE_INIT)
             neighbor_router.ls_retransmission_list = []
@@ -479,6 +609,28 @@ class Interface:
             neighbor_router.ls_request_list = []
         else:
             pass
+
+    #  Given a DB Description packet, stores its LSA headers in the respective neighbor LS Request list if needed
+    def update_ls_request_list(self, neighbor_router, incoming_packet):
+        #  TODO: Check if this verification is in the right place
+        neighbor_router.stop_retransmission_timer()
+        #  TODO: Implement resending if incoming packet is duplicate
+        invalid_ls_type = False
+        for header in incoming_packet.body.lsa_headers:
+            #  TODO: Consider other types of LSAs
+            if ((self.version == conf.VERSION_IPV4) & (header.get_ls_type(header.ls_type) not in [
+                conf.LSA_TYPE_ROUTER, conf.LSA_TYPE_NETWORK])) | ((self.version == conf.VERSION_IPV6) & (
+                    header.get_ls_type(header.ls_type) not in [
+                    conf.LSA_TYPE_ROUTER, conf.LSA_TYPE_NETWORK, conf.LSA_TYPE_INTRA_AREA_PREFIX, conf.LSA_TYPE_LINK])):
+                invalid_ls_type = True
+            else:  # LSA with valid type
+                local_lsa = self.lsdb.get_lsa(header.ls_type, header.link_state_id,
+                                              header.advertising_router, [self])
+                #  TODO: Implement LSA instance comparison
+                if local_lsa is None:  # This router does not have the LSA
+                    neighbor_router.add_lsa_identifier(
+                        neighbor_router.ls_request_list, header.get_lsa_identifier())
+        return invalid_ls_type
 
     #  #  #  #  #  #  #  #
     #  Auxiliary methods  #
@@ -506,28 +658,6 @@ class Interface:
             if self.neighbors[n].neighbor_state not in [conf.NEIGHBOR_STATE_DOWN, conf.NEIGHBOR_STATE_INIT]:
                 adjacent_neighbors += 1
         return adjacent_neighbors
-
-    #  Given a DB Description packet, stores its LSA headers in the respective neighbor LS Request list if needed
-    def update_ls_request_list(self, neighbor_router, incoming_packet, source_ip):
-        #  TODO: Check if this verification is in the right place
-        neighbor_router.stop_retransmission_timer()
-        #  TODO: Implement resending if incoming packet is duplicate
-        invalid_ls_type = False
-        for header in incoming_packet.body.lsa_headers:
-            #  TODO: Consider other types of LSAs
-            if ((self.version == conf.VERSION_IPV4) & (header.get_ls_type(header.ls_type) not in [
-                conf.LSA_TYPE_ROUTER, conf.LSA_TYPE_NETWORK])) | ((self.version == conf.VERSION_IPV6) & (
-                    header.get_ls_type(header.ls_type) not in [
-                    conf.LSA_TYPE_ROUTER, conf.LSA_TYPE_NETWORK, conf.LSA_TYPE_INTRA_AREA_PREFIX, conf.LSA_TYPE_LINK])):
-                invalid_ls_type = True
-            else:  # LSA with valid type
-                local_lsa = self.lsdb.get_lsa(header.ls_type, header.link_state_id,
-                                              header.advertising_router, [self])
-                #  TODO: Implement LSA instance comparison
-                if local_lsa is None:  # This router does not have the LSA
-                    neighbor_router.add_lsa_identifier(
-                        neighbor_router.ls_request_list, header.get_lsa_identifier())
-        return invalid_ls_type
 
     #  Given interface physical identifier, returns an unique OSPF interface identifier
     @staticmethod

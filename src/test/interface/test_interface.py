@@ -9,6 +9,7 @@ import general.sock as sock
 import interface.interface as interface
 import packet.packet as packet
 import lsa.lsa as lsa
+import neighbor.neighbor as neighbor
 
 '''
 This class tests the interface operations in the router
@@ -38,6 +39,10 @@ class InterfaceTest(unittest.TestCase):
         self.interface_ospfv3 = interface.Interface(
             self.interface_identifier, '', self.ipv6_address, '', self.link_prefixes, self.area_id,
             self.interface_pipeline_v3, self.interface_shutdown_v3, conf.VERSION_IPV6, None)
+
+    #  #  #  #  #  #
+    #  Main methods  #
+    #  #  #  #  #  #
 
     #  Successful run - 21-36 s
     def test_interface_loop_packet_sending_successful(self):
@@ -229,8 +234,177 @@ class InterfaceTest(unittest.TestCase):
         thread_socket_v2.join()
         thread_socket_v3.join()
 
+    #  #  #  #  #  #  #  #  #  #  #  #  #
+    #  Interface event handling methods  #
+    #  #  #  #  #  #  #  #  #  #  #  #  #
+
     #  Successful run - Instant
-    def test_create_packet_successful(self):
+    def test_election_algorithm_step_1(self):
+        self.assertEqual(
+            [[conf.ROUTER_ID, conf.ROUTER_PRIORITY, self.interface_ospfv2.designated_router,
+              self.interface_ospfv2.backup_designated_router]], self.interface_ospfv2.election_algorithm_step_1())
+        self.assertEqual(
+            [[conf.ROUTER_ID, conf.ROUTER_PRIORITY, self.interface_ospfv3.designated_router,
+              self.interface_ospfv3.backup_designated_router]], self.interface_ospfv3.election_algorithm_step_1())
+
+        neighbor_1 = neighbor.Neighbor('10.10.10.10', 1, 1, '222.222.1.1', 0, '1.1.1.1', '2.2.2.2')
+        neighbor_2 = neighbor.Neighbor('11.11.11.11', 2, 2, '222.222.2.1', 0, '3.3.3.3', '4.4.4.4')
+
+        self.interface_ospfv2.neighbors['10.10.10.10'] = neighbor_1
+        self.interface_ospfv3.neighbors['10.10.10.10'] = neighbor_1
+        self.assertEqual([[conf.ROUTER_ID, conf.ROUTER_PRIORITY, self.interface_ospfv2.designated_router,
+                           self.interface_ospfv2.backup_designated_router], ['10.10.10.10', 1, '1.1.1.1', '2.2.2.2']],
+                         self.interface_ospfv2.election_algorithm_step_1())
+        self.assertEqual([[conf.ROUTER_ID, conf.ROUTER_PRIORITY, self.interface_ospfv3.designated_router,
+                           self.interface_ospfv3.backup_designated_router], ['10.10.10.10', 1, '1.1.1.1', '2.2.2.2']],
+                         self.interface_ospfv3.election_algorithm_step_1())
+
+        self.interface_ospfv2.neighbors['11.11.11.11'] = neighbor_2
+        self.interface_ospfv3.neighbors['11.11.11.11'] = neighbor_2
+        self.assertEqual(
+            [[conf.ROUTER_ID, conf.ROUTER_PRIORITY, self.interface_ospfv2.designated_router,
+              self.interface_ospfv2.backup_designated_router], ['10.10.10.10', 1, '1.1.1.1', '2.2.2.2'],
+             ['11.11.11.11', 2, '3.3.3.3', '4.4.4.4']], self.interface_ospfv2.election_algorithm_step_1())
+        self.assertEqual(
+            [[conf.ROUTER_ID, conf.ROUTER_PRIORITY, self.interface_ospfv3.designated_router,
+              self.interface_ospfv3.backup_designated_router], ['10.10.10.10', 1, '1.1.1.1', '2.2.2.2'],
+             ['11.11.11.11', 2, '3.3.3.3', '4.4.4.4']], self.interface_ospfv3.election_algorithm_step_1())
+
+        #  Shutdown
+        neighbor_1.delete_neighbor()
+        neighbor_2.delete_neighbor()
+
+    #  Successful run - Instant
+    def test_election_algorithm_step_2(self):
+        router_list = [['1.1.1.1', 1, '0.0.0.0', '0.0.0.0']]
+        self.assertEqual('1.1.1.1', interface.Interface.election_algorithm_step_2(router_list))
+        router_list = [['1.1.1.1', 1, '0.0.0.0', '0.0.0.0'], ['2.2.2.2', 2, '2.2.2.2', '0.0.0.0']]
+        self.assertEqual('1.1.1.1', interface.Interface.election_algorithm_step_2(router_list))
+        router_list = [['3.3.3.3', 2, '3.3.3.3', '3.3.3.3'], ['1.1.1.1', 1, '0.0.0.0', '0.0.0.0'],
+                       ['2.2.2.2', 2, '2.2.2.2', '0.0.0.0']]
+        self.assertEqual('1.1.1.1', interface.Interface.election_algorithm_step_2(router_list))
+        router_list = [['3.3.3.3', 0, '0.0.0.0', '3.3.3.3'], ['1.1.1.1', 1, '0.0.0.0', '0.0.0.0'],
+                       ['2.2.2.2', 2, '2.2.2.2', '0.0.0.0']]
+        self.assertEqual('1.1.1.1', interface.Interface.election_algorithm_step_2(router_list))
+        router_list = [['3.3.3.3', 2, '3.3.3.3', '0.0.0.0'], ['1.1.1.1', 1, '0.0.0.0', '0.0.0.0'],
+                       ['0.0.0.1', 1, '0.0.0.0', '0.0.0.1'], ['2.2.2.2', 2, '2.2.2.2', '0.0.0.0']]
+        self.assertEqual('0.0.0.1', interface.Interface.election_algorithm_step_2(router_list))
+        router_list = [['3.3.3.3', 2, '3.3.3.3', '0.0.0.0'], ['1.1.1.1', 1, '0.0.0.0', '0.0.0.0'],
+                       ['0.0.0.2', 1, '0.0.0.0', '0.0.0.1'], ['0.0.0.1', 2, '0.0.0.0', '0.0.0.1'],
+                       ['2.2.2.2', 2, '2.2.2.2', '0.0.0.0']]
+        self.assertEqual('0.0.0.1', interface.Interface.election_algorithm_step_2(router_list))
+        router_list = [['3.3.3.3', 2, '3.3.3.3', '0.0.0.0'], ['1.1.1.1', 2, '0.0.0.0', '0.0.0.0'],
+                       ['0.0.0.2', 1, '0.0.0.0', '1.1.1.1'], ['0.0.0.1', 1, '0.0.0.0', '1.1.1.1'],
+                       ['2.2.2.2', 2, '2.2.2.2', '0.0.0.0']]
+        self.assertEqual('1.1.1.1', interface.Interface.election_algorithm_step_2(router_list))
+        router_list = [['3.3.3.3', 2, '3.3.3.3', '0.0.0.0'], ['1.1.1.1', 2, '1.1.1.1', '0.0.0.0'],
+                       ['0.0.0.2', 1, '0.0.0.2', '1.1.1.1'], ['0.0.0.1', 1, '0.0.0.1', '1.1.1.1'],
+                       ['2.2.2.2', 2, '2.2.2.2', '0.0.0.0']]
+        self.assertEqual('0.0.0.0', interface.Interface.election_algorithm_step_2(router_list))
+
+    #  Successful run - Instant
+    def test_election_algorithm_step_3(self):
+        router_list = [['1.1.1.1', 1, '0.0.0.0', '0.0.0.0']]
+        determined_bdr = '0.0.0.1'
+        self.assertEqual(determined_bdr, interface.Interface.election_algorithm_step_3(router_list, determined_bdr))
+        router_list = [['1.1.1.1', 1, '1.1.1.1', '0.0.0.0']]
+        self.assertEqual('1.1.1.1', interface.Interface.election_algorithm_step_3(router_list, determined_bdr))
+        router_list = [['2.2.2.2', 2, '0.0.0.0', '2.2.2.2'], ['1.1.1.1', 1, '1.1.1.1', '0.0.0.0'],
+                       ['3.3.3.3', 3, '0.0.0.0', '0.0.0.0']]
+        self.assertEqual('1.1.1.1', interface.Interface.election_algorithm_step_3(router_list, determined_bdr))
+        router_list = [['2.2.2.2', 2, '0.0.0.0', '2.2.2.2'], ['1.1.1.1', 1, '1.1.1.1', '0.0.0.0'],
+                       ['0.0.0.1', 2, '0.0.0.1', '0.0.0.1'], ['3.3.3.3', 3, '0.0.0.0', '0.0.0.0']]
+        self.assertEqual('0.0.0.1', interface.Interface.election_algorithm_step_3(router_list, determined_bdr))
+
+    #  Successful run - Instant
+    def test_election_algorithm_step_4(self):
+        self.interface_ospfv2.designated_router = '0.0.0.0'
+        self.interface_ospfv2.backup_designated_router = '0.0.0.0'
+        first_run = True
+        self.assertFalse(self.interface_ospfv2.election_algorithm_step_4('0.0.0.0', '0.0.0.0', first_run))
+        self.assertTrue(self.interface_ospfv2.election_algorithm_step_4('0.0.0.0', conf.ROUTER_ID, first_run))
+        self.assertTrue(self.interface_ospfv2.election_algorithm_step_4(conf.ROUTER_ID, '0.0.0.0', first_run))
+        self.interface_ospfv2.designated_router = '0.0.0.0'
+        self.interface_ospfv2.backup_designated_router = conf.ROUTER_ID
+        self.assertTrue(self.interface_ospfv2.election_algorithm_step_4('0.0.0.0', '0.0.0.0', first_run))
+        self.assertFalse(self.interface_ospfv2.election_algorithm_step_4('0.0.0.0', conf.ROUTER_ID, first_run))
+        self.assertTrue(self.interface_ospfv2.election_algorithm_step_4(conf.ROUTER_ID, '0.0.0.0', first_run))
+        self.interface_ospfv2.designated_router = conf.ROUTER_ID
+        self.interface_ospfv2.backup_designated_router = '0.0.0.0'
+        self.assertTrue(self.interface_ospfv2.election_algorithm_step_4('0.0.0.0', '0.0.0.0', first_run))
+        self.assertTrue(self.interface_ospfv2.election_algorithm_step_4('0.0.0.0', conf.ROUTER_ID, first_run))
+        self.assertFalse(self.interface_ospfv2.election_algorithm_step_4(conf.ROUTER_ID, '0.0.0.0', first_run))
+
+        first_run = False
+        self.assertFalse(self.interface_ospfv2.election_algorithm_step_4('0.0.0.0', '0.0.0.0', first_run))
+        self.assertFalse(self.interface_ospfv2.election_algorithm_step_4('0.0.0.0', conf.ROUTER_ID, first_run))
+        self.assertFalse(self.interface_ospfv2.election_algorithm_step_4(conf.ROUTER_ID, '0.0.0.0', first_run))
+        self.interface_ospfv2.designated_router = '0.0.0.0'
+        self.interface_ospfv2.backup_designated_router = conf.ROUTER_ID
+        self.assertFalse(self.interface_ospfv2.election_algorithm_step_4('0.0.0.0', '0.0.0.0', first_run))
+        self.assertFalse(self.interface_ospfv2.election_algorithm_step_4('0.0.0.0', conf.ROUTER_ID, first_run))
+        self.assertFalse(self.interface_ospfv2.election_algorithm_step_4(conf.ROUTER_ID, '0.0.0.0', first_run))
+        self.interface_ospfv2.designated_router = conf.ROUTER_ID
+        self.interface_ospfv2.backup_designated_router = '0.0.0.0'
+        self.assertFalse(self.interface_ospfv2.election_algorithm_step_4('0.0.0.0', '0.0.0.0', first_run))
+        self.assertFalse(self.interface_ospfv2.election_algorithm_step_4('0.0.0.0', conf.ROUTER_ID, first_run))
+        self.assertFalse(self.interface_ospfv2.election_algorithm_step_4(conf.ROUTER_ID, '0.0.0.0', first_run))
+
+    #  Successful run - Instant
+    def test_election_algorithm_step_5(self):
+        self.assertTrue(self.interface_ospfv2.state not in [
+            conf.INTERFACE_STATE_DROTHER, conf.INTERFACE_STATE_BACKUP, conf.INTERFACE_STATE_DR])
+        self.assertTrue(self.interface_ospfv3.state not in [
+            conf.INTERFACE_STATE_DROTHER, conf.INTERFACE_STATE_BACKUP, conf.INTERFACE_STATE_DR])
+
+        self.interface_ospfv2.election_algorithm_step_5('0.0.0.0', '0.0.0.0')
+        self.interface_ospfv3.election_algorithm_step_5('0.0.0.0', '0.0.0.0')
+        self.assertEqual(conf.INTERFACE_STATE_DROTHER, self.interface_ospfv2.state)
+        self.assertEqual(conf.INTERFACE_STATE_DROTHER, self.interface_ospfv3.state)
+        self.interface_ospfv2.election_algorithm_step_5('0.0.0.0', '0.0.0.0')
+        self.interface_ospfv3.election_algorithm_step_5('0.0.0.0', '0.0.0.0')
+        self.assertEqual(conf.INTERFACE_STATE_DROTHER, self.interface_ospfv2.state)
+        self.assertEqual(conf.INTERFACE_STATE_DROTHER, self.interface_ospfv3.state)
+
+        self.interface_ospfv2.election_algorithm_step_5('0.0.0.0', conf.ROUTER_ID)
+        self.interface_ospfv3.election_algorithm_step_5('0.0.0.0', conf.ROUTER_ID)
+        self.assertEqual(conf.INTERFACE_STATE_BACKUP, self.interface_ospfv2.state)
+        self.assertEqual(conf.INTERFACE_STATE_BACKUP, self.interface_ospfv3.state)
+        self.interface_ospfv2.election_algorithm_step_5('0.0.0.0', conf.ROUTER_ID)
+        self.interface_ospfv3.election_algorithm_step_5('0.0.0.0', conf.ROUTER_ID)
+        self.assertEqual(conf.INTERFACE_STATE_BACKUP, self.interface_ospfv2.state)
+        self.assertEqual(conf.INTERFACE_STATE_BACKUP, self.interface_ospfv3.state)
+
+        self.interface_ospfv2.election_algorithm_step_5(conf.ROUTER_ID, '0.0.0.0')
+        self.interface_ospfv3.election_algorithm_step_5(conf.ROUTER_ID, '0.0.0.0')
+        self.assertEqual(conf.INTERFACE_STATE_DR, self.interface_ospfv2.state)
+        self.assertEqual(conf.INTERFACE_STATE_DR, self.interface_ospfv3.state)
+        self.interface_ospfv2.election_algorithm_step_5(conf.ROUTER_ID, '0.0.0.0')
+        self.interface_ospfv3.election_algorithm_step_5(conf.ROUTER_ID, '0.0.0.0')
+        self.assertEqual(conf.INTERFACE_STATE_DR, self.interface_ospfv2.state)
+        self.assertEqual(conf.INTERFACE_STATE_DR, self.interface_ospfv3.state)
+
+    #  Successful run - Instant
+    def test_rank_routers(self):
+        router_list = [['1.1.1.1', 1]]
+        self.assertEqual('1.1.1.1', interface.Interface.rank_routers(router_list))
+        router_list = [['4.4.4.4', 1], ['2.2.2.2', 2]]
+        self.assertEqual('2.2.2.2', interface.Interface.rank_routers(router_list))
+        router_list = [['5.5.5.5', 1], ['6.6.6.6', 1], ['8.8.8.8', 1], ['1.1.1.1', 1]]
+        self.assertEqual('8.8.8.8', interface.Interface.rank_routers(router_list))
+        router_list = [['2.2.2.2', 1], ['3.3.3.3', 1], ['1.1.1.1', 2], ['4.4.4.4', 1]]
+        self.assertEqual('1.1.1.1', interface.Interface.rank_routers(router_list))
+        router_list = [['2.2.2.2', 1], ['3.3.3.3', 1], ['1.1.1.1', 2], ['4.4.4.4', 2], ['5.5.5.5', 1]]
+        self.assertEqual('4.4.4.4', interface.Interface.rank_routers(router_list))
+        router_list = [['2.2.2.2', 1], ['3.3.3.3', 3], ['1.1.1.1', 2], ['4.4.4.4', 2], ['5.5.5.5', 1]]
+        self.assertEqual('3.3.3.3', interface.Interface.rank_routers(router_list))
+
+    #  #  #  #  #  #  #  #
+    #  Auxiliary methods  #
+    #  #  #  #  #  #  #  #
+
+    #  Successful run - Instant
+    def test_create_hello_packet_successful(self):
         new_packet = self.interface_ospfv2.create_hello_packet().pack_packet()
         self.assertEqual(PACKET_BYTES, new_packet)
 
@@ -250,6 +424,10 @@ class InterfaceTest(unittest.TestCase):
         self.assertEqual(0, interface.Interface.ospf_identifier_generator(self.interface_identifier, identifiers_tuple))
         identifiers_tuple = (self.interface_identifier, self.interface_identifier,)
         self.assertEqual(1, interface.Interface.ospf_identifier_generator(self.interface_identifier, identifiers_tuple))
+
+    #  #  #  #  #  #  #  #  #  #  #  #
+    #  Link-local LSA list methods  #
+    #  #  #  #  #  #  #  #  #  #  #  #
 
     #  Successful run - Instant
     def test_link_local_lsa_methods(self):
