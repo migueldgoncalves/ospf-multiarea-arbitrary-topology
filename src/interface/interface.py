@@ -15,6 +15,9 @@ This class represents the OSPF interface and contains its data and operations
 
 class Interface:
 
+    DR = 'DR'
+    BDR = 'BDR'
+
     def __init__(self, physical_identifier, ipv4_address, ipv6_address, network_mask, link_prefixes, area_id, pipeline,
                  interface_shutdown, version, lsdb):
 
@@ -63,15 +66,22 @@ class Interface:
             destination_address = conf.ALL_OSPF_ROUTERS_IPV6
             self.hello_packet_to_send.create_header_v3(
                 conf.PACKET_TYPE_HELLO, conf.ROUTER_ID, area_id, self.instance_id, source_address, destination_address)
-        self.hello_thread = None
         self.lsa_lock = threading.RLock()  # For controlling access to interface LSA list
         self.lsdb = lsdb  # Reference to the area LSDB
 
+        self.hello_thread = None
         self.hello_timer = timer.Timer()
-        self.offset = 0
-        self.timeout = threading.Event()
-        self.timer_shutdown = threading.Event()
-        self.timer_seconds = self.hello_interval
+        self.hello_offset = 0
+        self.hello_timeout = threading.Event()
+        self.hello_timer_shutdown = threading.Event()
+        self.hello_timer_seconds = self.hello_interval
+
+        self.waiting_thread = None
+        self.waiting_timer = timer.Timer()
+        self.waiting_reset = threading.Event()
+        self.waiting_timeout = threading.Event()
+        self.waiting_timer_shutdown = threading.Event()
+        self.waiting_timer_seconds = conf.ROUTER_DEAD_INTERVAL
 
     #  #  #  #  #  #
     #  Main methods  #
@@ -79,18 +89,17 @@ class Interface:
 
     #  Processes incoming packets forwarded by the router layer
     def interface_loop(self):
-        #  Starts Hello timer
-        self.hello_thread = threading.Thread(target=self.hello_timer.interval_timer,
-                                             args=(self.offset, self.timeout, self.timer_shutdown, self.timer_seconds))
-        self.hello_thread.start()  # Thread must be created and started after every interface shutdown
-        self.timeout.set()  # If this thread reaches "if" below before losing CPU, it will immediately send Hello packet
-        self.interface_shutdown.clear()
+        self.event_interface_up()  # Starts Hello timer and changes interface state from Down
 
         while not(self.interface_shutdown.is_set()):  # Until interface is signalled to shutdown
             #  Deletes neighbors that reached timeout
             for n in list(self.neighbors):
                 if self.neighbors[n].is_expired():  # Neighbors that reached timeout can be deleted
                     self.event_inactivity_timer(n)
+
+            #  Checks whether interface has stayed 40 seconds in Waiting state
+            if self.waiting_timeout.is_set():
+                self.event_wait_timer()
 
             #  Retransmits last DD Description, LS Request or LS Update packet to neighbor, if needed
             for n in list(self.neighbors):
@@ -126,21 +135,45 @@ class Interface:
                         continue
                     #  TODO: Check if E-bit value of neighbor matched this area's E-bit
 
+                    neighbor_priority = incoming_packet.body.router_priority
+                    neighbor_dr = incoming_packet.body.designated_router
+                    neighbor_bdr = incoming_packet.body.backup_designated_router
+
                     #  New neighbor
                     if neighbor_id not in self.neighbors:
                         neighbor_interface_id = 0
                         if version == conf.VERSION_IPV6:
                             neighbor_interface_id = incoming_packet.body.interface_id
-                        neighbor_priority = incoming_packet.body.router_priority
                         neighbor_options = incoming_packet.body.options
-                        neighbor_dr = incoming_packet.body.designated_router
-                        neighbor_bdr = incoming_packet.body.backup_designated_router
                         new_neighbor = neighbor.Neighbor(
                             neighbor_id, neighbor_priority, neighbor_interface_id, source_ip, neighbor_options,
                             neighbor_dr, neighbor_bdr)
                         self.neighbors[neighbor_id] = new_neighbor
 
                     #  Existing neighbor
+                    neighbor_data_changed = False
+                    if neighbor_priority != self.neighbors[neighbor_id].neighbor_priority:  # Neighbor priority changed
+                        neighbor_data_changed = True
+                    self.neighbors[neighbor_id].neighbor_priority = neighbor_priority
+                    #  Neighbor now declared itself as DR, or stops declaring itself as DR
+                    if (neighbor_dr == neighbor_id) & (self.neighbors[neighbor_id].neighbor_dr != neighbor_id):
+                        neighbor_data_changed = True
+                    if (neighbor_dr != neighbor_id) & (self.neighbors[neighbor_id].neighbor_dr == neighbor_id):
+                        neighbor_data_changed = True
+                    self.neighbors[neighbor_id].neighbor_dr = neighbor_dr
+                    #  Neighbor now declared itself as BDR, or stops declaring itself as BDR
+                    if (neighbor_bdr == neighbor_id) & (self.neighbors[neighbor_id].neighbor_bdr != neighbor_id):
+                        neighbor_data_changed = True
+                    if (neighbor_bdr != neighbor_id) & (self.neighbors[neighbor_id].neighbor_bdr == neighbor_id):
+                        neighbor_data_changed = True
+                    self.neighbors[neighbor_id].neighbor_bdr = neighbor_bdr
+                    if self.neighbors[neighbor_id] not in [conf.NEIGHBOR_STATE_DOWN, conf.NEIGHBOR_STATE_INIT]:
+                        if neighbor_data_changed:
+                            self.event_neighbor_change()  # This router must reevaluate who is DR and BDR
+                        elif (neighbor_id in [neighbor_dr, neighbor_bdr]) & (
+                                self.state == conf.INTERFACE_STATE_WAITING):
+                            self.event_backup_seen()
+
                     self.event_hello_received(incoming_packet, source_ip, neighbor_id)
 
                 elif packet_type == conf.PACKET_TYPE_DB_DESCRIPTION:
@@ -303,16 +336,16 @@ class Interface:
                     pass
 
             #  Sends Hello packet
-            if self.timeout.is_set():
+            if self.hello_timeout.is_set():
                 self.create_hello_packet()
                 if self.version == conf.VERSION_IPV4:
                     self.send_packet(self.hello_packet_to_send, conf.ALL_OSPF_ROUTERS_IPV4)
                 else:
                     self.send_packet(self.hello_packet_to_send, conf.ALL_OSPF_ROUTERS_IPV6)
-                self.timeout.clear()
+                self.hello_timeout.clear()
 
         #  Interface signalled to shutdown
-        self.shutdown_interface()
+        self.event_interface_down()
 
     #  Sends an OSPF packet through the interface
     def send_packet(self, packet_to_send, destination_address):
@@ -322,19 +355,17 @@ class Interface:
         else:
             self.socket.send_ipv6(packet_bytes, destination_address, self.physical_identifier)
 
-    #  Performs the DR/BDR election
-    def elect_dr(self):
-        #  TODO: Implement DR election
-        self.designated_router = '1.1.1.1'
-        self.backup_designated_router = '0.0.0.0'
-
     #  Performs shutdown operations on the interface
     def shutdown_interface(self):
         for n in list(self.neighbors):  # Stops timer thread in all neighbors
             self.event_kill_nbr(n)
-        self.neighbors = {}  # Cleans neighbor list - It will be reconstructed if interface is reactivated
-        self.timer_shutdown.set()
+        self.hello_timer_shutdown.set()
+        self.waiting_timer_shutdown.set()
         self.hello_thread.join()
+        self.waiting_thread.join()
+        #  Reset interface values
+        self.__init__(self.physical_identifier, self.ipv4_address, self.ipv6_address, self.network_mask,
+                      self.link_prefixes, self.area_id, self.pipeline, self.interface_shutdown, self.version, self.lsdb)
 
     #  #  #  #  #  #  #  #  #  #  #  #  #
     #  Interface event handling methods  #
@@ -342,33 +373,74 @@ class Interface:
 
     #  InterfaceUp event
     def event_interface_up(self):
-        pass
+        if self.state == conf.INTERFACE_STATE_DOWN:
+            #  Starts Hello timer
+            self.hello_thread = threading.Thread(
+                target=self.hello_timer.interval_timer,
+                args=(self.hello_offset, self.hello_timeout, self.hello_timer_shutdown, self.hello_timer_seconds))
+            self.hello_thread.start()  # Thread must be created and started after every interface shutdown
+            self.hello_timeout.set()  # Hello packet will be sent immediately if CPU is not lost
+            self.interface_shutdown.clear()
+
+            if self.type == conf.POINT_TO_POINT_INTERFACE:
+                self.set_interface_state(conf.INTERFACE_STATE_POINT_POINT)
+            elif self.router_priority == 0:  # Router not eligible to become DR/BDR
+                self.set_interface_state(conf.INTERFACE_STATE_DROTHER)
+            else:
+                self.set_interface_state(conf.INTERFACE_STATE_WAITING)
+                self.waiting_thread = threading.Thread(
+                    target=self.waiting_timer.single_shot_timer,
+                    args=(self.waiting_reset, self.waiting_timeout, self.waiting_timer_shutdown,
+                          self.waiting_timer_seconds))
+                self.waiting_thread.start()
 
     #  WaitTimer event
     def event_wait_timer(self):
-        pass
+        self.waiting_timer_shutdown.set()
+        self.waiting_thread.join()
+        self.waiting_timeout.clear()
+        if self.state == conf.INTERFACE_STATE_WAITING:
+            self.election_algorithm()
 
     #  BackupSeen event
     def event_backup_seen(self):
-        pass
+        self.event_wait_timer()
 
     #  NeighborChange event
     def event_neighbor_change(self):
-        pass
+        if self.state in [conf.INTERFACE_STATE_DROTHER, conf.INTERFACE_STATE_BACKUP, conf.INTERFACE_STATE_DR]:
+            self.election_algorithm()
 
     #  TODO: Implement loopback events?
 
     #  InterfaceDown event
     def event_interface_down(self):
-        pass
+        self.shutdown_interface()
+
+    #  Full election algorithm
+    def election_algorithm(self):
+        known_routers = self.election_algorithm_step_1()
+        determined_bdr = self.election_algorithm_step_2(known_routers)
+        determined_dr = self.election_algorithm_step_3(known_routers, determined_bdr)
+        rerun_algorithm = self.election_algorithm_step_4(determined_dr, determined_bdr, True)
+        if rerun_algorithm:
+            self.set_dr_bdr(Interface.BDR, determined_bdr)
+            self.set_dr_bdr(Interface.DR, determined_dr)
+            determined_bdr = self.election_algorithm_step_2(known_routers)
+            determined_dr = self.election_algorithm_step_3(known_routers, determined_bdr)
+        self.election_algorithm_step_5(determined_dr, determined_bdr)
+        self.election_algorithm_step_6(determined_dr, determined_bdr)
+        self.set_dr_bdr(Interface.BDR, determined_bdr)
+        self.set_dr_bdr(Interface.DR, determined_dr)
 
     #  Election algorithm - Step 1
     def election_algorithm_step_1(self):
         known_routers = [[conf.ROUTER_ID, conf.ROUTER_PRIORITY, self.designated_router, self.backup_designated_router]]
         for neighbor_id in self.neighbors:
-            neighbor_structure = self.neighbors[neighbor_id]
-            known_routers.append([neighbor_structure.neighbor_id, neighbor_structure.neighbor_priority,
-                                  neighbor_structure.neighbor_dr, neighbor_structure.neighbor_bdr])
+            if self.neighbors[neighbor_id] not in [conf.NEIGHBOR_STATE_DOWN, conf.NEIGHBOR_STATE_INIT]:
+                neighbor_structure = self.neighbors[neighbor_id]
+                known_routers.append([neighbor_structure.neighbor_id, neighbor_structure.neighbor_priority,
+                                      neighbor_structure.neighbor_dr, neighbor_structure.neighbor_bdr])
         return known_routers
 
     #  Election algorithm - Step 2
@@ -435,6 +507,16 @@ class Interface:
         else:
             self.set_interface_state(conf.INTERFACE_STATE_DROTHER)
 
+    #  Election algorithm - Step 6
+    def election_algorithm_step_6(self, determined_dr, determined_bdr):
+        #  Either DR or BDR have changed
+        if (self.designated_router != determined_dr) | (self.backup_designated_router != determined_bdr):
+            for neighbor_id in self.neighbors:
+                if self.neighbors[neighbor_id].neighbor_state not in [  # Neighbors in state 2-WAY or higher
+                        conf.NEIGHBOR_STATE_DOWN, conf.NEIGHBOR_STATE_INIT]:
+                    self.event_adj_ok(
+                        self.neighbors[neighbor_id], neighbor_id, self.neighbors[neighbor_id].neighbor_ip_address)
+
     #  Given a list of RIDs, returns the first RID according to router priority, then by RID
     @staticmethod
     def rank_routers(router_list):
@@ -463,6 +545,18 @@ class Interface:
                   "changed state from", old_state, "to", new_state)
             self.state = new_state
 
+    #  Changes DR or BDR value and prints a message
+    def set_dr_bdr(self, value_name, new_value):
+        if (value_name == Interface.DR) & (new_value != self.designated_router):
+            print("OSPFv" + str(self.version), value_name, "changed from", self.designated_router, "to", new_value)
+            self.designated_router = new_value
+        elif (value_name == Interface.BDR) & (new_value != self.backup_designated_router):
+            print(
+                "OSPFv" + str(self.version), value_name, "changed from", self.backup_designated_router, "to", new_value)
+            self.backup_designated_router = new_value
+        else:
+            pass
+
     #  #  #  #  #  #  #  #  #  #  #  #  #
     #  Neighbor event handling methods  #
     #  #  #  #  #  #  #  #  #  #  #  #  #
@@ -483,10 +577,9 @@ class Interface:
     #  2-WayReceived event
     def event_2_way_received(self, neighbor_router, neighbor_id, source_ip):
         if neighbor_router.neighbor_state == conf.NEIGHBOR_STATE_INIT:
-            self.elect_dr()  # TODO: Will this method be called here after interface state machine implementation?
+            self.event_neighbor_change()
             #  Neither this router nor neighbor are DR/BDR
-            if (conf.ROUTER_ID not in [self.designated_router, self.backup_designated_router]) & (
-                    neighbor_id not in [self.designated_router, self.backup_designated_router]):
+            if not self.should_be_fully_adjacent(neighbor_id):
                 neighbor_router.set_neighbor_state(conf.NEIGHBOR_STATE_2_WAY)
             else:  # Routers can become fully adjacent
                 neighbor_router.set_neighbor_state(conf.NEIGHBOR_STATE_EXSTART)
@@ -558,8 +651,21 @@ class Interface:
         neighbor_router.set_neighbor_state(conf.NEIGHBOR_STATE_FULL)
 
     #  AdjOK? event
-    def event_adj_ok(self):
-        pass  # TODO: Implement event after DR election is implemented
+    def event_adj_ok(self, neighbor_router, neighbor_id, source_ip):
+        if neighbor_router.neighbor_state == conf.NEIGHBOR_STATE_2_WAY:
+            if self.should_be_fully_adjacent(neighbor_router.neighbor_id):
+                neighbor_router.set_neighbor_state(conf.NEIGHBOR_STATE_INIT)
+                self.event_2_way_received(neighbor_router, neighbor_id, source_ip)
+            else:
+                pass  # Neighbor remains at state 2-WAY
+        elif neighbor_router.neighbor_state not in [conf.NEIGHBOR_STATE_DOWN, conf.NEIGHBOR_STATE_INIT]:
+            if self.should_be_fully_adjacent(neighbor_router.neighbor_id):
+                pass  # Neighbor remains at state Exchange or higher
+            else:
+                neighbor_router.set_neighbor_state(conf.NEIGHBOR_STATE_2_WAY)
+                neighbor_router.ls_retransmission_list = []
+                neighbor_router.db_summary_list = []
+                neighbor_router.ls_request_list = []
 
     #  SeqNumberMismatch event
     def event_seq_number_mismatch(self, neighbor_router, source_ip):
@@ -594,19 +700,20 @@ class Interface:
         if neighbor_id in self.neighbors:
             self.neighbors[neighbor_id].delete_neighbor()  # Stops neighbor timer threads
             self.neighbors.pop(neighbor_id)
+            self.event_neighbor_change()  # A neighbor has left the link - DR election algorithm must be run
 
     #  InactivityTimer event
     def event_inactivity_timer(self, neighbor_id):
         self.event_kill_nbr(neighbor_id)
 
     #  1-WayReceived event
-    @staticmethod
-    def event_1_way_received(neighbor_router):
+    def event_1_way_received(self, neighbor_router):
         if neighbor_router.neighbor_state not in [conf.NEIGHBOR_STATE_DOWN, conf.NEIGHBOR_STATE_INIT]:
             neighbor_router.set_neighbor_state(conf.NEIGHBOR_STATE_INIT)
             neighbor_router.ls_retransmission_list = []
             neighbor_router.db_summary_list = []
             neighbor_router.ls_request_list = []
+            self.event_neighbor_change()
         else:
             pass
 
@@ -631,6 +738,16 @@ class Interface:
                     neighbor_router.add_lsa_identifier(
                         neighbor_router.ls_request_list, header.get_lsa_identifier())
         return invalid_ls_type
+
+    #  Given a neighbor RID, returns True if this router and the neighbor should become fully adjacent
+    def should_be_fully_adjacent(self, neighbor_id):
+        if self.type == conf.POINT_TO_POINT_INTERFACE:
+            return True
+        if conf.ROUTER_ID in [self.designated_router, self.backup_designated_router]:  # This router is DR/BDR
+            return True
+        if neighbor_id in [self.designated_router, self.backup_designated_router]:  # Neighbor is DR/BDR
+            return True
+        return False
 
     #  #  #  #  #  #  #  #
     #  Auxiliary methods  #
