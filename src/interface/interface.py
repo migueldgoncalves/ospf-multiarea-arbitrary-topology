@@ -411,8 +411,6 @@ class Interface:
         if self.state in [conf.INTERFACE_STATE_DROTHER, conf.INTERFACE_STATE_BACKUP, conf.INTERFACE_STATE_DR]:
             self.election_algorithm()
 
-    #  TODO: Implement loopback events?
-
     #  InterfaceDown event
     def event_interface_down(self):
         self.shutdown_interface()
@@ -426,6 +424,7 @@ class Interface:
         if rerun_algorithm:
             self.set_dr_bdr(Interface.BDR, determined_bdr)
             self.set_dr_bdr(Interface.DR, determined_dr)
+            known_routers = self.election_algorithm_step_1()  # Refresh declared DR/BDR of this router
             determined_bdr = self.election_algorithm_step_2(known_routers)
             determined_dr = self.election_algorithm_step_3(known_routers, determined_bdr)
         self.election_algorithm_step_5(determined_dr, determined_bdr)
@@ -435,7 +434,7 @@ class Interface:
 
     #  Election algorithm - Step 1
     def election_algorithm_step_1(self):
-        known_routers = [[conf.ROUTER_ID, conf.ROUTER_PRIORITY, self.designated_router, self.backup_designated_router]]
+        known_routers = [[conf.ROUTER_ID, self.router_priority, self.designated_router, self.backup_designated_router]]
         for neighbor_id in self.neighbors:
             if self.neighbors[neighbor_id] not in [conf.NEIGHBOR_STATE_DOWN, conf.NEIGHBOR_STATE_INIT]:
                 neighbor_structure = self.neighbors[neighbor_id]

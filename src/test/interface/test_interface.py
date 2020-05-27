@@ -69,9 +69,42 @@ class InterfaceTest(unittest.TestCase):
         thread_interface_v3 = threading.Thread(target=self.interface_ospfv3.interface_loop)
         thread_interface_v2.start()
         thread_interface_v3.start()
-        time.sleep(2 * conf.HELLO_INTERVAL + 1)  # Allows for 3 Hello packets to be sent
-        self.assertTrue(3, socket_pipeline_v2.qsize())
-        self.assertTrue(3, socket_pipeline_v3.qsize())
+        self.assertEqual(conf.INTERFACE_STATE_DOWN, self.interface_ospfv2.state)
+        self.assertEqual(conf.INTERFACE_STATE_DOWN, self.interface_ospfv3.state)
+        self.assertEqual(conf.DEFAULT_DESIGNATED_ROUTER, self.interface_ospfv2.designated_router)
+        self.assertEqual(conf.DEFAULT_DESIGNATED_ROUTER, self.interface_ospfv3.designated_router)
+        self.assertEqual(conf.DEFAULT_DESIGNATED_ROUTER, self.interface_ospfv2.backup_designated_router)
+        self.assertEqual(conf.DEFAULT_DESIGNATED_ROUTER, self.interface_ospfv3.backup_designated_router)
+
+        time.sleep(1)  # One Hello packet is sent on interface startup
+        self.assertEqual(conf.INTERFACE_STATE_WAITING, self.interface_ospfv2.state)
+        self.assertEqual(conf.INTERFACE_STATE_WAITING, self.interface_ospfv3.state)
+        self.assertEqual(conf.DEFAULT_DESIGNATED_ROUTER, self.interface_ospfv2.designated_router)
+        self.assertEqual(conf.DEFAULT_DESIGNATED_ROUTER, self.interface_ospfv3.designated_router)
+        self.assertEqual(conf.DEFAULT_DESIGNATED_ROUTER, self.interface_ospfv2.backup_designated_router)
+        self.assertEqual(conf.DEFAULT_DESIGNATED_ROUTER, self.interface_ospfv3.backup_designated_router)
+        self.assertTrue(1, socket_pipeline_v2.qsize())
+        self.assertTrue(1, socket_pipeline_v3.qsize())
+
+        time.sleep(4 * conf.HELLO_INTERVAL - 2)
+        self.assertEqual(conf.INTERFACE_STATE_WAITING, self.interface_ospfv2.state)
+        self.assertEqual(conf.INTERFACE_STATE_WAITING, self.interface_ospfv3.state)
+        self.assertEqual(conf.DEFAULT_DESIGNATED_ROUTER, self.interface_ospfv2.designated_router)
+        self.assertEqual(conf.DEFAULT_DESIGNATED_ROUTER, self.interface_ospfv3.designated_router)
+        self.assertEqual(conf.DEFAULT_DESIGNATED_ROUTER, self.interface_ospfv2.backup_designated_router)
+        self.assertEqual(conf.DEFAULT_DESIGNATED_ROUTER, self.interface_ospfv3.backup_designated_router)
+        self.assertTrue(4, socket_pipeline_v2.qsize())
+        self.assertTrue(4, socket_pipeline_v3.qsize())
+
+        time.sleep(1)  # 40 s have passed
+        self.assertEqual(conf.INTERFACE_STATE_DR, self.interface_ospfv2.state)  # No other router is known
+        self.assertEqual(conf.INTERFACE_STATE_DR, self.interface_ospfv3.state)
+        self.assertEqual(conf.ROUTER_ID, self.interface_ospfv2.designated_router)
+        self.assertEqual(conf.ROUTER_ID, self.interface_ospfv3.designated_router)
+        self.assertEqual(conf.DEFAULT_DESIGNATED_ROUTER, self.interface_ospfv2.backup_designated_router)
+        self.assertEqual(conf.DEFAULT_DESIGNATED_ROUTER, self.interface_ospfv3.backup_designated_router)
+        self.assertTrue(5, socket_pipeline_v2.qsize())
+        self.assertTrue(5, socket_pipeline_v3.qsize())
 
         #  Shutdown
         self.interface_shutdown_v2.set()
@@ -237,6 +270,194 @@ class InterfaceTest(unittest.TestCase):
     #  #  #  #  #  #  #  #  #  #  #  #  #
     #  Interface event handling methods  #
     #  #  #  #  #  #  #  #  #  #  #  #  #
+
+    #  Successful run - Instant
+    def test_election_algorithm(self):
+        neighbor_1 = neighbor.Neighbor('10.10.10.10', conf.ROUTER_PRIORITY, 1, '222.222.1.1', 0,
+                                       conf.DEFAULT_DESIGNATED_ROUTER, conf.DEFAULT_DESIGNATED_ROUTER)
+        neighbor_2 = neighbor.Neighbor('11.11.11.11', conf.ROUTER_PRIORITY, 2, '222.222.2.1', 0,
+                                       conf.DEFAULT_DESIGNATED_ROUTER, conf.DEFAULT_DESIGNATED_ROUTER)
+        neighbor_1.set_neighbor_state(conf.NEIGHBOR_STATE_2_WAY)
+        neighbor_2.set_neighbor_state(conf.NEIGHBOR_STATE_2_WAY)
+
+        #  Cold start
+
+        #  This router is non-DR/BDR, no router declares itself as DR
+        self.interface_ospfv2.neighbors['10.10.10.10'] = neighbor_1
+        self.interface_ospfv3.neighbors['10.10.10.10'] = neighbor_1
+        self.interface_ospfv2.neighbors['11.11.11.11'] = neighbor_2
+        self.interface_ospfv3.neighbors['11.11.11.11'] = neighbor_2
+        self.interface_ospfv2.election_algorithm()
+        self.interface_ospfv3.election_algorithm()
+        self.assertEqual(conf.INTERFACE_STATE_DROTHER, self.interface_ospfv2.state)
+        self.assertEqual('11.11.11.11', self.interface_ospfv2.designated_router)
+        self.assertEqual('11.11.11.11', self.interface_ospfv2.backup_designated_router)
+        self.assertEqual(conf.INTERFACE_STATE_DROTHER, self.interface_ospfv3.state)
+        self.assertEqual('11.11.11.11', self.interface_ospfv3.designated_router)
+        self.assertEqual('11.11.11.11', self.interface_ospfv3.backup_designated_router)
+
+        self.reset_interface()
+        neighbor_2.neighbor_dr = '11.11.11.11'
+
+        #  This router is non-DR/BDR, DR declares itself as DR
+        self.interface_ospfv2.neighbors['10.10.10.10'] = neighbor_1
+        self.interface_ospfv3.neighbors['10.10.10.10'] = neighbor_1
+        self.interface_ospfv2.neighbors['11.11.11.11'] = neighbor_2
+        self.interface_ospfv3.neighbors['11.11.11.11'] = neighbor_2
+        self.interface_ospfv2.election_algorithm()
+        self.interface_ospfv3.election_algorithm()
+        self.assertEqual(conf.INTERFACE_STATE_DROTHER, self.interface_ospfv2.state)
+        self.assertEqual('11.11.11.11', self.interface_ospfv2.designated_router)
+        self.assertEqual('10.10.10.10', self.interface_ospfv2.backup_designated_router)
+        self.assertEqual(conf.INTERFACE_STATE_DROTHER, self.interface_ospfv3.state)
+        self.assertEqual('11.11.11.11', self.interface_ospfv3.designated_router)
+        self.assertEqual('10.10.10.10', self.interface_ospfv3.backup_designated_router)
+
+        self.reset_interface()
+        neighbor_2.neighbor_dr = conf.DEFAULT_DESIGNATED_ROUTER
+        neighbor_2.neighbor_id = '1.1.1.1'
+
+        #  This router is BDR, no router declares itself as DR
+        self.interface_ospfv2.neighbors['10.10.10.10'] = neighbor_1
+        self.interface_ospfv3.neighbors['10.10.10.10'] = neighbor_1
+        self.interface_ospfv2.neighbors['1.1.1.1'] = neighbor_2
+        self.interface_ospfv3.neighbors['1.1.1.1'] = neighbor_2
+        self.interface_ospfv2.election_algorithm()
+        self.interface_ospfv3.election_algorithm()
+        self.assertEqual(conf.INTERFACE_STATE_DROTHER, self.interface_ospfv2.state)
+        self.assertEqual('10.10.10.10', self.interface_ospfv2.designated_router)
+        self.assertEqual('10.10.10.10', self.interface_ospfv2.backup_designated_router)
+        self.assertEqual(conf.INTERFACE_STATE_DROTHER, self.interface_ospfv3.state)
+        self.assertEqual('10.10.10.10', self.interface_ospfv3.designated_router)
+        self.assertEqual('10.10.10.10', self.interface_ospfv3.backup_designated_router)
+
+        self.reset_interface()
+        neighbor_1.neighbor_dr = '10.10.10.10'
+
+        #  This router is BDR, DR declares itself as DR
+        self.interface_ospfv2.neighbors['10.10.10.10'] = neighbor_1
+        self.interface_ospfv3.neighbors['10.10.10.10'] = neighbor_1
+        self.interface_ospfv2.neighbors['1.1.1.1'] = neighbor_2
+        self.interface_ospfv3.neighbors['1.1.1.1'] = neighbor_2
+        self.interface_ospfv2.election_algorithm()
+        self.interface_ospfv3.election_algorithm()
+        self.assertEqual(conf.INTERFACE_STATE_BACKUP, self.interface_ospfv2.state)
+        self.assertEqual('10.10.10.10', self.interface_ospfv2.designated_router)
+        self.assertEqual(conf.ROUTER_ID, self.interface_ospfv2.backup_designated_router)
+        self.assertEqual(conf.INTERFACE_STATE_BACKUP, self.interface_ospfv3.state)
+        self.assertEqual('10.10.10.10', self.interface_ospfv3.designated_router)
+        self.assertEqual(conf.ROUTER_ID, self.interface_ospfv3.backup_designated_router)
+
+        self.reset_interface()
+        neighbor_1.neighbor_id = '2.2.2.2'
+
+        #  This router is DR
+        self.interface_ospfv2.neighbors['2.2.2.2'] = neighbor_1
+        self.interface_ospfv3.neighbors['2.2.2.2'] = neighbor_1
+        self.interface_ospfv2.neighbors['1.1.1.1'] = neighbor_2
+        self.interface_ospfv3.neighbors['1.1.1.1'] = neighbor_2
+        self.interface_ospfv2.election_algorithm()
+        self.interface_ospfv3.election_algorithm()
+        self.assertEqual(conf.INTERFACE_STATE_DR, self.interface_ospfv2.state)
+        self.assertEqual(conf.ROUTER_ID, self.interface_ospfv2.designated_router)
+        self.assertEqual('2.2.2.2', self.interface_ospfv2.backup_designated_router)
+        self.assertEqual(conf.INTERFACE_STATE_DR, self.interface_ospfv3.state)
+        self.assertEqual(conf.ROUTER_ID, self.interface_ospfv3.designated_router)
+        self.assertEqual('2.2.2.2', self.interface_ospfv3.backup_designated_router)
+
+        self.reset_interface()
+
+        #  Cold start with different priorities
+
+        neighbor_1.neighbor_priority = 4
+        neighbor_1.neighbor_id = '1.1.1.1'
+        neighbor_2.neighbor_priority = 2
+        neighbor_2.neighbor_id = '2.2.2.2'
+
+        #  This router is non-DR/BDR
+        self.interface_ospfv2.neighbors['1.1.1.1'] = neighbor_1
+        self.interface_ospfv3.neighbors['1.1.1.1'] = neighbor_1
+        self.interface_ospfv2.neighbors['2.2.2.2'] = neighbor_2
+        self.interface_ospfv3.neighbors['2.2.2.2'] = neighbor_2
+        self.interface_ospfv2.election_algorithm()
+        self.interface_ospfv3.election_algorithm()
+        self.assertEqual(conf.INTERFACE_STATE_DROTHER, self.interface_ospfv2.state)
+        self.assertEqual('1.1.1.1', self.interface_ospfv2.designated_router)
+        self.assertEqual('1.1.1.1', self.interface_ospfv2.backup_designated_router)
+        self.assertEqual(conf.INTERFACE_STATE_DROTHER, self.interface_ospfv3.state)
+        self.assertEqual('1.1.1.1', self.interface_ospfv3.designated_router)
+        self.assertEqual('1.1.1.1', self.interface_ospfv3.backup_designated_router)
+
+        self.reset_interface()
+        self.interface_ospfv2.router_priority = 3
+        self.interface_ospfv3.router_priority = 3
+
+        #  This router is BDR
+        self.interface_ospfv2.neighbors['1.1.1.1'] = neighbor_1
+        self.interface_ospfv3.neighbors['1.1.1.1'] = neighbor_1
+        self.interface_ospfv2.neighbors['2.2.2.2'] = neighbor_2
+        self.interface_ospfv3.neighbors['2.2.2.2'] = neighbor_2
+        self.interface_ospfv2.election_algorithm()
+        self.interface_ospfv3.election_algorithm()
+        self.assertEqual(conf.INTERFACE_STATE_DROTHER, self.interface_ospfv2.state)
+        self.assertEqual('1.1.1.1', self.interface_ospfv2.designated_router)
+        self.assertEqual('1.1.1.1', self.interface_ospfv2.backup_designated_router)
+        self.assertEqual(conf.INTERFACE_STATE_DROTHER, self.interface_ospfv3.state)
+        self.assertEqual('1.1.1.1', self.interface_ospfv3.designated_router)
+        self.assertEqual('1.1.1.1', self.interface_ospfv3.backup_designated_router)
+
+        self.reset_interface()
+        self.interface_ospfv2.router_priority = 5
+        self.interface_ospfv3.router_priority = 5
+
+        #  This router is DR
+        self.interface_ospfv2.neighbors['1.1.1.1'] = neighbor_1
+        self.interface_ospfv3.neighbors['1.1.1.1'] = neighbor_1
+        self.interface_ospfv2.neighbors['2.2.2.2'] = neighbor_2
+        self.interface_ospfv3.neighbors['2.2.2.2'] = neighbor_2
+        self.interface_ospfv2.election_algorithm()
+        self.interface_ospfv3.election_algorithm()
+        self.assertEqual(conf.INTERFACE_STATE_DR, self.interface_ospfv2.state)
+        self.assertEqual(conf.ROUTER_ID, self.interface_ospfv2.designated_router)
+        self.assertEqual('1.1.1.1', self.interface_ospfv2.backup_designated_router)
+        self.assertEqual(conf.INTERFACE_STATE_DR, self.interface_ospfv3.state)
+        self.assertEqual(conf.ROUTER_ID, self.interface_ospfv3.designated_router)
+        self.assertEqual('1.1.1.1', self.interface_ospfv3.backup_designated_router)
+
+        self.reset_interface()
+        neighbor_1.neighbor_priority = 0
+        neighbor_2.neighbor_priority = 0
+        self.interface_ospfv2.router_priority = 1
+        self.interface_ospfv3.router_priority = 1
+
+        #  This router is the only eligible to be DR/BDR
+        self.interface_ospfv2.election_algorithm()
+        self.interface_ospfv3.election_algorithm()
+        self.assertEqual(conf.INTERFACE_STATE_DR, self.interface_ospfv2.state)
+        self.assertEqual(conf.ROUTER_ID, self.interface_ospfv2.designated_router)
+        self.assertEqual(conf.DEFAULT_DESIGNATED_ROUTER, self.interface_ospfv2.backup_designated_router)
+        self.assertEqual(conf.INTERFACE_STATE_DR, self.interface_ospfv3.state)
+        self.assertEqual(conf.ROUTER_ID, self.interface_ospfv3.designated_router)
+        self.assertEqual(conf.DEFAULT_DESIGNATED_ROUTER, self.interface_ospfv3.backup_designated_router)
+
+        #  TODO: Case where router joins link where DR and BDR are already elected
+        #  TODO: Case where there is only one router at the link
+        #  TODO: Case where DR fails
+
+        #  Shutdown
+
+        neighbor_1.delete_neighbor()
+        neighbor_2.delete_neighbor()
+
+    def reset_interface(self):
+        self.interface_ospfv2.state = conf.INTERFACE_STATE_DOWN
+        self.interface_ospfv2.neighbors = {}
+        self.interface_ospfv2.designated_router = conf.DEFAULT_DESIGNATED_ROUTER
+        self.interface_ospfv2.backup_designated_router = conf.DEFAULT_DESIGNATED_ROUTER
+        self.interface_ospfv3.state = conf.INTERFACE_STATE_DOWN
+        self.interface_ospfv3.neighbors = {}
+        self.interface_ospfv3.designated_router = conf.DEFAULT_DESIGNATED_ROUTER
+        self.interface_ospfv3.backup_designated_router = conf.DEFAULT_DESIGNATED_ROUTER
 
     #  Successful run - Instant
     def test_election_algorithm_step_1(self):
