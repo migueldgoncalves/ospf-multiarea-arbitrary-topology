@@ -151,6 +151,7 @@ class Interface:
                         self.neighbors[neighbor_id] = new_neighbor
 
                     #  Existing neighbor
+                    #  TODO: FIX
                     neighbor_data_changed = False
                     if neighbor_priority != self.neighbors[neighbor_id].neighbor_priority:  # Neighbor priority changed
                         neighbor_data_changed = True
@@ -171,9 +172,11 @@ class Interface:
                             conf.NEIGHBOR_STATE_DOWN, conf.NEIGHBOR_STATE_INIT]:
                         if neighbor_data_changed:
                             self.event_neighbor_change()  # This router must reevaluate who is DR and BDR
-                        elif (neighbor_id in [neighbor_dr, neighbor_bdr]) & (
-                                self.state == conf.INTERFACE_STATE_WAITING):
-                            self.event_backup_seen()
+                        elif ((self.neighbors[neighbor_id].neighbor_ip_address in [neighbor_dr, neighbor_bdr]) & (
+                                self.version == conf.VERSION_IPV4)) | ((neighbor_id in [neighbor_dr, neighbor_bdr]) & (
+                                self.version == conf.VERSION_IPV6)):
+                            if self.state == conf.INTERFACE_STATE_WAITING:
+                                self.event_backup_seen()
 
                     self.event_hello_received(incoming_packet, source_ip, neighbor_id)
 
@@ -438,12 +441,21 @@ class Interface:
 
     #  Election algorithm - Step 1
     def election_algorithm_step_1(self):
-        known_routers = [[conf.ROUTER_ID, self.router_priority, self.designated_router, self.backup_designated_router]]
+        #  In OSPFv2 DR/BDR are identified by their interface IP address, in OSPFv3 by their RID
+        if self.version == conf.VERSION_IPV4:
+            identifier = self.ipv4_address
+        else:
+            identifier = conf.ROUTER_ID
+        known_routers = [[identifier, self.router_priority, self.designated_router, self.backup_designated_router]]
         for neighbor_id in self.neighbors:
             if self.neighbors[neighbor_id].neighbor_state not in [conf.NEIGHBOR_STATE_DOWN, conf.NEIGHBOR_STATE_INIT]:
                 neighbor_structure = self.neighbors[neighbor_id]
-                known_routers.append([neighbor_structure.neighbor_id, neighbor_structure.neighbor_priority,
-                                      neighbor_structure.neighbor_dr, neighbor_structure.neighbor_bdr])
+                if self.version == conf.VERSION_IPV4:
+                    known_routers.append([neighbor_structure.neighbor_ip_address, neighbor_structure.neighbor_priority,
+                                          neighbor_structure.neighbor_dr, neighbor_structure.neighbor_bdr])
+                else:
+                    known_routers.append([neighbor_structure.neighbor_id, neighbor_structure.neighbor_priority,
+                                          neighbor_structure.neighbor_dr, neighbor_structure.neighbor_bdr])
         return known_routers
 
     #  Election algorithm - Step 2
@@ -487,29 +499,37 @@ class Interface:
 
     #  Election algorithm - Step 4
     def election_algorithm_step_4(self, determined_dr, determined_bdr, first_run):
+        if self.version == conf.VERSION_IPV4:
+            identifier = self.ipv4_address
+        else:
+            identifier = conf.ROUTER_ID
         #  Steps 2 and 3 can only be rerun eventually if it is the algorithm first run
         if first_run:
             #  This router has become DR/BDR, or ceased being DR/BDR
-            if ((conf.ROUTER_ID not in [self.designated_router, self.backup_designated_router]) & (
-                    conf.ROUTER_ID in [determined_dr, determined_bdr])) | (
-                    (conf.ROUTER_ID in [self.designated_router, self.backup_designated_router]) & (
-                    conf.ROUTER_ID not in [determined_dr, determined_bdr])):
+            if ((identifier not in [self.designated_router, self.backup_designated_router]) & (
+                    identifier in [determined_dr, determined_bdr])) | (
+                    (identifier in [self.designated_router, self.backup_designated_router]) & (
+                    identifier not in [determined_dr, determined_bdr])):
                 return True
             #  This router is no longer the DR, or became the DR
-            elif ((conf.ROUTER_ID == self.designated_router) & (conf.ROUTER_ID != determined_dr)) | (
-                    (conf.ROUTER_ID != self.designated_router) & (conf.ROUTER_ID == determined_dr)):
+            elif ((identifier == self.designated_router) & (identifier != determined_dr)) | (
+                    (identifier != self.designated_router) & (identifier == determined_dr)):
                 return True
             #  This router is no longer the BDR, or became the BDR
-            elif ((conf.ROUTER_ID == self.backup_designated_router) & (conf.ROUTER_ID != determined_bdr)) | (
-                    (conf.ROUTER_ID != self.backup_designated_router) & (conf.ROUTER_ID == determined_bdr)):
+            elif ((identifier == self.backup_designated_router) & (identifier != determined_bdr)) | (
+                    (identifier != self.backup_designated_router) & (identifier == determined_bdr)):
                 return True
         return False  # This router maintains its status - Step 5 will be run next
 
     #  Election algorithm - Step 5
     def election_algorithm_step_5(self, determined_dr, determined_bdr):
-        if conf.ROUTER_ID == determined_dr:
+        if self.version == conf.VERSION_IPV4:
+            identifier = self.ipv4_address
+        else:
+            identifier = conf.ROUTER_ID
+        if identifier == determined_dr:
             self.set_interface_state(conf.INTERFACE_STATE_DR)  # Nothing is done if state is already the desired one
-        elif conf.ROUTER_ID == determined_bdr:
+        elif identifier == determined_bdr:
             self.set_interface_state(conf.INTERFACE_STATE_BACKUP)
         else:
             self.set_interface_state(conf.INTERFACE_STATE_DROTHER)
@@ -660,12 +680,12 @@ class Interface:
     #  AdjOK? event
     def event_adj_ok(self, neighbor_router, neighbor_id, source_ip):
         if neighbor_router.neighbor_state == conf.NEIGHBOR_STATE_2_WAY:
-            if self.should_be_fully_adjacent(neighbor_router.neighbor_id):
+            if self.should_be_fully_adjacent(neighbor_id):
                 self.event_2_way_received(neighbor_router, neighbor_id, source_ip, True)
             else:
                 pass  # Neighbor remains at state 2-WAY
         elif neighbor_router.neighbor_state not in [conf.NEIGHBOR_STATE_DOWN, conf.NEIGHBOR_STATE_INIT]:
-            if self.should_be_fully_adjacent(neighbor_router.neighbor_id):
+            if self.should_be_fully_adjacent(neighbor_id):
                 pass  # Neighbor remains at state EXSTART or higher
             else:
                 neighbor_router.set_neighbor_state(conf.NEIGHBOR_STATE_2_WAY)
@@ -749,9 +769,15 @@ class Interface:
     def should_be_fully_adjacent(self, neighbor_id):
         if self.type == conf.POINT_TO_POINT_INTERFACE:
             return True
-        if conf.ROUTER_ID in [self.designated_router, self.backup_designated_router]:  # This router is DR/BDR
+        #  This router is DR/BDR
+        if ((self.ipv4_address in [self.designated_router, self.backup_designated_router]) & (
+                self.version == conf.VERSION_IPV4)) | ((conf.ROUTER_ID in [
+                self.designated_router, self.backup_designated_router]) & (self.version == conf.VERSION_IPV6)):
             return True
-        if neighbor_id in [self.designated_router, self.backup_designated_router]:  # Neighbor is DR/BDR
+        #  Neighbor is DR/BDR
+        if ((self.neighbors[neighbor_id].neighbor_ip_address in [self.designated_router, self.backup_designated_router])
+            & (self.version == conf.VERSION_IPV4)) | ((neighbor_id in [
+                self.designated_router, self.backup_designated_router]) & (self.version == conf.VERSION_IPV6)):
             return True
         return False
 

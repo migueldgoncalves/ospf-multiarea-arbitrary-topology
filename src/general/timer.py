@@ -54,7 +54,10 @@ class Timer:
                 break
 
     def get_timer_time(self):
-        return int(self.initial_time + self.timeout) - int(time.perf_counter())
+        timer_time = int(self.initial_time + self.timeout) - int(time.perf_counter())
+        if timer_time > 0:
+            return timer_time
+        return 0
 
     def reset_timer(self):
         self.initial_time = int(time.perf_counter())  # Sets initial time with current system time in seconds

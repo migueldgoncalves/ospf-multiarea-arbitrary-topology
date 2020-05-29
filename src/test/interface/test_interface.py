@@ -19,7 +19,7 @@ PACKET_BYTES = b'\x02\x01\x00,\x04\x04\x04\x04\x00\x00\x00\x00\xf4\x96\x00\x00\x
                b'\xff\xff\x00\x00\n\x02\x01\x00\x00\x00(\x00\x00\x00\x00\x00\x00\x00\x00'
 
 
-#  Full successful run - 181-210 s
+#  Full successful run - 180-220 s
 class InterfaceTest(unittest.TestCase):
 
     def setUp(self):
@@ -96,10 +96,11 @@ class InterfaceTest(unittest.TestCase):
         self.assertTrue(4, socket_pipeline_v2.qsize())
         self.assertTrue(4, socket_pipeline_v3.qsize())
 
-        time.sleep(1)  # 40 s have passed
+        time.sleep(2)  # 40 s have passed
         self.assertEqual(conf.INTERFACE_STATE_DR, self.interface_ospfv2.state)  # No other router is known
         self.assertEqual(conf.INTERFACE_STATE_DR, self.interface_ospfv3.state)
-        self.assertEqual(conf.ROUTER_ID, self.interface_ospfv2.designated_router)
+        #  In OSPFv2 DR/BDR is identified by interface IP address
+        self.assertEqual(self.interface_ospfv2.ipv4_address, self.interface_ospfv2.designated_router)
         self.assertEqual(conf.ROUTER_ID, self.interface_ospfv3.designated_router)
         self.assertEqual(conf.DEFAULT_DESIGNATED_ROUTER, self.interface_ospfv2.backup_designated_router)
         self.assertEqual(conf.DEFAULT_DESIGNATED_ROUTER, self.interface_ospfv3.backup_designated_router)
@@ -142,6 +143,10 @@ class InterfaceTest(unittest.TestCase):
         self.assertEqual(0, len(self.interface_ospfv3.neighbors))
         self.assertEqual(conf.INTERFACE_STATE_DOWN, self.interface_ospfv2.state)
         self.assertEqual(conf.INTERFACE_STATE_DOWN, self.interface_ospfv3.state)
+        self.assertEqual(conf.DEFAULT_DESIGNATED_ROUTER, self.interface_ospfv2.designated_router)
+        self.assertEqual(conf.DEFAULT_DESIGNATED_ROUTER, self.interface_ospfv3.designated_router)
+        self.assertEqual(conf.DEFAULT_DESIGNATED_ROUTER, self.interface_ospfv2.backup_designated_router)
+        self.assertEqual(conf.DEFAULT_DESIGNATED_ROUTER, self.interface_ospfv3.backup_designated_router)
 
         #  Interface receives packet from neighbor not acknowledging this router
         #  Neighbor is created and goes to INIT state
@@ -154,6 +159,10 @@ class InterfaceTest(unittest.TestCase):
         time.sleep(10)
         self.assertEqual(conf.INTERFACE_STATE_WAITING, self.interface_ospfv2.state)
         self.assertEqual(conf.INTERFACE_STATE_WAITING, self.interface_ospfv3.state)
+        self.assertEqual(conf.DEFAULT_DESIGNATED_ROUTER, self.interface_ospfv2.designated_router)
+        self.assertEqual(conf.DEFAULT_DESIGNATED_ROUTER, self.interface_ospfv3.designated_router)
+        self.assertEqual(conf.DEFAULT_DESIGNATED_ROUTER, self.interface_ospfv2.backup_designated_router)
+        self.assertEqual(conf.DEFAULT_DESIGNATED_ROUTER, self.interface_ospfv3.backup_designated_router)
         self.assertEqual(1, len(self.interface_ospfv2.neighbors))  # Neighbor is recognized
         self.assertEqual(1, len(self.interface_ospfv3.neighbors))
         self.assertEqual(conf.NEIGHBOR_STATE_INIT, self.interface_ospfv2.neighbors['1.1.1.1'].neighbor_state)
@@ -163,7 +172,7 @@ class InterfaceTest(unittest.TestCase):
         time.sleep(conf.ROUTER_DEAD_INTERVAL - 5)  # More than 40 s will have passed since original Hello packet
         self.assertEqual(conf.INTERFACE_STATE_DR, self.interface_ospfv2.state)
         self.assertEqual(conf.INTERFACE_STATE_DR, self.interface_ospfv3.state)
-        self.assertEqual(conf.ROUTER_ID, self.interface_ospfv2.designated_router)
+        self.assertEqual(self.interface_ospfv2.ipv4_address, self.interface_ospfv2.designated_router)
         self.assertEqual(conf.DEFAULT_DESIGNATED_ROUTER, self.interface_ospfv2.backup_designated_router)
         self.assertEqual(conf.ROUTER_ID, self.interface_ospfv3.designated_router)
         self.assertEqual(conf.DEFAULT_DESIGNATED_ROUTER, self.interface_ospfv3.backup_designated_router)
@@ -183,7 +192,7 @@ class InterfaceTest(unittest.TestCase):
         self.assertEqual(conf.NEIGHBOR_STATE_INIT, self.interface_ospfv3.neighbors['1.1.1.1'].neighbor_state)
         self.assertEqual(conf.INTERFACE_STATE_DR, self.interface_ospfv2.state)
         self.assertEqual(conf.INTERFACE_STATE_DR, self.interface_ospfv3.state)
-        self.assertEqual(conf.ROUTER_ID, self.interface_ospfv2.designated_router)
+        self.assertEqual(self.interface_ospfv2.ipv4_address, self.interface_ospfv2.designated_router)
         self.assertEqual(conf.DEFAULT_DESIGNATED_ROUTER, self.interface_ospfv2.backup_designated_router)
         self.assertEqual(conf.ROUTER_ID, self.interface_ospfv3.designated_router)
         self.assertEqual(conf.DEFAULT_DESIGNATED_ROUTER, self.interface_ospfv3.backup_designated_router)
@@ -223,7 +232,7 @@ class InterfaceTest(unittest.TestCase):
         self.assertEqual(conf.NEIGHBOR_STATE_EXSTART, self.interface_ospfv3.neighbors['1.1.1.1'].neighbor_state)
         self.assertEqual(conf.INTERFACE_STATE_DR, self.interface_ospfv2.state)
         self.assertEqual(conf.INTERFACE_STATE_DR, self.interface_ospfv3.state)
-        self.assertEqual(conf.ROUTER_ID, self.interface_ospfv2.designated_router)
+        self.assertEqual(self.interface_ospfv2.ipv4_address, self.interface_ospfv2.designated_router)
         self.assertEqual(conf.DEFAULT_DESIGNATED_ROUTER, self.interface_ospfv2.backup_designated_router)
         self.assertEqual(conf.ROUTER_ID, self.interface_ospfv3.designated_router)
         self.assertEqual(conf.DEFAULT_DESIGNATED_ROUTER, self.interface_ospfv3.backup_designated_router)
@@ -239,7 +248,7 @@ class InterfaceTest(unittest.TestCase):
         self.assertEqual(0, len(self.interface_ospfv3.neighbors))
         self.assertEqual(conf.INTERFACE_STATE_DR, self.interface_ospfv2.state)
         self.assertEqual(conf.INTERFACE_STATE_DR, self.interface_ospfv3.state)
-        self.assertEqual(conf.ROUTER_ID, self.interface_ospfv2.designated_router)
+        self.assertEqual(self.interface_ospfv2.ipv4_address, self.interface_ospfv2.designated_router)
         self.assertEqual(conf.DEFAULT_DESIGNATED_ROUTER, self.interface_ospfv2.backup_designated_router)
         self.assertEqual(conf.ROUTER_ID, self.interface_ospfv3.designated_router)
         self.assertEqual(conf.DEFAULT_DESIGNATED_ROUTER, self.interface_ospfv3.backup_designated_router)
@@ -252,7 +261,7 @@ class InterfaceTest(unittest.TestCase):
         self.assertEqual(conf.NEIGHBOR_STATE_EXSTART, self.interface_ospfv3.neighbors['1.1.1.1'].neighbor_state)
         self.assertEqual(conf.INTERFACE_STATE_DR, self.interface_ospfv2.state)
         self.assertEqual(conf.INTERFACE_STATE_DR, self.interface_ospfv3.state)
-        self.assertEqual(conf.ROUTER_ID, self.interface_ospfv2.designated_router)
+        self.assertEqual(self.interface_ospfv2.ipv4_address, self.interface_ospfv2.designated_router)
         self.assertEqual(conf.DEFAULT_DESIGNATED_ROUTER, self.interface_ospfv2.backup_designated_router)
         self.assertEqual(conf.ROUTER_ID, self.interface_ospfv3.designated_router)
         self.assertEqual(conf.DEFAULT_DESIGNATED_ROUTER, self.interface_ospfv3.backup_designated_router)
@@ -268,7 +277,7 @@ class InterfaceTest(unittest.TestCase):
         self.assertEqual(conf.NEIGHBOR_STATE_INIT, self.interface_ospfv3.neighbors['1.1.1.1'].neighbor_state)
         self.assertEqual(conf.INTERFACE_STATE_DR, self.interface_ospfv2.state)
         self.assertEqual(conf.INTERFACE_STATE_DR, self.interface_ospfv3.state)
-        self.assertEqual(conf.ROUTER_ID, self.interface_ospfv2.designated_router)
+        self.assertEqual(self.interface_ospfv2.ipv4_address, self.interface_ospfv2.designated_router)
         self.assertEqual(conf.DEFAULT_DESIGNATED_ROUTER, self.interface_ospfv2.backup_designated_router)
         self.assertEqual(conf.ROUTER_ID, self.interface_ospfv3.designated_router)
         self.assertEqual(conf.DEFAULT_DESIGNATED_ROUTER, self.interface_ospfv3.backup_designated_router)
@@ -293,7 +302,7 @@ class InterfaceTest(unittest.TestCase):
         thread_interface_v3.start()
 
         #  Interface receives another packet from neighbor acknowledging this router
-        #  Neighbor this time jumps to EXSTART state
+        #  Neighbor this time jumps to EXSTART state after moving to 2_WAY
         self.interface_pipeline_v2.put([two_way_v2, '222.222.1.1'])
         self.interface_pipeline_v3.put([two_way_v3, 'fe80::c001:18ff:fe34:10'])
         time.sleep(10)
@@ -308,18 +317,18 @@ class InterfaceTest(unittest.TestCase):
         self.assertEqual(conf.DEFAULT_DESIGNATED_ROUTER, self.interface_ospfv3.designated_router)
         self.assertEqual(conf.DEFAULT_DESIGNATED_ROUTER, self.interface_ospfv3.backup_designated_router)
 
-        #  Interface runs again election algorithm after 40 seconds and elects itself as DR
+        #  Interface runs again election algorithm after 40 s - Neighbor declares itself as BDR in provided packet
         self.interface_pipeline_v2.put([two_way_v2, '222.222.1.1'])
         self.interface_pipeline_v3.put([two_way_v3, 'fe80::c001:18ff:fe34:10'])
         time.sleep(conf.ROUTER_DEAD_INTERVAL - 5)
         self.assertEqual(conf.NEIGHBOR_STATE_EXSTART, self.interface_ospfv2.neighbors['1.1.1.1'].neighbor_state)
         self.assertEqual(conf.NEIGHBOR_STATE_EXSTART, self.interface_ospfv3.neighbors['1.1.1.1'].neighbor_state)
-        self.assertEqual(conf.INTERFACE_STATE_DR, self.interface_ospfv2.state)
-        self.assertEqual(conf.INTERFACE_STATE_DR, self.interface_ospfv3.state)
-        self.assertEqual(conf.ROUTER_ID, self.interface_ospfv2.designated_router)
-        self.assertEqual(conf.DEFAULT_DESIGNATED_ROUTER, self.interface_ospfv2.backup_designated_router)
-        self.assertEqual(conf.ROUTER_ID, self.interface_ospfv3.designated_router)
-        self.assertEqual(conf.DEFAULT_DESIGNATED_ROUTER, self.interface_ospfv3.backup_designated_router)
+        self.assertEqual(conf.INTERFACE_STATE_DROTHER, self.interface_ospfv2.state)  # Considers neighbor as DR and BDR
+        self.assertEqual(conf.INTERFACE_STATE_DROTHER, self.interface_ospfv3.state)
+        self.assertEqual('222.222.1.1', self.interface_ospfv2.designated_router)
+        self.assertEqual('222.222.1.1', self.interface_ospfv2.backup_designated_router)
+        self.assertEqual('1.1.1.1', self.interface_ospfv3.designated_router)
+        self.assertEqual('1.1.1.1', self.interface_ospfv3.backup_designated_router)
 
         #  Final shutdown
         #  Neighbor goes to DOWN state and is deleted
@@ -338,13 +347,13 @@ class InterfaceTest(unittest.TestCase):
 
     #  Successful run - 8-10 s
     def test_election_algorithm(self):
-        neighbor_v2_1 = neighbor.Neighbor('10.10.10.10', conf.ROUTER_PRIORITY, 1, '222.222.1.1', 0,
+        neighbor_v2_1 = neighbor.Neighbor('10.10.10.10', conf.ROUTER_PRIORITY, 1, '222.222.1.10', 0,
                                           conf.DEFAULT_DESIGNATED_ROUTER, conf.DEFAULT_DESIGNATED_ROUTER)
-        neighbor_v2_2 = neighbor.Neighbor('11.11.11.11', conf.ROUTER_PRIORITY, 2, '222.222.2.1', 0,
+        neighbor_v2_2 = neighbor.Neighbor('11.11.11.11', conf.ROUTER_PRIORITY, 2, '222.222.1.11', 0,
                                           conf.DEFAULT_DESIGNATED_ROUTER, conf.DEFAULT_DESIGNATED_ROUTER)
-        neighbor_v3_1 = neighbor.Neighbor('10.10.10.10', conf.ROUTER_PRIORITY, 1, '2001:db8:cafe:1::1', 0,
+        neighbor_v3_1 = neighbor.Neighbor('10.10.10.10', conf.ROUTER_PRIORITY, 1, '2001:db8:cafe:1::10', 0,
                                           conf.DEFAULT_DESIGNATED_ROUTER, conf.DEFAULT_DESIGNATED_ROUTER)
-        neighbor_v3_2 = neighbor.Neighbor('11.11.11.11', conf.ROUTER_PRIORITY, 2, '2001:db8:cafe:1::1', 0,
+        neighbor_v3_2 = neighbor.Neighbor('11.11.11.11', conf.ROUTER_PRIORITY, 2, '2001:db8:cafe:1::11', 0,
                                           conf.DEFAULT_DESIGNATED_ROUTER, conf.DEFAULT_DESIGNATED_ROUTER)
         neighbor_v2_1.set_neighbor_state(conf.NEIGHBOR_STATE_2_WAY)
         neighbor_v2_2.set_neighbor_state(conf.NEIGHBOR_STATE_2_WAY)
@@ -362,8 +371,8 @@ class InterfaceTest(unittest.TestCase):
         self.interface_ospfv2.election_algorithm()
         self.interface_ospfv3.election_algorithm()
         self.assertEqual(conf.INTERFACE_STATE_DROTHER, self.interface_ospfv2.state)
-        self.assertEqual('11.11.11.11', self.interface_ospfv2.designated_router)
-        self.assertEqual('11.11.11.11', self.interface_ospfv2.backup_designated_router)
+        self.assertEqual('222.222.1.11', self.interface_ospfv2.designated_router)
+        self.assertEqual('222.222.1.11', self.interface_ospfv2.backup_designated_router)
         self.assertEqual(conf.NEIGHBOR_STATE_2_WAY, self.interface_ospfv2.neighbors['10.10.10.10'].neighbor_state)
         self.assertEqual(conf.NEIGHBOR_STATE_EXSTART, self.interface_ospfv2.neighbors['11.11.11.11'].neighbor_state)
         self.assertEqual(conf.INTERFACE_STATE_DROTHER, self.interface_ospfv3.state)
@@ -375,7 +384,7 @@ class InterfaceTest(unittest.TestCase):
         self.reset_interface(conf.INTERFACE_STATE_WAITING)
         neighbor_v2_1.set_neighbor_state(conf.NEIGHBOR_STATE_2_WAY)
         neighbor_v2_2.set_neighbor_state(conf.NEIGHBOR_STATE_2_WAY)
-        neighbor_v2_2.neighbor_dr = '11.11.11.11'
+        neighbor_v2_2.neighbor_dr = '222.222.1.11'
         neighbor_v3_1.set_neighbor_state(conf.NEIGHBOR_STATE_2_WAY)
         neighbor_v3_2.set_neighbor_state(conf.NEIGHBOR_STATE_2_WAY)
         neighbor_v3_2.neighbor_dr = '11.11.11.11'
@@ -388,8 +397,8 @@ class InterfaceTest(unittest.TestCase):
         self.interface_ospfv2.election_algorithm()
         self.interface_ospfv3.election_algorithm()
         self.assertEqual(conf.INTERFACE_STATE_DROTHER, self.interface_ospfv2.state)
-        self.assertEqual('11.11.11.11', self.interface_ospfv2.designated_router)
-        self.assertEqual('10.10.10.10', self.interface_ospfv2.backup_designated_router)
+        self.assertEqual('222.222.1.11', self.interface_ospfv2.designated_router)
+        self.assertEqual('222.222.1.10', self.interface_ospfv2.backup_designated_router)
         self.assertEqual(conf.NEIGHBOR_STATE_EXSTART, self.interface_ospfv2.neighbors['10.10.10.10'].neighbor_state)
         self.assertEqual(conf.NEIGHBOR_STATE_EXSTART, self.interface_ospfv2.neighbors['11.11.11.11'].neighbor_state)
         self.assertEqual(conf.INTERFACE_STATE_DROTHER, self.interface_ospfv3.state)
@@ -402,7 +411,7 @@ class InterfaceTest(unittest.TestCase):
         neighbor_v2_1.set_neighbor_state(conf.NEIGHBOR_STATE_2_WAY)
         neighbor_v2_2.set_neighbor_state(conf.NEIGHBOR_STATE_2_WAY)
         neighbor_v2_2.neighbor_dr = conf.DEFAULT_DESIGNATED_ROUTER
-        neighbor_v2_2.neighbor_id = '1.1.1.1'
+        neighbor_v2_2.neighbor_ip_address = '222.222.0.1'
         neighbor_v3_1.set_neighbor_state(conf.NEIGHBOR_STATE_2_WAY)
         neighbor_v3_2.set_neighbor_state(conf.NEIGHBOR_STATE_2_WAY)
         neighbor_v3_2.neighbor_dr = conf.DEFAULT_DESIGNATED_ROUTER
@@ -411,15 +420,15 @@ class InterfaceTest(unittest.TestCase):
         #  This router will be BDR, no router declares itself as DR
         self.interface_ospfv2.neighbors['10.10.10.10'] = neighbor_v2_1
         self.interface_ospfv3.neighbors['10.10.10.10'] = neighbor_v3_1
-        self.interface_ospfv2.neighbors['1.1.1.1'] = neighbor_v2_2
+        self.interface_ospfv2.neighbors['11.11.11.11'] = neighbor_v2_2
         self.interface_ospfv3.neighbors['1.1.1.1'] = neighbor_v3_2
         self.interface_ospfv2.election_algorithm()
         self.interface_ospfv3.election_algorithm()
         self.assertEqual(conf.INTERFACE_STATE_DROTHER, self.interface_ospfv2.state)
-        self.assertEqual('10.10.10.10', self.interface_ospfv2.designated_router)
-        self.assertEqual('10.10.10.10', self.interface_ospfv2.backup_designated_router)
+        self.assertEqual('222.222.1.10', self.interface_ospfv2.designated_router)
+        self.assertEqual('222.222.1.10', self.interface_ospfv2.backup_designated_router)
         self.assertEqual(conf.NEIGHBOR_STATE_EXSTART, self.interface_ospfv2.neighbors['10.10.10.10'].neighbor_state)
-        self.assertEqual(conf.NEIGHBOR_STATE_2_WAY, self.interface_ospfv2.neighbors['1.1.1.1'].neighbor_state)
+        self.assertEqual(conf.NEIGHBOR_STATE_2_WAY, self.interface_ospfv2.neighbors['11.11.11.11'].neighbor_state)
         self.assertEqual(conf.INTERFACE_STATE_DROTHER, self.interface_ospfv3.state)
         self.assertEqual('10.10.10.10', self.interface_ospfv3.designated_router)
         self.assertEqual('10.10.10.10', self.interface_ospfv3.backup_designated_router)
@@ -429,7 +438,7 @@ class InterfaceTest(unittest.TestCase):
         self.reset_interface(conf.INTERFACE_STATE_WAITING)
         neighbor_v2_1.set_neighbor_state(conf.NEIGHBOR_STATE_2_WAY)
         neighbor_v2_2.set_neighbor_state(conf.NEIGHBOR_STATE_2_WAY)
-        neighbor_v2_1.neighbor_dr = '10.10.10.10'
+        neighbor_v2_1.neighbor_dr = '222.222.1.10'
         neighbor_v3_1.set_neighbor_state(conf.NEIGHBOR_STATE_2_WAY)
         neighbor_v3_2.set_neighbor_state(conf.NEIGHBOR_STATE_2_WAY)
         neighbor_v3_1.neighbor_dr = '10.10.10.10'
@@ -437,15 +446,15 @@ class InterfaceTest(unittest.TestCase):
         #  This router will be BDR, DR declares itself as DR
         self.interface_ospfv2.neighbors['10.10.10.10'] = neighbor_v2_1
         self.interface_ospfv3.neighbors['10.10.10.10'] = neighbor_v3_1
-        self.interface_ospfv2.neighbors['1.1.1.1'] = neighbor_v2_2
+        self.interface_ospfv2.neighbors['11.11.11.11'] = neighbor_v2_2
         self.interface_ospfv3.neighbors['1.1.1.1'] = neighbor_v3_2
         self.interface_ospfv2.election_algorithm()
         self.interface_ospfv3.election_algorithm()
         self.assertEqual(conf.INTERFACE_STATE_BACKUP, self.interface_ospfv2.state)
-        self.assertEqual('10.10.10.10', self.interface_ospfv2.designated_router)
-        self.assertEqual(conf.ROUTER_ID, self.interface_ospfv2.backup_designated_router)
+        self.assertEqual('222.222.1.10', self.interface_ospfv2.designated_router)
+        self.assertEqual(self.interface_ospfv2.ipv4_address, self.interface_ospfv2.backup_designated_router)
         self.assertEqual(conf.NEIGHBOR_STATE_EXSTART, self.interface_ospfv2.neighbors['10.10.10.10'].neighbor_state)
-        self.assertEqual(conf.NEIGHBOR_STATE_EXSTART, self.interface_ospfv2.neighbors['1.1.1.1'].neighbor_state)
+        self.assertEqual(conf.NEIGHBOR_STATE_EXSTART, self.interface_ospfv2.neighbors['11.11.11.11'].neighbor_state)
         self.assertEqual(conf.INTERFACE_STATE_BACKUP, self.interface_ospfv3.state)
         self.assertEqual('10.10.10.10', self.interface_ospfv3.designated_router)
         self.assertEqual(conf.ROUTER_ID, self.interface_ospfv3.backup_designated_router)
@@ -455,23 +464,23 @@ class InterfaceTest(unittest.TestCase):
         self.reset_interface(conf.INTERFACE_STATE_WAITING)
         neighbor_v2_1.set_neighbor_state(conf.NEIGHBOR_STATE_2_WAY)
         neighbor_v2_2.set_neighbor_state(conf.NEIGHBOR_STATE_2_WAY)
-        neighbor_v2_1.neighbor_id = '2.2.2.2'
+        neighbor_v2_1.neighbor_ip_address = '222.222.0.2'
         neighbor_v3_1.set_neighbor_state(conf.NEIGHBOR_STATE_2_WAY)
         neighbor_v3_2.set_neighbor_state(conf.NEIGHBOR_STATE_2_WAY)
         neighbor_v3_1.neighbor_id = '2.2.2.2'
 
         #  This router will be DR
-        self.interface_ospfv2.neighbors['2.2.2.2'] = neighbor_v2_1
+        self.interface_ospfv2.neighbors['10.10.10.10'] = neighbor_v2_1
         self.interface_ospfv3.neighbors['2.2.2.2'] = neighbor_v3_1
-        self.interface_ospfv2.neighbors['1.1.1.1'] = neighbor_v2_2
+        self.interface_ospfv2.neighbors['11.11.11.11'] = neighbor_v2_2
         self.interface_ospfv3.neighbors['1.1.1.1'] = neighbor_v3_2
         self.interface_ospfv2.election_algorithm()
         self.interface_ospfv3.election_algorithm()
         self.assertEqual(conf.INTERFACE_STATE_DR, self.interface_ospfv2.state)
-        self.assertEqual(conf.ROUTER_ID, self.interface_ospfv2.designated_router)
-        self.assertEqual('2.2.2.2', self.interface_ospfv2.backup_designated_router)
-        self.assertEqual(conf.NEIGHBOR_STATE_EXSTART, self.interface_ospfv2.neighbors['2.2.2.2'].neighbor_state)
-        self.assertEqual(conf.NEIGHBOR_STATE_EXSTART, self.interface_ospfv2.neighbors['1.1.1.1'].neighbor_state)
+        self.assertEqual(self.interface_ospfv2.ipv4_address, self.interface_ospfv2.designated_router)
+        self.assertEqual('222.222.0.2', self.interface_ospfv2.backup_designated_router)
+        self.assertEqual(conf.NEIGHBOR_STATE_EXSTART, self.interface_ospfv2.neighbors['10.10.10.10'].neighbor_state)
+        self.assertEqual(conf.NEIGHBOR_STATE_EXSTART, self.interface_ospfv2.neighbors['11.11.11.11'].neighbor_state)
         self.assertEqual(conf.INTERFACE_STATE_DR, self.interface_ospfv3.state)
         self.assertEqual(conf.ROUTER_ID, self.interface_ospfv3.designated_router)
         self.assertEqual('2.2.2.2', self.interface_ospfv3.backup_designated_router)
@@ -487,26 +496,26 @@ class InterfaceTest(unittest.TestCase):
         #  Cold start with different priorities
 
         neighbor_v2_1.neighbor_priority = 4
-        neighbor_v2_1.neighbor_id = '1.1.1.1'
+        neighbor_v2_1.neighbor_ip_address = '222.222.0.1'
         neighbor_v2_2.neighbor_priority = 2
-        neighbor_v2_2.neighbor_id = '2.2.2.2'
+        neighbor_v2_2.neighbor_ip_address = '222.222.0.2'
         neighbor_v3_1.neighbor_priority = 4
         neighbor_v3_1.neighbor_id = '1.1.1.1'
         neighbor_v3_2.neighbor_priority = 2
         neighbor_v3_2.neighbor_id = '2.2.2.2'
 
         #  This router will be non-DR/BDR
-        self.interface_ospfv2.neighbors['1.1.1.1'] = neighbor_v2_1
+        self.interface_ospfv2.neighbors['10.10.10.10'] = neighbor_v2_1
         self.interface_ospfv3.neighbors['1.1.1.1'] = neighbor_v3_1
-        self.interface_ospfv2.neighbors['2.2.2.2'] = neighbor_v2_2
+        self.interface_ospfv2.neighbors['11.11.11.11'] = neighbor_v2_2
         self.interface_ospfv3.neighbors['2.2.2.2'] = neighbor_v3_2
         self.interface_ospfv2.election_algorithm()
         self.interface_ospfv3.election_algorithm()
         self.assertEqual(conf.INTERFACE_STATE_DROTHER, self.interface_ospfv2.state)
-        self.assertEqual('1.1.1.1', self.interface_ospfv2.designated_router)
-        self.assertEqual('1.1.1.1', self.interface_ospfv2.backup_designated_router)
-        self.assertEqual(conf.NEIGHBOR_STATE_2_WAY, self.interface_ospfv2.neighbors['2.2.2.2'].neighbor_state)
-        self.assertEqual(conf.NEIGHBOR_STATE_EXSTART, self.interface_ospfv2.neighbors['1.1.1.1'].neighbor_state)
+        self.assertEqual('222.222.0.1', self.interface_ospfv2.designated_router)
+        self.assertEqual('222.222.0.1', self.interface_ospfv2.backup_designated_router)
+        self.assertEqual(conf.NEIGHBOR_STATE_2_WAY, self.interface_ospfv2.neighbors['11.11.11.11'].neighbor_state)
+        self.assertEqual(conf.NEIGHBOR_STATE_EXSTART, self.interface_ospfv2.neighbors['10.10.10.10'].neighbor_state)
         self.assertEqual(conf.INTERFACE_STATE_DROTHER, self.interface_ospfv3.state)
         self.assertEqual('1.1.1.1', self.interface_ospfv3.designated_router)
         self.assertEqual('1.1.1.1', self.interface_ospfv3.backup_designated_router)
@@ -522,22 +531,22 @@ class InterfaceTest(unittest.TestCase):
         self.interface_ospfv3.router_priority = 3
 
         #  This router will be BDR
-        self.interface_ospfv2.neighbors['1.1.1.1'] = neighbor_v2_1
+        self.interface_ospfv2.neighbors['10.10.10.10'] = neighbor_v2_1
         self.interface_ospfv3.neighbors['1.1.1.1'] = neighbor_v3_1
-        self.interface_ospfv2.neighbors['2.2.2.2'] = neighbor_v2_2
+        self.interface_ospfv2.neighbors['11.11.11.11'] = neighbor_v2_2
         self.interface_ospfv3.neighbors['2.2.2.2'] = neighbor_v3_2
         self.interface_ospfv2.election_algorithm()
         self.interface_ospfv3.election_algorithm()
         self.assertEqual(conf.INTERFACE_STATE_DROTHER, self.interface_ospfv2.state)
-        self.assertEqual('1.1.1.1', self.interface_ospfv2.designated_router)
-        self.assertEqual('1.1.1.1', self.interface_ospfv2.backup_designated_router)
-        self.assertEqual(conf.NEIGHBOR_STATE_2_WAY, self.interface_ospfv2.neighbors['2.2.2.2'].neighbor_state)
-        self.assertEqual(conf.NEIGHBOR_STATE_EXSTART, self.interface_ospfv2.neighbors['1.1.1.1'].neighbor_state)
+        self.assertEqual('222.222.0.1', self.interface_ospfv2.designated_router)
+        self.assertEqual('222.222.0.1', self.interface_ospfv2.backup_designated_router)
+        self.assertEqual(conf.NEIGHBOR_STATE_2_WAY, self.interface_ospfv2.neighbors['11.11.11.11'].neighbor_state)
+        self.assertEqual(conf.NEIGHBOR_STATE_EXSTART, self.interface_ospfv2.neighbors['10.10.10.10'].neighbor_state)
         self.assertEqual(conf.INTERFACE_STATE_DROTHER, self.interface_ospfv3.state)
         self.assertEqual('1.1.1.1', self.interface_ospfv3.designated_router)
         self.assertEqual('1.1.1.1', self.interface_ospfv3.backup_designated_router)
-        self.assertEqual(conf.NEIGHBOR_STATE_2_WAY, self.interface_ospfv2.neighbors['2.2.2.2'].neighbor_state)
-        self.assertEqual(conf.NEIGHBOR_STATE_EXSTART, self.interface_ospfv2.neighbors['1.1.1.1'].neighbor_state)
+        self.assertEqual(conf.NEIGHBOR_STATE_2_WAY, self.interface_ospfv2.neighbors['11.11.11.11'].neighbor_state)
+        self.assertEqual(conf.NEIGHBOR_STATE_EXSTART, self.interface_ospfv2.neighbors['10.10.10.10'].neighbor_state)
         self.assertEqual(conf.NEIGHBOR_STATE_2_WAY, self.interface_ospfv3.neighbors['2.2.2.2'].neighbor_state)
         self.assertEqual(conf.NEIGHBOR_STATE_EXSTART, self.interface_ospfv3.neighbors['1.1.1.1'].neighbor_state)
 
@@ -550,17 +559,17 @@ class InterfaceTest(unittest.TestCase):
         self.interface_ospfv3.router_priority = 5
 
         #  This router will be DR
-        self.interface_ospfv2.neighbors['1.1.1.1'] = neighbor_v2_1
+        self.interface_ospfv2.neighbors['10.10.10.10'] = neighbor_v2_1
         self.interface_ospfv3.neighbors['1.1.1.1'] = neighbor_v3_1
-        self.interface_ospfv2.neighbors['2.2.2.2'] = neighbor_v2_2
+        self.interface_ospfv2.neighbors['11.11.11.11'] = neighbor_v2_2
         self.interface_ospfv3.neighbors['2.2.2.2'] = neighbor_v3_2
         self.interface_ospfv2.election_algorithm()
         self.interface_ospfv3.election_algorithm()
         self.assertEqual(conf.INTERFACE_STATE_DR, self.interface_ospfv2.state)
-        self.assertEqual(conf.ROUTER_ID, self.interface_ospfv2.designated_router)
-        self.assertEqual('1.1.1.1', self.interface_ospfv2.backup_designated_router)
-        self.assertEqual(conf.NEIGHBOR_STATE_EXSTART, self.interface_ospfv2.neighbors['2.2.2.2'].neighbor_state)
-        self.assertEqual(conf.NEIGHBOR_STATE_EXSTART, self.interface_ospfv2.neighbors['1.1.1.1'].neighbor_state)
+        self.assertEqual(self.interface_ospfv2.ipv4_address, self.interface_ospfv2.designated_router)
+        self.assertEqual('222.222.0.1', self.interface_ospfv2.backup_designated_router)
+        self.assertEqual(conf.NEIGHBOR_STATE_EXSTART, self.interface_ospfv2.neighbors['11.11.11.11'].neighbor_state)
+        self.assertEqual(conf.NEIGHBOR_STATE_EXSTART, self.interface_ospfv2.neighbors['10.10.10.10'].neighbor_state)
         self.assertEqual(conf.INTERFACE_STATE_DR, self.interface_ospfv3.state)
         self.assertEqual(conf.ROUTER_ID, self.interface_ospfv3.designated_router)
         self.assertEqual('1.1.1.1', self.interface_ospfv3.backup_designated_router)
@@ -580,17 +589,17 @@ class InterfaceTest(unittest.TestCase):
         self.interface_ospfv3.router_priority = 1
 
         #  This router is the only eligible to be DR/BDR
-        self.interface_ospfv2.neighbors['1.1.1.1'] = neighbor_v2_1
+        self.interface_ospfv2.neighbors['10.10.10.10'] = neighbor_v2_1
         self.interface_ospfv3.neighbors['1.1.1.1'] = neighbor_v3_1
-        self.interface_ospfv2.neighbors['2.2.2.2'] = neighbor_v2_2
+        self.interface_ospfv2.neighbors['11.11.11.11'] = neighbor_v2_2
         self.interface_ospfv3.neighbors['2.2.2.2'] = neighbor_v3_2
         self.interface_ospfv2.election_algorithm()
         self.interface_ospfv3.election_algorithm()
         self.assertEqual(conf.INTERFACE_STATE_DR, self.interface_ospfv2.state)
-        self.assertEqual(conf.ROUTER_ID, self.interface_ospfv2.designated_router)
+        self.assertEqual(self.interface_ospfv2.ipv4_address, self.interface_ospfv2.designated_router)
         self.assertEqual(conf.DEFAULT_DESIGNATED_ROUTER, self.interface_ospfv2.backup_designated_router)
-        self.assertEqual(conf.NEIGHBOR_STATE_EXSTART, self.interface_ospfv2.neighbors['2.2.2.2'].neighbor_state)
-        self.assertEqual(conf.NEIGHBOR_STATE_EXSTART, self.interface_ospfv2.neighbors['1.1.1.1'].neighbor_state)
+        self.assertEqual(conf.NEIGHBOR_STATE_EXSTART, self.interface_ospfv2.neighbors['11.11.11.11'].neighbor_state)
+        self.assertEqual(conf.NEIGHBOR_STATE_EXSTART, self.interface_ospfv2.neighbors['10.10.10.10'].neighbor_state)
         self.assertEqual(conf.INTERFACE_STATE_DR, self.interface_ospfv3.state)
         self.assertEqual(conf.ROUTER_ID, self.interface_ospfv3.designated_router)
         self.assertEqual(conf.DEFAULT_DESIGNATED_ROUTER, self.interface_ospfv3.backup_designated_router)
@@ -605,14 +614,16 @@ class InterfaceTest(unittest.TestCase):
 
         #  Router joins link where DR and BDR are elected
 
-        neighbor_v2_1 = neighbor.Neighbor('1.1.1.1', conf.ROUTER_PRIORITY, 1, '222.222.1.1', 0, '1.1.1.1', '2.2.2.2')
-        neighbor_v2_2 = neighbor.Neighbor('2.2.2.2', conf.ROUTER_PRIORITY, 2, '222.222.2.1', 0, '1.1.1.1', '2.2.2.2')
+        neighbor_v2_1 = neighbor.Neighbor('1.1.1.1', conf.ROUTER_PRIORITY, 1, '222.222.0.1', 0, '222.222.0.1',
+                                          '222.222.0.2')
+        neighbor_v2_2 = neighbor.Neighbor('2.2.2.2', conf.ROUTER_PRIORITY, 2, '222.222.0.2', 0, '222.222.0.1',
+                                          '222.222.0.2')
         neighbor_v2_1.set_neighbor_state(conf.NEIGHBOR_STATE_2_WAY)
         neighbor_v2_2.set_neighbor_state(conf.NEIGHBOR_STATE_2_WAY)
         neighbor_v3_1 = neighbor.Neighbor(
             '1.1.1.1', conf.ROUTER_PRIORITY, 1, '2001:db8:cafe:1::1', 0, '1.1.1.1', '2.2.2.2')
         neighbor_v3_2 = neighbor.Neighbor(
-            '2.2.2.2', conf.ROUTER_PRIORITY, 2, '2001:db8:cafe:2::1', 0, '1.1.1.1', '2.2.2.2')
+            '2.2.2.2', conf.ROUTER_PRIORITY, 2, '2001:db8:cafe:1::2', 0, '1.1.1.1', '2.2.2.2')
         neighbor_v3_1.set_neighbor_state(conf.NEIGHBOR_STATE_2_WAY)
         neighbor_v3_2.set_neighbor_state(conf.NEIGHBOR_STATE_2_WAY)
 
@@ -623,8 +634,8 @@ class InterfaceTest(unittest.TestCase):
         self.interface_ospfv2.election_algorithm()
         self.interface_ospfv3.election_algorithm()
         self.assertEqual(conf.INTERFACE_STATE_DROTHER, self.interface_ospfv2.state)
-        self.assertEqual('1.1.1.1', self.interface_ospfv2.designated_router)
-        self.assertEqual('2.2.2.2', self.interface_ospfv2.backup_designated_router)
+        self.assertEqual('222.222.0.1', self.interface_ospfv2.designated_router)
+        self.assertEqual('222.222.0.2', self.interface_ospfv2.backup_designated_router)
         self.assertEqual(conf.NEIGHBOR_STATE_EXSTART, self.interface_ospfv2.neighbors['2.2.2.2'].neighbor_state)
         self.assertEqual(conf.NEIGHBOR_STATE_EXSTART, self.interface_ospfv2.neighbors['1.1.1.1'].neighbor_state)
         self.assertEqual(conf.INTERFACE_STATE_DROTHER, self.interface_ospfv3.state)
@@ -644,7 +655,7 @@ class InterfaceTest(unittest.TestCase):
         self.interface_ospfv2.election_algorithm()
         self.interface_ospfv3.election_algorithm()
         self.assertEqual(conf.INTERFACE_STATE_DR, self.interface_ospfv2.state)
-        self.assertEqual(conf.ROUTER_ID, self.interface_ospfv2.designated_router)
+        self.assertEqual(self.interface_ospfv2.ipv4_address, self.interface_ospfv2.designated_router)
         self.assertEqual(conf.DEFAULT_DESIGNATED_ROUTER, self.interface_ospfv2.backup_designated_router)
         self.assertEqual(conf.INTERFACE_STATE_DR, self.interface_ospfv3.state)
         self.assertEqual(conf.ROUTER_ID, self.interface_ospfv3.designated_router)
@@ -658,16 +669,16 @@ class InterfaceTest(unittest.TestCase):
 
         #  Link DR fails
 
-        neighbor_v2_1 = neighbor.Neighbor(
-            '10.10.10.10', conf.ROUTER_PRIORITY, 1, '222.222.1.1', 0, '10.10.10.10', conf.ROUTER_ID)
+        neighbor_v2_1 = neighbor.Neighbor('10.10.10.10', conf.ROUTER_PRIORITY, 1, '222.222.1.10', 0, '222.222.1.10',
+                                          self.interface_ospfv2.ipv4_address)
         neighbor_v2_2 = neighbor.Neighbor(
-            '2.2.2.2', conf.ROUTER_PRIORITY, 2, '222.222.2.1', 0, '10.10.10.10', conf.ROUTER_ID)
+            '2.2.2.2', conf.ROUTER_PRIORITY, 2, '222.222.0.2', 0, '222.222.1.10', self.interface_ospfv2.ipv4_address)
         neighbor_v2_1.set_neighbor_state(conf.NEIGHBOR_STATE_DOWN)  # DR fails
         neighbor_v2_2.set_neighbor_state(conf.NEIGHBOR_STATE_FULL)
         neighbor_v3_1 = neighbor.Neighbor(
-            '10.10.10.10', conf.ROUTER_PRIORITY, 1, '2001:db8:cafe:1::1', 0, '10.10.10.10', conf.ROUTER_ID)
+            '10.10.10.10', conf.ROUTER_PRIORITY, 1, '2001:db8:cafe:1::10', 0, '10.10.10.10', conf.ROUTER_ID)
         neighbor_v3_2 = neighbor.Neighbor(
-            '2.2.2.2', conf.ROUTER_PRIORITY, 2, '2001:db8:cafe:2::1', 0, '10.10.10.10', conf.ROUTER_ID)
+            '2.2.2.2', conf.ROUTER_PRIORITY, 2, '2001:db8:cafe:1::2', 0, '10.10.10.10', conf.ROUTER_ID)
         neighbor_v3_1.set_neighbor_state(conf.NEIGHBOR_STATE_DOWN)
         neighbor_v3_2.set_neighbor_state(conf.NEIGHBOR_STATE_FULL)
 
@@ -676,15 +687,15 @@ class InterfaceTest(unittest.TestCase):
         self.interface_ospfv3.neighbors['10.10.10.10'] = neighbor_v3_1
         self.interface_ospfv2.neighbors['2.2.2.2'] = neighbor_v2_2
         self.interface_ospfv3.neighbors['2.2.2.2'] = neighbor_v3_2
-        self.interface_ospfv2.designated_router = '10.10.10.10'
-        self.interface_ospfv2.backup_designated_router = conf.ROUTER_ID
+        self.interface_ospfv2.designated_router = '222.222.1.10'
+        self.interface_ospfv2.backup_designated_router = self.interface_ospfv2.ipv4_address
         self.interface_ospfv3.designated_router = '10.10.10.10'
         self.interface_ospfv3.backup_designated_router = conf.ROUTER_ID
         self.interface_ospfv2.election_algorithm()
         self.interface_ospfv3.election_algorithm()
         self.assertEqual(conf.INTERFACE_STATE_DR, self.interface_ospfv2.state)
-        self.assertEqual(conf.ROUTER_ID, self.interface_ospfv2.designated_router)
-        self.assertEqual('2.2.2.2', self.interface_ospfv2.backup_designated_router)
+        self.assertEqual(self.interface_ospfv2.ipv4_address, self.interface_ospfv2.designated_router)
+        self.assertEqual('222.222.0.2', self.interface_ospfv2.backup_designated_router)
         self.assertEqual(conf.NEIGHBOR_STATE_FULL, self.interface_ospfv2.neighbors['2.2.2.2'].neighbor_state)
         self.assertEqual(conf.INTERFACE_STATE_DR, self.interface_ospfv3.state)
         self.assertEqual(conf.ROUTER_ID, self.interface_ospfv3.designated_router)
@@ -693,10 +704,10 @@ class InterfaceTest(unittest.TestCase):
 
         self.reset_interface(conf.INTERFACE_STATE_DROTHER)
         neighbor_v2_2.neighbor_id = '11.11.11.11'
-        neighbor_v2_1.neighbor_dr = '11.11.11.11'
-        neighbor_v2_1.neighbor_bdr = '10.10.10.10'
-        neighbor_v2_2.neighbor_dr = '11.11.11.11'
-        neighbor_v2_2.neighbor_bdr = '10.10.10.10'
+        neighbor_v2_1.neighbor_dr = '222.222.1.11'
+        neighbor_v2_1.neighbor_bdr = '222.222.1.10'
+        neighbor_v2_2.neighbor_dr = '222.222.1.11'
+        neighbor_v2_2.neighbor_bdr = '222.222.1.10'
         neighbor_v2_2.set_neighbor_state(conf.NEIGHBOR_STATE_DOWN)
         neighbor_v2_1.set_neighbor_state(conf.NEIGHBOR_STATE_FULL)
         neighbor_v3_2.neighbor_id = '11.11.11.11'
@@ -712,15 +723,15 @@ class InterfaceTest(unittest.TestCase):
         self.interface_ospfv3.neighbors['10.10.10.10'] = neighbor_v3_1
         self.interface_ospfv2.neighbors['11.11.11.11'] = neighbor_v2_2
         self.interface_ospfv3.neighbors['11.11.11.11'] = neighbor_v3_2
-        self.interface_ospfv2.designated_router = '11.11.11.11'
-        self.interface_ospfv2.backup_designated_router = '10.10.10.10'
+        self.interface_ospfv2.designated_router = '222.222.1.11'
+        self.interface_ospfv2.backup_designated_router = '222.222.1.10'
         self.interface_ospfv3.designated_router = '11.11.11.11'
         self.interface_ospfv3.backup_designated_router = '10.10.10.10'
         self.interface_ospfv2.election_algorithm()
         self.interface_ospfv3.election_algorithm()
         self.assertEqual(conf.INTERFACE_STATE_DROTHER, self.interface_ospfv2.state)
-        self.assertEqual('10.10.10.10', self.interface_ospfv2.designated_router)
-        self.assertEqual('10.10.10.10', self.interface_ospfv2.backup_designated_router)
+        self.assertEqual('222.222.1.10', self.interface_ospfv2.designated_router)
+        self.assertEqual('222.222.1.10', self.interface_ospfv2.backup_designated_router)
         self.assertEqual(conf.NEIGHBOR_STATE_FULL, self.interface_ospfv2.neighbors['10.10.10.10'].neighbor_state)
         self.assertEqual(conf.INTERFACE_STATE_DROTHER, self.interface_ospfv3.state)
         self.assertEqual('10.10.10.10', self.interface_ospfv3.designated_router)
@@ -728,12 +739,12 @@ class InterfaceTest(unittest.TestCase):
         self.assertEqual(conf.NEIGHBOR_STATE_FULL, self.interface_ospfv3.neighbors['10.10.10.10'].neighbor_state)
 
         self.reset_interface(conf.INTERFACE_STATE_DROTHER)
-        neighbor_v2_3 = neighbor.Neighbor('9.9.9.9', conf.ROUTER_PRIORITY, 2, '222.222.3.1', 0,
+        neighbor_v2_3 = neighbor.Neighbor('9.9.9.9', conf.ROUTER_PRIORITY, 2, '222.222.1.9', 0,
                                           conf.DEFAULT_DESIGNATED_ROUTER, conf.DEFAULT_DESIGNATED_ROUTER)
         neighbor_v2_2.set_neighbor_state(conf.NEIGHBOR_STATE_DOWN)
         neighbor_v2_1.set_neighbor_state(conf.NEIGHBOR_STATE_FULL)
         neighbor_v2_3.set_neighbor_state(conf.NEIGHBOR_STATE_2_WAY)
-        neighbor_v3_3 = neighbor.Neighbor('9.9.9.9', conf.ROUTER_PRIORITY, 2, '2001:db8:cafe:3::1', 0,
+        neighbor_v3_3 = neighbor.Neighbor('9.9.9.9', conf.ROUTER_PRIORITY, 2, '2001:db8:cafe:1::9', 0,
                                           conf.DEFAULT_DESIGNATED_ROUTER, conf.DEFAULT_DESIGNATED_ROUTER)
         neighbor_v3_2.set_neighbor_state(conf.NEIGHBOR_STATE_DOWN)
         neighbor_v3_1.set_neighbor_state(conf.NEIGHBOR_STATE_FULL)
@@ -746,15 +757,15 @@ class InterfaceTest(unittest.TestCase):
         self.interface_ospfv3.neighbors['11.11.11.11'] = neighbor_v3_2
         self.interface_ospfv2.neighbors['9.9.9.9'] = neighbor_v2_3
         self.interface_ospfv3.neighbors['9.9.9.9'] = neighbor_v3_3
-        self.interface_ospfv2.designated_router = '11.11.11.11'
-        self.interface_ospfv2.backup_designated_router = '10.10.10.10'
+        self.interface_ospfv2.designated_router = '222.222.1.11'
+        self.interface_ospfv2.backup_designated_router = '222.222.1.10'
         self.interface_ospfv3.designated_router = '11.11.11.11'
         self.interface_ospfv3.backup_designated_router = '10.10.10.10'
         self.interface_ospfv2.election_algorithm()
         self.interface_ospfv3.election_algorithm()
         self.assertEqual(conf.INTERFACE_STATE_DROTHER, self.interface_ospfv2.state)
-        self.assertEqual('10.10.10.10', self.interface_ospfv2.designated_router)
-        self.assertEqual('10.10.10.10', self.interface_ospfv2.backup_designated_router)
+        self.assertEqual('222.222.1.10', self.interface_ospfv2.designated_router)
+        self.assertEqual('222.222.1.10', self.interface_ospfv2.backup_designated_router)
         self.assertEqual(conf.NEIGHBOR_STATE_FULL, self.interface_ospfv2.neighbors['10.10.10.10'].neighbor_state)
         self.assertEqual(conf.INTERFACE_STATE_DROTHER, self.interface_ospfv3.state)
         self.assertEqual('10.10.10.10', self.interface_ospfv3.designated_router)
@@ -784,16 +795,16 @@ class InterfaceTest(unittest.TestCase):
     #  Successful run - Instant
     def test_election_algorithm_step_1(self):
         self.assertEqual(
-            [[conf.ROUTER_ID, conf.ROUTER_PRIORITY, self.interface_ospfv2.designated_router,
+            [[self.interface_ospfv2.ipv4_address, conf.ROUTER_PRIORITY, self.interface_ospfv2.designated_router,
               self.interface_ospfv2.backup_designated_router]], self.interface_ospfv2.election_algorithm_step_1())
         self.assertEqual(
             [[conf.ROUTER_ID, conf.ROUTER_PRIORITY, self.interface_ospfv3.designated_router,
               self.interface_ospfv3.backup_designated_router]], self.interface_ospfv3.election_algorithm_step_1())
 
-        neighbor_v2_1 = neighbor.Neighbor('10.10.10.10', 1, 1, '222.222.1.1', 0, '1.1.1.1', '2.2.2.2')
-        neighbor_v2_2 = neighbor.Neighbor('11.11.11.11', 2, 2, '222.222.2.1', 0, '3.3.3.3', '4.4.4.4')
-        neighbor_v3_1 = neighbor.Neighbor('10.10.10.10', 1, 1, '2001:db8:cafe:1::1', 0, '1.1.1.1', '2.2.2.2')
-        neighbor_v3_2 = neighbor.Neighbor('11.11.11.11', 2, 2, '2001:db8:cafe:2::1', 0, '3.3.3.3', '4.4.4.4')
+        neighbor_v2_1 = neighbor.Neighbor('10.10.10.10', 1, 1, '222.222.1.10', 0, '222.222.0.1', '222.222.0.2')
+        neighbor_v2_2 = neighbor.Neighbor('11.11.11.11', 2, 2, '222.222.1.11', 0, '222.222.0.3', '222.222.0.4')
+        neighbor_v3_1 = neighbor.Neighbor('10.10.10.10', 1, 1, '2001:db8:cafe:1::10', 0, '1.1.1.1', '2.2.2.2')
+        neighbor_v3_2 = neighbor.Neighbor('11.11.11.11', 2, 2, '2001:db8:cafe:1::11', 0, '3.3.3.3', '4.4.4.4')
         neighbor_v2_1.set_neighbor_state(conf.NEIGHBOR_STATE_2_WAY)
         neighbor_v2_2.set_neighbor_state(conf.NEIGHBOR_STATE_2_WAY)
         neighbor_v3_1.set_neighbor_state(conf.NEIGHBOR_STATE_2_WAY)
@@ -801,19 +812,21 @@ class InterfaceTest(unittest.TestCase):
 
         self.interface_ospfv2.neighbors['10.10.10.10'] = neighbor_v2_1
         self.interface_ospfv3.neighbors['10.10.10.10'] = neighbor_v3_1
-        self.assertEqual([[conf.ROUTER_ID, conf.ROUTER_PRIORITY, self.interface_ospfv2.designated_router,
-                           self.interface_ospfv2.backup_designated_router], ['10.10.10.10', 1, '1.1.1.1', '2.2.2.2']],
-                         self.interface_ospfv2.election_algorithm_step_1())
-        self.assertEqual([[conf.ROUTER_ID, conf.ROUTER_PRIORITY, self.interface_ospfv3.designated_router,
-                           self.interface_ospfv3.backup_designated_router], ['10.10.10.10', 1, '1.1.1.1', '2.2.2.2']],
-                         self.interface_ospfv3.election_algorithm_step_1())
+        self.assertEqual(
+            [[self.interface_ospfv2.ipv4_address, conf.ROUTER_PRIORITY, self.interface_ospfv2.designated_router,
+              self.interface_ospfv2.backup_designated_router], ['222.222.1.10', 1, '222.222.0.1', '222.222.0.2']],
+            self.interface_ospfv2.election_algorithm_step_1())
+        self.assertEqual(
+            [[conf.ROUTER_ID, conf.ROUTER_PRIORITY, self.interface_ospfv3.designated_router,
+              self.interface_ospfv3.backup_designated_router], ['10.10.10.10', 1, '1.1.1.1', '2.2.2.2']],
+            self.interface_ospfv3.election_algorithm_step_1())
 
         self.interface_ospfv2.neighbors['11.11.11.11'] = neighbor_v2_2
         self.interface_ospfv3.neighbors['11.11.11.11'] = neighbor_v3_2
         self.assertEqual(
-            [[conf.ROUTER_ID, conf.ROUTER_PRIORITY, self.interface_ospfv2.designated_router,
-              self.interface_ospfv2.backup_designated_router], ['10.10.10.10', 1, '1.1.1.1', '2.2.2.2'],
-             ['11.11.11.11', 2, '3.3.3.3', '4.4.4.4']], self.interface_ospfv2.election_algorithm_step_1())
+            [[self.interface_ospfv2.ipv4_address, conf.ROUTER_PRIORITY, self.interface_ospfv2.designated_router,
+              self.interface_ospfv2.backup_designated_router], ['222.222.1.10', 1, '222.222.0.1', '222.222.0.2'],
+             ['222.222.1.11', 2, '222.222.0.3', '222.222.0.4']], self.interface_ospfv2.election_algorithm_step_1())
         self.assertEqual(
             [[conf.ROUTER_ID, conf.ROUTER_PRIORITY, self.interface_ospfv3.designated_router,
               self.interface_ospfv3.backup_designated_router], ['10.10.10.10', 1, '1.1.1.1', '2.2.2.2'],
@@ -822,6 +835,8 @@ class InterfaceTest(unittest.TestCase):
         #  Shutdown
         neighbor_v2_1.delete_neighbor()
         neighbor_v2_2.delete_neighbor()
+        neighbor_v3_1.delete_neighbor()
+        neighbor_v3_2.delete_neighbor()
 
     #  Successful run - Instant
     def test_election_algorithm_step_2(self):
@@ -870,21 +885,63 @@ class InterfaceTest(unittest.TestCase):
         self.interface_ospfv2.designated_router = '0.0.0.0'
         self.interface_ospfv2.backup_designated_router = '0.0.0.0'
         first_run = True
+
         self.assertFalse(self.interface_ospfv2.election_algorithm_step_4('0.0.0.0', '0.0.0.0', first_run))
-        self.assertTrue(self.interface_ospfv2.election_algorithm_step_4('0.0.0.0', conf.ROUTER_ID, first_run))
-        self.assertTrue(self.interface_ospfv2.election_algorithm_step_4(conf.ROUTER_ID, '0.0.0.0', first_run))
+        self.assertTrue(self.interface_ospfv2.election_algorithm_step_4('0.0.0.0', self.interface_ospfv2.ipv4_address,
+                                                                        first_run))
+        self.assertTrue(self.interface_ospfv2.election_algorithm_step_4(self.interface_ospfv2.ipv4_address, '0.0.0.0',
+                                                                        first_run))
         self.interface_ospfv2.designated_router = '0.0.0.0'
-        self.interface_ospfv2.backup_designated_router = conf.ROUTER_ID
+        self.interface_ospfv2.backup_designated_router = self.interface_ospfv2.ipv4_address
         self.assertTrue(self.interface_ospfv2.election_algorithm_step_4('0.0.0.0', '0.0.0.0', first_run))
-        self.assertFalse(self.interface_ospfv2.election_algorithm_step_4('0.0.0.0', conf.ROUTER_ID, first_run))
-        self.assertTrue(self.interface_ospfv2.election_algorithm_step_4(conf.ROUTER_ID, '0.0.0.0', first_run))
-        self.interface_ospfv2.designated_router = conf.ROUTER_ID
+        self.assertFalse(self.interface_ospfv2.election_algorithm_step_4('0.0.0.0', self.interface_ospfv2.ipv4_address,
+                                                                         first_run))
+        self.assertTrue(self.interface_ospfv2.election_algorithm_step_4(self.interface_ospfv2.ipv4_address, '0.0.0.0',
+                                                                        first_run))
+        self.interface_ospfv2.designated_router = self.interface_ospfv2.ipv4_address
         self.interface_ospfv2.backup_designated_router = '0.0.0.0'
         self.assertTrue(self.interface_ospfv2.election_algorithm_step_4('0.0.0.0', '0.0.0.0', first_run))
-        self.assertTrue(self.interface_ospfv2.election_algorithm_step_4('0.0.0.0', conf.ROUTER_ID, first_run))
-        self.assertFalse(self.interface_ospfv2.election_algorithm_step_4(conf.ROUTER_ID, '0.0.0.0', first_run))
+        self.assertTrue(self.interface_ospfv2.election_algorithm_step_4('0.0.0.0', self.interface_ospfv2.ipv4_address,
+                                                                        first_run))
+        self.assertFalse(self.interface_ospfv2.election_algorithm_step_4(self.interface_ospfv2.ipv4_address, '0.0.0.0',
+                                                                         first_run))
+
+        self.assertFalse(self.interface_ospfv3.election_algorithm_step_4('0.0.0.0', '0.0.0.0', first_run))
+        self.assertTrue(self.interface_ospfv3.election_algorithm_step_4('0.0.0.0', conf.ROUTER_ID, first_run))
+        self.assertTrue(self.interface_ospfv3.election_algorithm_step_4(conf.ROUTER_ID, '0.0.0.0', first_run))
+        self.interface_ospfv3.designated_router = '0.0.0.0'
+        self.interface_ospfv3.backup_designated_router = conf.ROUTER_ID
+        self.assertTrue(self.interface_ospfv3.election_algorithm_step_4('0.0.0.0', '0.0.0.0', first_run))
+        self.assertFalse(self.interface_ospfv3.election_algorithm_step_4('0.0.0.0', conf.ROUTER_ID, first_run))
+        self.assertTrue(self.interface_ospfv3.election_algorithm_step_4(conf.ROUTER_ID, '0.0.0.0', first_run))
+        self.interface_ospfv3.designated_router = conf.ROUTER_ID
+        self.interface_ospfv3.backup_designated_router = '0.0.0.0'
+        self.assertTrue(self.interface_ospfv3.election_algorithm_step_4('0.0.0.0', '0.0.0.0', first_run))
+        self.assertTrue(self.interface_ospfv3.election_algorithm_step_4('0.0.0.0', conf.ROUTER_ID, first_run))
+        self.assertFalse(self.interface_ospfv3.election_algorithm_step_4(conf.ROUTER_ID, '0.0.0.0', first_run))
 
         first_run = False
+
+        self.assertFalse(self.interface_ospfv2.election_algorithm_step_4('0.0.0.0', '0.0.0.0', first_run))
+        self.assertFalse(self.interface_ospfv2.election_algorithm_step_4('0.0.0.0', self.interface_ospfv2.ipv4_address,
+                                                                         first_run))
+        self.assertFalse(self.interface_ospfv2.election_algorithm_step_4(self.interface_ospfv2.ipv4_address, '0.0.0.0',
+                                                                         first_run))
+        self.interface_ospfv2.designated_router = '0.0.0.0'
+        self.interface_ospfv2.backup_designated_router = self.interface_ospfv2.ipv4_address
+        self.assertFalse(self.interface_ospfv2.election_algorithm_step_4('0.0.0.0', '0.0.0.0', first_run))
+        self.assertFalse(self.interface_ospfv2.election_algorithm_step_4('0.0.0.0', self.interface_ospfv2.ipv4_address,
+                                                                         first_run))
+        self.assertFalse(self.interface_ospfv2.election_algorithm_step_4(self.interface_ospfv2.ipv4_address, '0.0.0.0',
+                                                                         first_run))
+        self.interface_ospfv2.designated_router = self.interface_ospfv2.ipv4_address
+        self.interface_ospfv2.backup_designated_router = '0.0.0.0'
+        self.assertFalse(self.interface_ospfv2.election_algorithm_step_4('0.0.0.0', '0.0.0.0', first_run))
+        self.assertFalse(self.interface_ospfv2.election_algorithm_step_4('0.0.0.0', self.interface_ospfv2.ipv4_address,
+                                                                         first_run))
+        self.assertFalse(self.interface_ospfv2.election_algorithm_step_4(self.interface_ospfv2.ipv4_address, '0.0.0.0',
+                                                                         first_run))
+
         self.assertFalse(self.interface_ospfv2.election_algorithm_step_4('0.0.0.0', '0.0.0.0', first_run))
         self.assertFalse(self.interface_ospfv2.election_algorithm_step_4('0.0.0.0', conf.ROUTER_ID, first_run))
         self.assertFalse(self.interface_ospfv2.election_algorithm_step_4(conf.ROUTER_ID, '0.0.0.0', first_run))
@@ -915,20 +972,20 @@ class InterfaceTest(unittest.TestCase):
         self.assertEqual(conf.INTERFACE_STATE_DROTHER, self.interface_ospfv2.state)
         self.assertEqual(conf.INTERFACE_STATE_DROTHER, self.interface_ospfv3.state)
 
-        self.interface_ospfv2.election_algorithm_step_5('0.0.0.0', conf.ROUTER_ID)
+        self.interface_ospfv2.election_algorithm_step_5('0.0.0.0', self.interface_ospfv2.ipv4_address)
         self.interface_ospfv3.election_algorithm_step_5('0.0.0.0', conf.ROUTER_ID)
         self.assertEqual(conf.INTERFACE_STATE_BACKUP, self.interface_ospfv2.state)
         self.assertEqual(conf.INTERFACE_STATE_BACKUP, self.interface_ospfv3.state)
-        self.interface_ospfv2.election_algorithm_step_5('0.0.0.0', conf.ROUTER_ID)
+        self.interface_ospfv2.election_algorithm_step_5('0.0.0.0', self.interface_ospfv2.ipv4_address)
         self.interface_ospfv3.election_algorithm_step_5('0.0.0.0', conf.ROUTER_ID)
         self.assertEqual(conf.INTERFACE_STATE_BACKUP, self.interface_ospfv2.state)
         self.assertEqual(conf.INTERFACE_STATE_BACKUP, self.interface_ospfv3.state)
 
-        self.interface_ospfv2.election_algorithm_step_5(conf.ROUTER_ID, '0.0.0.0')
+        self.interface_ospfv2.election_algorithm_step_5(self.interface_ospfv2.ipv4_address, '0.0.0.0')
         self.interface_ospfv3.election_algorithm_step_5(conf.ROUTER_ID, '0.0.0.0')
         self.assertEqual(conf.INTERFACE_STATE_DR, self.interface_ospfv2.state)
         self.assertEqual(conf.INTERFACE_STATE_DR, self.interface_ospfv3.state)
-        self.interface_ospfv2.election_algorithm_step_5(conf.ROUTER_ID, '0.0.0.0')
+        self.interface_ospfv2.election_algorithm_step_5(self.interface_ospfv2.ipv4_address, '0.0.0.0')
         self.interface_ospfv3.election_algorithm_step_5(conf.ROUTER_ID, '0.0.0.0')
         self.assertEqual(conf.INTERFACE_STATE_DR, self.interface_ospfv2.state)
         self.assertEqual(conf.INTERFACE_STATE_DR, self.interface_ospfv3.state)
