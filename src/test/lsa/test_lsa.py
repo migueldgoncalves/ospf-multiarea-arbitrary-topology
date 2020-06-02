@@ -185,3 +185,132 @@ class TestLsa(unittest.TestCase):
         self.assertEqual('fe80::c001:18ff:fe34:0', unpacked_lsa.body.link_local_address)
         self.assertEqual(1, unpacked_lsa.body.prefix_number)
         self.assertEqual([[64, 0, '2001:db8:cafe:3::']], unpacked_lsa.body.prefixes)
+
+    #  Successful run - Instant
+    def test_get_fresher_lsa_successful(self):
+        first, second = self.reset_lsa_instances()
+        #  Sequence Numbers are different
+        first.header.ls_sequence_number += 1
+        self.assertEqual(lsa.Lsa.FIRST, lsa.Lsa.get_fresher_lsa(first, second))
+        second.header.ls_sequence_number += 2
+        self.assertEqual(lsa.Lsa.SECOND, lsa.Lsa.get_fresher_lsa(first, second))
+        second.header.ls_sequence_number = 0xFFFFFFFF
+        self.assertEqual(lsa.Lsa.SECOND, lsa.Lsa.get_fresher_lsa(first, second))
+        first.header.ls_sequence_number = 0
+        self.assertEqual(lsa.Lsa.FIRST, lsa.Lsa.get_fresher_lsa(first, second))
+        second.header.ls_sequence_number = 1
+        self.assertEqual(lsa.Lsa.SECOND, lsa.Lsa.get_fresher_lsa(first, second))
+        first.header.ls_sequence_number = 0x7FFFFFFF
+        self.assertEqual(lsa.Lsa.FIRST, lsa.Lsa.get_fresher_lsa(first, second))
+
+        first, second = self.reset_lsa_instances()
+        #  Sequence Numbers are the same
+        #  Checksums are different
+        first.header.ls_checksum += 1
+        self.assertEqual(lsa.Lsa.FIRST, lsa.Lsa.get_fresher_lsa(first, second))
+        second.header.ls_checksum += 2
+        self.assertEqual(lsa.Lsa.SECOND, lsa.Lsa.get_fresher_lsa(first, second))
+
+        first, second = self.reset_lsa_instances()
+        #  Sequence Numbers are the same
+        #  Checksums are the same
+        #  One LS Age field is equal to 1 h and other is smaller
+        first.header.ls_age = conf.MAX_AGE
+        self.assertEqual(lsa.Lsa.FIRST, lsa.Lsa.get_fresher_lsa(first, second))
+        first.header.ls_age = conf.MAX_AGE - 1
+        second.header.ls_age = conf.MAX_AGE
+        self.assertEqual(lsa.Lsa.SECOND, lsa.Lsa.get_fresher_lsa(first, second))
+
+        first, second = self.reset_lsa_instances()
+        #  Sequence Numbers are the same
+        #  Checksums are the same
+        #  LS Age fields are different and smaller than 1 h
+        #  Difference between LS Age fields is larger than 15 min
+        first.header.ls_age = conf.MAX_AGE_DIFF + 1
+        self.assertEqual(lsa.Lsa.SECOND, lsa.Lsa.get_fresher_lsa(first, second))
+        first.header.ls_age = 0
+        second.header.ls_age = conf.MAX_AGE_DIFF + 1
+        self.assertEqual(lsa.Lsa.FIRST, lsa.Lsa.get_fresher_lsa(first, second))
+
+        first, second = self.reset_lsa_instances()
+        #  Sequence Numbers are the same
+        #  Checksums are the same
+        #  LS Age fields are smaller than 1 h
+        #  Difference between LS Age fields is 15 min or smaller
+        self.assertEqual(lsa.Lsa.BOTH, lsa.Lsa.get_fresher_lsa(first, second))
+        first.header.ls_age = conf.MAX_AGE_DIFF
+        self.assertEqual(lsa.Lsa.BOTH, lsa.Lsa.get_fresher_lsa(first, second))
+        first.header.ls_age = 0
+        second.header.ls_age = conf.MAX_AGE_DIFF
+        self.assertEqual(lsa.Lsa.BOTH, lsa.Lsa.get_fresher_lsa(first, second))
+
+        first, second = self.reset_lsa_instances()
+        #  Sequence Numbers are the same
+        #  Checksums are the same
+        #  LS Age fields are equal to 1 h
+        first.header.ls_age = conf.MAX_AGE
+        second.header.ls_age = conf.MAX_AGE
+        self.assertEqual(lsa.Lsa.BOTH, lsa.Lsa.get_fresher_lsa(first, second))
+
+    #  Successful run - Instant
+    def test_get_fresher_lsa_invalid_parameters(self):
+        first, second = self.reset_lsa_instances()
+        first.header.ls_sequence_number = 0x80000000
+        with self.assertRaises(ValueError):
+            lsa.Lsa.get_fresher_lsa(first, second)
+        first.header.ls_sequence_number = -1
+        with self.assertRaises(ValueError):
+            lsa.Lsa.get_fresher_lsa(first, second)
+        first.header.ls_sequence_number = conf.MAX_VALUE_32_BITS + 1
+        with self.assertRaises(ValueError):
+            lsa.Lsa.get_fresher_lsa(first, second)
+        first, second = self.reset_lsa_instances()
+        second.header.ls_sequence_number = 0x80000000
+        with self.assertRaises(ValueError):
+            lsa.Lsa.get_fresher_lsa(first, second)
+        second.header.ls_sequence_number = -1
+        with self.assertRaises(ValueError):
+            lsa.Lsa.get_fresher_lsa(first, second)
+        second.header.ls_sequence_number = conf.MAX_VALUE_32_BITS + 1
+        with self.assertRaises(ValueError):
+            lsa.Lsa.get_fresher_lsa(first, second)
+
+        first, second = self.reset_lsa_instances()
+        first.header.ls_checksum = -1
+        with self.assertRaises(ValueError):
+            lsa.Lsa.get_fresher_lsa(first, second)
+        first.header.ls_checksum = conf.MAX_VALUE_32_BITS + 1
+        with self.assertRaises(ValueError):
+            lsa.Lsa.get_fresher_lsa(first, second)
+        first, second = self.reset_lsa_instances()
+        second.header.ls_checksum = -1
+        with self.assertRaises(ValueError):
+            lsa.Lsa.get_fresher_lsa(first, second)
+        second.header.ls_checksum = conf.MAX_VALUE_32_BITS + 1
+        with self.assertRaises(ValueError):
+            lsa.Lsa.get_fresher_lsa(first, second)
+
+        first, second = self.reset_lsa_instances()
+        first.header.ls_age = -1
+        with self.assertRaises(ValueError):
+            lsa.Lsa.get_fresher_lsa(first, second)
+        first.header.ls_age = conf.MAX_AGE + 1
+        with self.assertRaises(ValueError):
+            lsa.Lsa.get_fresher_lsa(first, second)
+        first, second = self.reset_lsa_instances()
+        second.header.ls_age = -1
+        with self.assertRaises(ValueError):
+            lsa.Lsa.get_fresher_lsa(first, second)
+        second.header.ls_age = conf.MAX_AGE + 1
+        with self.assertRaises(ValueError):
+            lsa.Lsa.get_fresher_lsa(first, second)
+
+    @staticmethod
+    def reset_lsa_instances():
+        first = lsa.Lsa()
+        first.create_header(0, 0, conf.LSA_TYPE_ROUTER, '0.0.0.0', conf.ROUTER_ID, conf.INITIAL_SEQUENCE_NUMBER,
+                            conf.VERSION_IPV4)
+        second = lsa.Lsa()
+        second.create_header(0, 0, conf.LSA_TYPE_ROUTER, '0.0.0.0', conf.ROUTER_ID, conf.INITIAL_SEQUENCE_NUMBER,
+                             conf.VERSION_IPV4)
+        return first, second

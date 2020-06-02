@@ -16,6 +16,11 @@ This class serves as an interface to LSA creation, storage and manipulation, bot
 
 class Lsa:
 
+    #  Results when determining which of 2 LSA instances is fresher
+    FIRST = 'First'
+    SECOND = 'Second'
+    BOTH = 'Both'
+
     def __init__(self):
         self.header = None
         self.body = None
@@ -203,3 +208,63 @@ class Lsa:
         lsa_length_byte = lsa_bytes[18:20]  # 19th and 20th bytes of OSPF LSA are always its length
         lsa_length = struct.unpack("> H", lsa_length_byte)[0]
         return lsa_length
+
+    #  Given 2 instances of LSAs, states which of them is fresher or if both have same freshness
+    @staticmethod
+    def get_fresher_lsa(first, second):
+        first_sequence_number = first.header.ls_sequence_number
+        first_checksum = first.header.ls_checksum
+        first_age = first.header.ls_age
+        second_sequence_number = second.header.ls_sequence_number
+        second_checksum = second.header.ls_checksum
+        second_age = second.header.ls_age
+
+        if 0x80000000 in [first_sequence_number, second_sequence_number]:
+            raise ValueError("Invalid Sequence Number")
+        if (first_sequence_number < 0) | (first_sequence_number > conf.MAX_VALUE_32_BITS):
+            raise ValueError("Invalid Sequence Number")
+        if (second_sequence_number < 0) | (second_sequence_number > conf.MAX_VALUE_32_BITS):
+            raise ValueError("Invalid Sequence Number")
+        if not ((0 <= first_checksum <= conf.MAX_VALUE_32_BITS) & (0 <= second_checksum <= conf.MAX_VALUE_32_BITS)):
+            raise ValueError("Invalid checksum")
+        if not ((0 <= first_age <= conf.MAX_AGE) & (0 <= second_age <= conf.MAX_AGE)):
+            raise ValueError("Invalid LS Age")
+
+        if first_sequence_number != second_sequence_number:
+            #  Sequence Number goes from 0x80000001 to 0x7FFFFFFF
+            if ((first_sequence_number > 0x80000000) & (second_sequence_number > 0x80000000)) | (
+                    (first_sequence_number < 0x80000000) & (second_sequence_number < 0x80000000)):
+                if first_sequence_number > second_sequence_number:
+                    return Lsa.FIRST
+                else:
+                    return Lsa.SECOND
+            elif first_sequence_number < 0x80000000:
+                return Lsa.FIRST
+            else:
+                return Lsa.SECOND
+
+        elif first_checksum != second_checksum:
+            if first_checksum > second_checksum:
+                return Lsa.FIRST
+            else:
+                return Lsa.SECOND
+
+        elif (first_age == conf.MAX_AGE) & (second_age < conf.MAX_AGE):
+            return Lsa.FIRST
+        elif (second_age == conf.MAX_AGE) & (first_age < conf.MAX_AGE):
+            return Lsa.SECOND
+
+        elif (first_age < conf.MAX_AGE) & (second_age < conf.MAX_AGE):
+            if abs(first_age - second_age) > conf.MAX_AGE_DIFF:
+                if first_age < second_age:
+                    return Lsa.FIRST
+                else:
+                    return Lsa.SECOND
+            else:
+                return Lsa.BOTH
+
+        elif (first_age == conf.MAX_AGE) & (second_age == conf.MAX_AGE):
+            return Lsa.BOTH
+
+        else:
+            raise ValueError("Invalid LSA parameters")
