@@ -26,6 +26,11 @@ class AreaTest(unittest.TestCase):
         self.assertEqual(self.area_id, self.area_v3.area_id)
         self.assertEqual(self.external_routing_capable, self.area_v2.external_routing_capable)
         self.assertEqual(self.external_routing_capable, self.area_v3.external_routing_capable)
+        self.assertEqual(1, len(self.area_v2.database.get_lsdb(self.area_v2.get_interfaces(), None)))
+        self.assertEqual(2, len(self.area_v3.database.get_lsdb(self.area_v3.get_interfaces(), None)))
+        self.assertEqual(1, self.area_v2.database.get_lsdb(self.area_v2.get_interfaces(), None)[0].header.ls_type)
+        self.assertEqual(0x2001, self.area_v3.database.get_lsdb(self.area_v3.get_interfaces(), None)[0].header.ls_type)
+        self.assertEqual(0x2009, self.area_v3.database.get_lsdb(self.area_v3.get_interfaces(), None)[1].header.ls_type)
 
         interfaces_v2 = self.area_v2.interfaces
         interfaces_v3 = self.area_v3.interfaces
@@ -55,11 +60,6 @@ class AreaTest(unittest.TestCase):
         shutdown_event_v3 = interface_objects_v3[area.SHUTDOWN_EVENT]
         self.assertFalse(shutdown_event_v2.is_set())
         self.assertFalse(shutdown_event_v3.is_set())
-
-        self.assertEqual(1, len(self.area_v2.database.get_lsdb(self.area_v2.get_interfaces(), None)))
-        self.assertEqual(1, len(self.area_v3.database.get_lsdb(self.area_v3.get_interfaces(), None)))
-        self.assertEqual(1, self.area_v2.database.get_lsdb(self.area_v2.get_interfaces(), None)[0].header.ls_type)
-        self.assertEqual(0x2001, self.area_v3.database.get_lsdb(self.area_v3.get_interfaces(), None)[0].header.ls_type)
 
     #  Successful run - 1 s
     def test_constructor_invalid_parameters(self):

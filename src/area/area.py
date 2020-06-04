@@ -32,19 +32,7 @@ class Area:
 
         #  LSDB initialization
         self.database = lsdb.Lsdb()
-        router_lsa = lsa.Lsa()
-        if ospf_version == conf.VERSION_IPV4:
-            link_state_id = conf.ROUTER_ID
-        else:
-            link_state_id = '0.0.0.0'
-        router_lsa.create_header(conf.INITIAL_LS_AGE, conf.OPTIONS, conf.LSA_TYPE_ROUTER, link_state_id, conf.ROUTER_ID,
-                                 conf.INITIAL_SEQUENCE_NUMBER, ospf_version)
-        if ospf_version == conf.VERSION_IPV4:
-            options = 0
-        else:
-            options = conf.OPTIONS
-        router_lsa.create_router_lsa_body(False, False, False, options, ospf_version)
-        self.database.add_lsa(router_lsa)
+        self.populate_lsdb_startup()
 
         #  Creates the interfaces that belong to this area
         interface_list = conf.INTERFACE_NAMES
@@ -52,6 +40,32 @@ class Area:
         for i in range(len(interface_list)):
             if interface_areas[i] == self.area_id:  # If an interface belonging to this area is found in configurations
                 self.create_interface(interface_list[i])
+
+    #  Populates LSDB with LSAs that should be in it on startup
+    def populate_lsdb_startup(self):
+        router_lsa = lsa.Lsa()
+        if self.ospf_version == conf.VERSION_IPV4:
+            link_state_id = conf.ROUTER_ID
+            options = 0
+        else:
+            link_state_id = '0.0.0.0'
+            options = conf.OPTIONS
+        router_lsa.create_header(conf.INITIAL_LS_AGE, conf.OPTIONS, conf.LSA_TYPE_ROUTER, link_state_id, conf.ROUTER_ID,
+                                 conf.INITIAL_SEQUENCE_NUMBER, self.ospf_version)
+        router_lsa.create_router_lsa_body(False, False, False, options, self.ospf_version)
+        self.database.add_lsa(router_lsa)
+
+        if self.ospf_version == conf.VERSION_IPV6:
+            intra_area_prefix_lsa = lsa.Lsa()
+            referenced_ls_type = router_lsa.header.ls_type
+            referenced_link_state_id = router_lsa.header.link_state_id
+            referenced_advertising_router = router_lsa.header.advertising_router
+            intra_area_prefix_lsa.create_header(
+                conf.INITIAL_LS_AGE, conf.OPTIONS, conf.LSA_TYPE_INTRA_AREA_PREFIX, link_state_id, conf.ROUTER_ID,
+                conf.INITIAL_SEQUENCE_NUMBER, self.ospf_version)
+            intra_area_prefix_lsa.create_intra_area_prefix_lsa_body(referenced_ls_type, referenced_link_state_id,
+                                                                    referenced_advertising_router)
+            self.database.add_lsa(intra_area_prefix_lsa)
 
     #  Creates and starts an interface associated with this area
     def create_interface(self, interface_id):

@@ -1,6 +1,7 @@
 import unittest
 
 import lsa.lsa as lsa
+import lsa.header as header
 import conf.conf as conf
 
 '''
@@ -191,35 +192,35 @@ class TestLsa(unittest.TestCase):
         first, second = self.reset_lsa_instances()
         #  Sequence Numbers are different
         first.header.ls_sequence_number += 1
-        self.assertEqual(lsa.Lsa.FIRST, lsa.Lsa.get_fresher_lsa(first, second))
+        self.assertEqual(header.FIRST, lsa.Lsa.get_fresher_lsa(first, second))
         second.header.ls_sequence_number += 2
-        self.assertEqual(lsa.Lsa.SECOND, lsa.Lsa.get_fresher_lsa(first, second))
+        self.assertEqual(header.SECOND, lsa.Lsa.get_fresher_lsa(first, second))
         second.header.ls_sequence_number = 0xFFFFFFFF
-        self.assertEqual(lsa.Lsa.SECOND, lsa.Lsa.get_fresher_lsa(first, second))
+        self.assertEqual(header.SECOND, lsa.Lsa.get_fresher_lsa(first, second))
         first.header.ls_sequence_number = 0
-        self.assertEqual(lsa.Lsa.FIRST, lsa.Lsa.get_fresher_lsa(first, second))
+        self.assertEqual(header.FIRST, lsa.Lsa.get_fresher_lsa(first, second))
         second.header.ls_sequence_number = 1
-        self.assertEqual(lsa.Lsa.SECOND, lsa.Lsa.get_fresher_lsa(first, second))
+        self.assertEqual(header.SECOND, lsa.Lsa.get_fresher_lsa(first, second))
         first.header.ls_sequence_number = 0x7FFFFFFF
-        self.assertEqual(lsa.Lsa.FIRST, lsa.Lsa.get_fresher_lsa(first, second))
+        self.assertEqual(header.FIRST, lsa.Lsa.get_fresher_lsa(first, second))
 
         first, second = self.reset_lsa_instances()
         #  Sequence Numbers are the same
         #  Checksums are different
         first.header.ls_checksum += 1
-        self.assertEqual(lsa.Lsa.FIRST, lsa.Lsa.get_fresher_lsa(first, second))
+        self.assertEqual(header.FIRST, lsa.Lsa.get_fresher_lsa(first, second))
         second.header.ls_checksum += 2
-        self.assertEqual(lsa.Lsa.SECOND, lsa.Lsa.get_fresher_lsa(first, second))
+        self.assertEqual(header.SECOND, lsa.Lsa.get_fresher_lsa(first, second))
 
         first, second = self.reset_lsa_instances()
         #  Sequence Numbers are the same
         #  Checksums are the same
         #  One LS Age field is equal to 1 h and other is smaller
         first.header.ls_age = conf.MAX_AGE
-        self.assertEqual(lsa.Lsa.FIRST, lsa.Lsa.get_fresher_lsa(first, second))
+        self.assertEqual(header.FIRST, lsa.Lsa.get_fresher_lsa(first, second))
         first.header.ls_age = conf.MAX_AGE - 1
         second.header.ls_age = conf.MAX_AGE
-        self.assertEqual(lsa.Lsa.SECOND, lsa.Lsa.get_fresher_lsa(first, second))
+        self.assertEqual(header.SECOND, lsa.Lsa.get_fresher_lsa(first, second))
 
         first, second = self.reset_lsa_instances()
         #  Sequence Numbers are the same
@@ -227,22 +228,22 @@ class TestLsa(unittest.TestCase):
         #  LS Age fields are different and smaller than 1 h
         #  Difference between LS Age fields is larger than 15 min
         first.header.ls_age = conf.MAX_AGE_DIFF + 1
-        self.assertEqual(lsa.Lsa.SECOND, lsa.Lsa.get_fresher_lsa(first, second))
+        self.assertEqual(header.SECOND, lsa.Lsa.get_fresher_lsa(first, second))
         first.header.ls_age = 0
         second.header.ls_age = conf.MAX_AGE_DIFF + 1
-        self.assertEqual(lsa.Lsa.FIRST, lsa.Lsa.get_fresher_lsa(first, second))
+        self.assertEqual(header.FIRST, lsa.Lsa.get_fresher_lsa(first, second))
 
         first, second = self.reset_lsa_instances()
         #  Sequence Numbers are the same
         #  Checksums are the same
         #  LS Age fields are smaller than 1 h
         #  Difference between LS Age fields is 15 min or smaller
-        self.assertEqual(lsa.Lsa.BOTH, lsa.Lsa.get_fresher_lsa(first, second))
+        self.assertEqual(header.BOTH, lsa.Lsa.get_fresher_lsa(first, second))
         first.header.ls_age = conf.MAX_AGE_DIFF
-        self.assertEqual(lsa.Lsa.BOTH, lsa.Lsa.get_fresher_lsa(first, second))
+        self.assertEqual(header.BOTH, lsa.Lsa.get_fresher_lsa(first, second))
         first.header.ls_age = 0
         second.header.ls_age = conf.MAX_AGE_DIFF
-        self.assertEqual(lsa.Lsa.BOTH, lsa.Lsa.get_fresher_lsa(first, second))
+        self.assertEqual(header.BOTH, lsa.Lsa.get_fresher_lsa(first, second))
 
         first, second = self.reset_lsa_instances()
         #  Sequence Numbers are the same
@@ -250,10 +251,17 @@ class TestLsa(unittest.TestCase):
         #  LS Age fields are equal to 1 h
         first.header.ls_age = conf.MAX_AGE
         second.header.ls_age = conf.MAX_AGE
-        self.assertEqual(lsa.Lsa.BOTH, lsa.Lsa.get_fresher_lsa(first, second))
+        self.assertEqual(header.BOTH, lsa.Lsa.get_fresher_lsa(first, second))
 
     #  Successful run - Instant
     def test_get_fresher_lsa_invalid_parameters(self):
+        first, second = self.reset_lsa_instances()
+        with self.assertRaises(ValueError):
+            lsa.Lsa.get_fresher_lsa(None, second)
+        with self.assertRaises(ValueError):
+            lsa.Lsa.get_fresher_lsa(first, None)
+        with self.assertRaises(ValueError):
+            lsa.Lsa.get_fresher_lsa(None, None)
         first, second = self.reset_lsa_instances()
         first.header.ls_sequence_number = 0x80000000
         with self.assertRaises(ValueError):
