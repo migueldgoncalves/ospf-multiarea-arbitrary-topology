@@ -1,4 +1,5 @@
 import unittest
+import copy
 
 import packet.packet as packet
 import conf.conf as conf
@@ -302,3 +303,21 @@ class PacketTest(unittest.TestCase):
         self.assertEqual(0, self.packet_v3.header.checksum)
         self.assertEqual(self.area_id, self.packet_v3.header.area_id)
         self.assertIsNone(self.packet_v3.body)
+
+    #  Successful run - Instant
+    def test_deep_copy(self):
+        self.packet_v2.create_hello_v2_packet_body('255.255.255.0', 10, 18, 1, 40, '222.222.1.1', '0.0.0.0', ())
+
+        new_packet = self.packet_v2
+        new_packet.header.version = 5
+        new_packet.body.hello_interval = 20
+        self.assertEqual(5, self.packet_v2.header.version)
+        self.assertEqual(20, self.packet_v2.body.hello_interval)
+
+        deep_copy = copy.deepcopy(self.packet_v2)
+        deep_copy.header.version = 10
+        deep_copy.body.hello_interval = 100
+        self.assertEqual(10, deep_copy.header.version)
+        self.assertEqual(100, deep_copy.body.hello_interval)
+        self.assertEqual(5, self.packet_v2.header.version)
+        self.assertEqual(20, self.packet_v2.body.hello_interval)

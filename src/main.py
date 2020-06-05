@@ -66,13 +66,13 @@ class Main(cmd.Cmd):
 
     def preloop(self):
         print("Starting router...")
-        self.command_pipeline_v2 = queue.Queue()
-        self.command_pipeline_v3 = queue.Queue()
         self.shutdown_event_v2 = threading.Event()
         self.shutdown_event_v3 = threading.Event()
 
-        self.router_v2 = router.Router(conf.VERSION_IPV4, self.command_pipeline_v2, self.shutdown_event_v2)
-        self.router_v3 = router.Router(conf.VERSION_IPV6, self.command_pipeline_v3, self.shutdown_event_v3)
+        self.router_v2 = router.Router(
+            conf.VERSION_IPV4, self.shutdown_event_v2, conf.INTERFACE_NAMES, conf.INTERFACE_AREAS, False, [])
+        self.router_v3 = router.Router(
+            conf.VERSION_IPV6, self.shutdown_event_v3, conf.INTERFACE_NAMES, conf.INTERFACE_AREAS, False, [])
 
         self.thread_v2 = threading.Thread(target=self.router_v2.main_loop)
         self.thread_v3 = threading.Thread(target=self.router_v3.main_loop)

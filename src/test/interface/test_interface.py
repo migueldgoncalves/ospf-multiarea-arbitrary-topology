@@ -58,10 +58,12 @@ class InterfaceTest(unittest.TestCase):
         #  Creates thread with socket that listens for packets from the router itself
         thread_socket_v2 = threading.Thread(
             target=socket_v2.receive_ipv4,
-            args=(socket_pipeline_v2, socket_shutdown_v2, self.interface_identifier, accept_self_packets, is_dr))
+            args=(socket_pipeline_v2, socket_shutdown_v2, self.interface_identifier, accept_self_packets, is_dr, False,
+                  None))
         thread_socket_v3 = threading.Thread(
             target=socket_v3.receive_ipv6,
-            args=(socket_pipeline_v3, socket_shutdown_v3, self.interface_identifier, accept_self_packets, is_dr))
+            args=(socket_pipeline_v3, socket_shutdown_v3, self.interface_identifier, accept_self_packets, is_dr, False,
+                  None))
         thread_socket_v2.start()
         thread_socket_v3.start()
 
@@ -200,10 +202,12 @@ class InterfaceTest(unittest.TestCase):
         #  Creates thread with socket that listens for packets in the network
         thread_socket_v2 = threading.Thread(
             target=socket_v2.receive_ipv4,
-            args=(socket_pipeline_v2, socket_shutdown_v2, self.interface_identifier, accept_self_packets, is_dr))
+            args=(socket_pipeline_v2, socket_shutdown_v2, self.interface_identifier, accept_self_packets, is_dr, False,
+                  None))
         thread_socket_v3 = threading.Thread(
             target=socket_v3.receive_ipv6,
-            args=(socket_pipeline_v3, socket_shutdown_v3, self.interface_identifier, accept_self_packets, is_dr))
+            args=(socket_pipeline_v3, socket_shutdown_v3, self.interface_identifier, accept_self_packets, is_dr, False,
+                  None))
         thread_socket_v2.start()
         thread_socket_v3.start()
 
@@ -1013,23 +1017,6 @@ class InterfaceTest(unittest.TestCase):
     def test_create_hello_packet_successful(self):
         new_packet = self.interface_ospfv2.create_hello_packet().pack_packet()
         self.assertEqual(PACKET_BYTES, new_packet)
-
-    #  Successful run - Instant
-    def test_ospf_identifier_generator(self):
-        identifiers_tuple = ()
-        self.assertEqual(0, interface.Interface.ospf_identifier_generator(self.interface_identifier, identifiers_tuple))
-        identifiers_tuple = (self.interface_identifier,)
-        self.assertEqual(1, interface.Interface.ospf_identifier_generator(self.interface_identifier, identifiers_tuple))
-        identifiers_tuple = ("An interface",)
-        self.assertEqual(0, interface.Interface.ospf_identifier_generator(self.interface_identifier, identifiers_tuple))
-        identifiers_tuple = (self.interface_identifier, "Another interface",)
-        self.assertEqual(1, interface.Interface.ospf_identifier_generator(self.interface_identifier, identifiers_tuple))
-        identifiers_tuple = ("An interface", self.interface_identifier,)
-        self.assertEqual(2, interface.Interface.ospf_identifier_generator(self.interface_identifier, identifiers_tuple))
-        identifiers_tuple = ("An interface", "Another interface",)
-        self.assertEqual(0, interface.Interface.ospf_identifier_generator(self.interface_identifier, identifiers_tuple))
-        identifiers_tuple = (self.interface_identifier, self.interface_identifier,)
-        self.assertEqual(1, interface.Interface.ospf_identifier_generator(self.interface_identifier, identifiers_tuple))
 
     #  #  #  #  #  #  #  #  #  #  #  #
     #  Link-local LSA list methods  #

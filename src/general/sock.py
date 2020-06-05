@@ -20,7 +20,7 @@ class Socket:
         self.is_dr = False  # If router is DR/BDR - Global parameter only needed for testing purposes
 
     #  Listens to IPv4 packets in the network until signaled to stop
-    def receive_ipv4(self, pipeline, shutdown, interface, accept_self_packets, is_dr):
+    def receive_ipv4(self, pipeline, shutdown, interface, accept_self_packets, is_dr, localhost, network):
         if pipeline is None:
             raise ValueError("No pipeline provided")
         if shutdown is None:
@@ -29,6 +29,9 @@ class Socket:
             raise ValueError("No interface to bind provided")
         if interface.strip() == '':
             raise ValueError("Empty interface to bind provided")
+        #  If router is operating on localhost, a list of IP addresses in the network is required
+        if localhost & (network is None):
+            raise ValueError("No interface IP addresses provided")
 
         #  Creates socket and binds it to interface
         self.is_dr = is_dr
@@ -46,15 +49,23 @@ class Socket:
 
         #  Listens to packets from the network
         while not shutdown.is_set():
-            data = s.recvfrom(conf.MTU)  # Includes IP header
-            array = Socket.process_ipv4_data(data[0])  # [packet_byte_stream, source_ip_address]
-            #  If packet is not from itself OR if packets from itself are allowed
-            if (array[1] != utils.Utils.get_ipv4_address_from_interface_name(interface)) | accept_self_packets:
-                pipeline.put(array)
+            s.settimeout(0.1)
+            try:
+                data = s.recvfrom(conf.MTU)  # Includes IP header
+                array = Socket.process_ipv4_data(data[0])  # [packet_byte_stream, source_ip_address]
+                #  If packet is not from itself OR if packets from itself are allowed
+                if (array[1] != utils.Utils.get_ipv4_address_from_interface_name(interface)) | accept_self_packets:
+                    if not localhost:
+                        pipeline.put(array)
+                    #  If router is operating on localhost and packet comes from the network
+                    elif localhost & (array[1] in network):
+                        pipeline.put(array)
+            except socket.timeout:
+                pass  # Required since program will block until packet is received
         s.close()
 
     #  Listens to IPv6 packets in the network until signaled to stop
-    def receive_ipv6(self, pipeline, shutdown, interface, accept_self_packets, is_dr):
+    def receive_ipv6(self, pipeline, shutdown, interface, accept_self_packets, is_dr, localhost, network):
         if pipeline is None:
             raise ValueError("No pipeline provided")
         if shutdown is None:
@@ -63,6 +74,9 @@ class Socket:
             raise ValueError("No interface to bind provided")
         if interface.strip() == '':
             raise ValueError("Empty interface to bind provided")
+        #  If router is operating on localhost, a list of IP addresses in the network is required
+        if localhost & (network is None):
+            raise ValueError("No interface IP addresses provided")
 
         #  Creates socket and binds it to interface
         self.is_dr = is_dr
@@ -80,14 +94,22 @@ class Socket:
 
         #  Listens to packets from the network
         while not shutdown.is_set():
-            data = s.recvfrom(conf.MTU)  # Does not include IP header
-            packet_bytes = data[0]
-            source_ip_address = data[1][0].split('%')[0]
-            link_local_address = utils.Utils.get_ipv6_link_local_address_from_interface_name(interface)
-            global_address = utils.Utils.get_ipv6_global_address_from_interface_name(interface)
-            #  If packet is not from itself OR if packets from itself are allowed
-            if (source_ip_address not in [link_local_address, global_address]) | accept_self_packets:
-                pipeline.put([packet_bytes, source_ip_address])
+            s.settimeout(0.1)
+            try:
+                data = s.recvfrom(conf.MTU)  # Does not include IP header
+                packet_bytes = data[0]
+                source_ip_address = data[1][0].split('%')[0]
+                link_local_address = utils.Utils.get_ipv6_link_local_address_from_interface_name(interface)
+                global_address = utils.Utils.get_ipv6_global_address_from_interface_name(interface)
+                #  If packet is not from itself OR if packets from itself are allowed
+                if (source_ip_address not in [link_local_address, global_address]) | accept_self_packets:
+                    if not localhost:
+                        pipeline.put([packet_bytes, source_ip_address])
+                    #  If router is operating on localhost and packet comes from the network
+                    elif localhost & (source_ip_address in network):
+                        pipeline.put([packet_bytes, source_ip_address])
+            except socket.timeout:
+                pass
         s.close()
 
     #  Sends the supplied IPv4 packet to the supplied address through the supplied interface

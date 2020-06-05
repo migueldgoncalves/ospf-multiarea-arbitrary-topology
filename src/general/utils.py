@@ -198,3 +198,21 @@ class Utils:
         if binary_mask | ((1 << zero_bits) - 1) != max_value:  # "1100" | "0011" = "1111"
             return False  # Bits to the left include 0's
         return True
+
+    #  Given an IP address and a network mask, return True if the address is part of the network
+    @staticmethod
+    def is_ip_in_network(ip_address, interface_name):
+        if not (Utils.is_ipv4_address(ip_address) | Utils.is_ipv6_address(ip_address)):
+            return False
+        elif Utils.is_ipv4_address(ip_address):
+            network_prefix = Utils.get_ipv4_prefix_from_interface_name(interface_name)
+            decimal_network_prefix = Utils.ipv4_to_decimal(network_prefix[0])
+            decimal_ip_address = Utils.ipv4_to_decimal(ip_address) >> (32 - network_prefix[1])
+            return decimal_ip_address == (decimal_network_prefix >> (32 - network_prefix[1]))
+        elif Utils.is_ipv6_address(ip_address):
+            network_prefix = Utils.get_ipv6_prefix_from_interface_name(interface_name)
+            decimal_network_prefix = Utils.ipv6_to_decimal(network_prefix[0])
+            decimal_ip_address = Utils.ipv6_to_decimal(ip_address) >> (128 - network_prefix[1])
+            return decimal_ip_address == (decimal_network_prefix >> (128 - network_prefix[1]))
+        else:
+            return False

@@ -20,7 +20,7 @@ SHUTDOWN_EVENT = 3
 
 class Area:
 
-    def __init__(self, ospf_version, area_id, external_routing_capable):
+    def __init__(self, ospf_version, area_id, external_routing_capable, interfaces, areas):
         if ospf_version not in [conf.VERSION_IPV4, conf.VERSION_IPV6]:
             raise ValueError("Invalid OSPF version")
         if not utils.Utils.is_ipv4_address(area_id):
@@ -35,11 +35,9 @@ class Area:
         self.populate_lsdb_startup()
 
         #  Creates the interfaces that belong to this area
-        interface_list = conf.INTERFACE_NAMES
-        interface_areas = conf.INTERFACE_AREAS
-        for i in range(len(interface_list)):
-            if interface_areas[i] == self.area_id:  # If an interface belonging to this area is found in configurations
-                self.create_interface(interface_list[i])
+        for i in range(len(interfaces)):
+            if areas[i] == self.area_id:  # If an interface belonging to this area is found
+                self.create_interface(interfaces[i])
 
     #  Populates LSDB with LSAs that should be in it on startup
     def populate_lsdb_startup(self):

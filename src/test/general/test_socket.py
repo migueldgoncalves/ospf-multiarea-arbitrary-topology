@@ -37,7 +37,7 @@ class SocketTest(unittest.TestCase):
         accept_self_packets = False
         is_dr = False
         thread = threading.Thread(target=self.socket.receive_ipv4, args=(
-            self.pipeline, self.shutdown, conf.INTERFACE_NAMES[0], accept_self_packets, is_dr))
+            self.pipeline, self.shutdown, conf.INTERFACE_NAMES[0], accept_self_packets, is_dr, False, None))
         thread.start()
 
         while self.pipeline.qsize() == 0:
@@ -64,7 +64,7 @@ class SocketTest(unittest.TestCase):
         accept_self_packets = False
         is_dr = False
         thread = threading.Thread(target=self.socket.receive_ipv6, args=(
-            self.pipeline, self.shutdown, conf.INTERFACE_NAMES[0], accept_self_packets, is_dr))
+            self.pipeline, self.shutdown, conf.INTERFACE_NAMES[0], accept_self_packets, is_dr, False, None))
         thread.start()
 
         while self.pipeline.qsize() == 0:
@@ -91,7 +91,7 @@ class SocketTest(unittest.TestCase):
         accept_self_packets = False
         is_dr = False
         thread = threading.Thread(target=self.socket.receive_ipv4, args=(
-            self.pipeline, self.shutdown, conf.INTERFACE_NAMES[0], accept_self_packets, is_dr))
+            self.pipeline, self.shutdown, conf.INTERFACE_NAMES[0], accept_self_packets, is_dr, False, None))
         thread.start()
         self.shutdown.set()
         thread.join()
@@ -99,7 +99,7 @@ class SocketTest(unittest.TestCase):
 
         is_dr = True
         thread = threading.Thread(target=self.socket.receive_ipv4, args=(
-            self.pipeline, self.shutdown, conf.INTERFACE_NAMES[0], accept_self_packets, is_dr))
+            self.pipeline, self.shutdown, conf.INTERFACE_NAMES[0], accept_self_packets, is_dr, False, None))
         thread.start()
         self.shutdown.set()
         thread.join()
@@ -111,7 +111,7 @@ class SocketTest(unittest.TestCase):
         accept_self_packets = False
         is_dr = False
         thread = threading.Thread(target=self.socket.receive_ipv6, args=(
-            self.pipeline, self.shutdown, conf.INTERFACE_NAMES[0], accept_self_packets, is_dr))
+            self.pipeline, self.shutdown, conf.INTERFACE_NAMES[0], accept_self_packets, is_dr, False, None))
         thread.start()
         self.shutdown.set()
         thread.join()
@@ -119,7 +119,7 @@ class SocketTest(unittest.TestCase):
 
         is_dr = True
         thread = threading.Thread(target=self.socket.receive_ipv6, args=(
-            self.pipeline, self.shutdown, conf.INTERFACE_NAMES[0], accept_self_packets, is_dr))
+            self.pipeline, self.shutdown, conf.INTERFACE_NAMES[0], accept_self_packets, is_dr, False, None))
         thread.start()
         self.shutdown.set()
         thread.join()
@@ -131,19 +131,19 @@ class SocketTest(unittest.TestCase):
         is_dr = False
         with self.assertRaises(ValueError):
             sock.Socket.receive_ipv4(sock.Socket(), None, self.shutdown, conf.INTERFACE_NAMES[0],
-                                     accept_self_packets, is_dr)
+                                     accept_self_packets, is_dr, False, None)
         with self.assertRaises(ValueError):
             sock.Socket.receive_ipv4(sock.Socket(), self.pipeline, None, conf.INTERFACE_NAMES[0],
-                                     accept_self_packets, is_dr)
+                                     accept_self_packets, is_dr, False, None)
         with self.assertRaises(ValueError):
             sock.Socket.receive_ipv4(sock.Socket(), self.pipeline, self.shutdown, None,
-                                     accept_self_packets, is_dr)
+                                     accept_self_packets, is_dr, False, None)
         with self.assertRaises(ValueError):
             sock.Socket.receive_ipv4(sock.Socket(), self.pipeline, self.shutdown, '',
-                                     accept_self_packets, is_dr)
+                                     accept_self_packets, is_dr, False, None)
         with self.assertRaises(ValueError):
             sock.Socket.receive_ipv4(sock.Socket(), self.pipeline, self.shutdown, '        ',
-                                     accept_self_packets, is_dr)
+                                     accept_self_packets, is_dr, False, None)
 
     #  Successful run - Instant
     def test_receive_invalid_parameters_ipv6(self):
@@ -151,19 +151,19 @@ class SocketTest(unittest.TestCase):
         is_dr = False
         with self.assertRaises(ValueError):
             sock.Socket.receive_ipv6(sock.Socket(), None, self.shutdown, conf.INTERFACE_NAMES[0],
-                                     accept_self_packets, is_dr)
+                                     accept_self_packets, is_dr, False, None)
         with self.assertRaises(ValueError):
             sock.Socket.receive_ipv6(sock.Socket(), self.pipeline, None, conf.INTERFACE_NAMES[0],
-                                     accept_self_packets, is_dr)
+                                     accept_self_packets, is_dr, False, None)
         with self.assertRaises(ValueError):
             sock.Socket.receive_ipv6(sock.Socket(), self.pipeline, self.shutdown, None,
-                                     accept_self_packets, is_dr)
+                                     accept_self_packets, is_dr, False, None)
         with self.assertRaises(ValueError):
             sock.Socket.receive_ipv6(sock.Socket(), self.pipeline, self.shutdown, '',
-                                     accept_self_packets, is_dr)
+                                     accept_self_packets, is_dr, False, None)
         with self.assertRaises(ValueError):
             sock.Socket.receive_ipv6(sock.Socket(), self.pipeline, self.shutdown, '        ',
-                                     accept_self_packets, is_dr)
+                                     accept_self_packets, is_dr, False, None)
 
     #  Successful run - 11-21 s
     @timeout_decorator.timeout(TIMEOUT_SECONDS)
@@ -171,7 +171,7 @@ class SocketTest(unittest.TestCase):
         accept_self_packets = True
         is_dr = False
         thread = threading.Thread(target=self.socket.receive_ipv4, args=(
-            self.pipeline, self.shutdown, conf.INTERFACE_NAMES[0], accept_self_packets, is_dr))
+            self.pipeline, self.shutdown, conf.INTERFACE_NAMES[0], accept_self_packets, is_dr, False, None))
         thread.start()
         time.sleep(1)   # Needed to give CPU to other thread
         self.socket.send_ipv4(DATA_TO_SEND_OSPFV2, conf.ALL_OSPF_ROUTERS_IPV4, conf.INTERFACE_NAMES[0])
@@ -207,7 +207,7 @@ class SocketTest(unittest.TestCase):
         accept_self_packets = True
         is_dr = False
         thread = threading.Thread(target=self.socket.receive_ipv6, args=(
-            self.pipeline, self.shutdown, conf.INTERFACE_NAMES[0], accept_self_packets, is_dr))
+            self.pipeline, self.shutdown, conf.INTERFACE_NAMES[0], accept_self_packets, is_dr, False, None))
         thread.start()
         time.sleep(1)
         self.socket.send_ipv6(DATA_TO_SEND_OSPFV3, conf.ALL_OSPF_ROUTERS_IPV6, conf.INTERFACE_NAMES[0])

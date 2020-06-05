@@ -43,8 +43,8 @@ LSA_TYPE_INTRA_AREA_PREFIX = 9  # Just for OSPFv3
 
 #  1st element in interface names tuple must match 1st element in interface areas tuple, and so on
 #  Ex: Interface "ens33" belongs to area '0.0.0.0'
-INTERFACE_NAMES = ("ens33",)  # Must match interface names in the machine
-INTERFACE_AREAS = ('0.0.0.0',)
+INTERFACE_NAMES = ["ens33"]  # Must match interface names in the machine
+INTERFACE_AREAS = ['0.0.0.0']
 
 HELLO_INTERVAL = 10
 ROUTER_DEAD_INTERVAL = 40

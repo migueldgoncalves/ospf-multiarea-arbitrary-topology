@@ -19,6 +19,8 @@ class Interface:
     DR = 'DR'
     BDR = 'BDR'
 
+    ospf_identifier = 0
+
     def __init__(self, physical_identifier, ipv4_address, ipv6_address, network_mask, link_prefixes, area_id, pipeline,
                  interface_shutdown, version, lsdb):
 
@@ -28,7 +30,9 @@ class Interface:
         self.state = conf.INTERFACE_STATE_DOWN
         self.physical_identifier = physical_identifier  # Ex: ens33 - Interface identifier given by the OS
         #  Just for OSPFv3 - Interface identifier given by OSPF
-        self.ospf_identifier = Interface.ospf_identifier_generator(self.physical_identifier, conf.INTERFACE_NAMES)
+        if self.ospf_identifier == 0:
+            Interface.ospf_identifier += 1
+            self.ospf_identifier = Interface.ospf_identifier
         self.ipv4_address = ipv4_address  # Just for OSPFv2
         self.ipv6_address = ipv6_address  # Just for OSPFv3 - Link-local address
         self.network_mask = network_mask  # Just for OSPFv2
@@ -823,17 +827,6 @@ class Interface:
             if self.neighbors[n].neighbor_state not in [conf.NEIGHBOR_STATE_DOWN, conf.NEIGHBOR_STATE_INIT]:
                 adjacent_neighbors += 1
         return adjacent_neighbors
-
-    #  Given interface physical identifier, returns an unique OSPF interface identifier
-    @staticmethod
-    def ospf_identifier_generator(physical_identifier, identifiers_tuple):
-        if physical_identifier in identifiers_tuple:
-            i = 1
-            for identifier in identifiers_tuple:
-                if identifier == physical_identifier:
-                    return i
-                i += 1
-        return 0
 
     #  #  #  #  #  #  #  #  #  #  #  #
     #  Link-local LSA list methods  #

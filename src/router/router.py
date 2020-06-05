@@ -15,22 +15,36 @@ This class contains the top-level OSPF data structures and operations
 
 class Router:
 
-    def __init__(self, ospf_version, command_pipeline, router_shutdown_event):
+    def __init__(self, ospf_version, router_shutdown_event, interface_ids, area_ids, localhost,
+                 network_interfaces):
         if ospf_version not in [conf.VERSION_IPV4, conf.VERSION_IPV6]:
             raise ValueError("Invalid OSPF version")
         self.ospf_version = ospf_version
+
+        #  Localhost operation parameters - Only for test purposes
+
+        self.localhost = localhost  # If router is operating on localhost or not - If False router operates normally
+        self.network_interfaces = network_interfaces  # Contains list of interfaces in same localhost network
+        self.network_addresses = []
+        for identifier in self.network_interfaces:
+            if self.ospf_version == conf.VERSION_IPV4:
+                self.network_addresses.append(utils.Utils.get_ipv4_address_from_interface_name(identifier))
+            elif self.ospf_version == conf.VERSION_IPV6:
+                self.network_addresses.append(utils.Utils.get_ipv6_link_local_address_from_interface_name(identifier))
+        self.interface_ids = interface_ids  # Interfaces in this machine
+        self.area_ids = area_ids  # OSPF areas of the interfaces
 
         #  OSPF top-level parameters
 
         self.router_id = conf.ROUTER_ID
         self.areas = {}
-        area_ids = list(set(conf.INTERFACE_AREAS))
         external_routing_capable = False
-        for area_id in area_ids:
-            new_area = area.Area(self.ospf_version, area_id, external_routing_capable)
+        for area_id in self.area_ids:
+            new_area = area.Area(
+                self.ospf_version, area_id, external_routing_capable, self.interface_ids, self.area_ids)
             self.areas[area_id] = new_area
         self.interfaces = {}
-        for area_id in self.areas:
+        for area_id in self.area_ids:
             for interface_id in self.areas[area_id].interfaces:
                 self.interfaces[interface_id] = self.areas[area_id].interfaces[interface_id]
         self.max_ip_datagram = conf.MTU
@@ -41,31 +55,30 @@ class Router:
         self.packet_pipelines = {}
         for interface_id in self.interfaces:
             self.packet_pipelines[interface_id] = queue.Queue()
-        self.interface_shutdown_events = {}
+        self.socket_shutdown_events = {}
         for interface_id in self.interfaces:
-            self.interface_shutdown_events[interface_id] = threading.Event()
-        self.interface_threads = {}
+            self.socket_shutdown_events[interface_id] = threading.Event()
+        self.socket_threads = {}
         accept_self_packets = False
         is_dr = False
         for interface_id in self.interfaces:
             if self.ospf_version == conf.VERSION_IPV4:
-                self.interface_threads[interface_id] = threading.Thread(
+                self.socket_threads[interface_id] = threading.Thread(
                     target=self.packet_socket.receive_ipv4,
-                    args=(self.packet_pipelines[interface_id], self.interface_shutdown_events[interface_id],
-                          interface_id, accept_self_packets, is_dr))
+                    args=(self.packet_pipelines[interface_id], self.socket_shutdown_events[interface_id], interface_id,
+                          accept_self_packets, is_dr, localhost, self.network_addresses))
             else:
-                self.interface_threads[interface_id] = threading.Thread(
+                self.socket_threads[interface_id] = threading.Thread(
                     target=self.packet_socket.receive_ipv6,
-                    args=(self.packet_pipelines[interface_id], self.interface_shutdown_events[interface_id],
-                          interface_id, accept_self_packets, is_dr))
-            self.interface_threads[interface_id].start()
-        self.command_pipeline = command_pipeline
+                    args=(self.packet_pipelines[interface_id], self.socket_shutdown_events[interface_id], interface_id,
+                          accept_self_packets, is_dr, localhost, self.network_addresses))
+            self.socket_threads[interface_id].start()
         self.router_shutdown_event = router_shutdown_event
         self.start_time = datetime.datetime.now()
 
     #  OSPF router main loop
     def main_loop(self):
-        while not (self.router_shutdown_event.is_set()):  # Until router is signalled to shutdown
+        while not self.router_shutdown_event.is_set():  # Until router is signalled to shutdown
             #  Sends received packets to receiving interface
             for interface_id in self.packet_pipelines:
                 pipeline = self.packet_pipelines[interface_id]
@@ -172,9 +185,9 @@ class Router:
 
     #  Ensures router is down, and with it all of its area data structures and interfaces
     def shutdown_router(self):
-        for s in self.interface_shutdown_events:
-            self.interface_shutdown_events[s].set()
-        for t in self.interface_threads:
-            self.interface_threads[t].join()
+        for s in self.socket_shutdown_events:
+            self.socket_shutdown_events[s].set()
+        for t in self.socket_threads:
+            self.socket_threads[t].join()
         for a in self.areas:
             self.areas[a].shutdown_area()

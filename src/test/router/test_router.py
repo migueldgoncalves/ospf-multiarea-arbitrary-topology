@@ -1,5 +1,4 @@
 import unittest
-import queue
 import threading
 import time
 
@@ -16,14 +15,12 @@ This class tests the top-level OSPF operations in the router
 class RouterTest(unittest.TestCase):
 
     def setUp(self):
-        self.command_pipeline_v2 = queue.Queue()
-        self.command_pipeline_v3 = queue.Queue()
         self.shutdown_event_v2 = threading.Event()
         self.shutdown_event_v3 = threading.Event()
         self.router_v2 = router.Router(
-            conf.VERSION_IPV4, self.command_pipeline_v2, self.shutdown_event_v2)
+            conf.VERSION_IPV4, self.shutdown_event_v2, conf.INTERFACE_NAMES, conf.INTERFACE_AREAS, False, [])
         self.router_v3 = router.Router(
-            conf.VERSION_IPV6, self.command_pipeline_v3, self.shutdown_event_v3)
+            conf.VERSION_IPV6, self.shutdown_event_v3, conf.INTERFACE_NAMES, conf.INTERFACE_AREAS, False, [])
         self.thread_v2 = threading.Thread(target=self.router_v2.main_loop)
         self.thread_v3 = threading.Thread(target=self.router_v3.main_loop)
         self.thread_v2.start()
@@ -36,25 +33,25 @@ class RouterTest(unittest.TestCase):
 
         self.assertEqual(conf.ROUTER_ID, self.router_v2.router_id)
         self.assertEqual(conf.ROUTER_ID, self.router_v3.router_id)
-        self.assertEqual(len(list(set(conf.INTERFACE_AREAS))), len(self.router_v2.areas))
-        self.assertEqual(len(list(set(conf.INTERFACE_AREAS))), len(self.router_v3.areas))
+        self.assertEqual(len(list(set(conf.INTERFACE_AREAS))), len(self.router_v2.area_ids))
+        self.assertEqual(len(list(set(conf.INTERFACE_AREAS))), len(self.router_v3.area_ids))
         for area_id in conf.INTERFACE_AREAS:
-            if (area_id not in self.router_v2.areas) | (area_id not in self.router_v3.areas):
+            if (area_id not in self.router_v2.area_ids) | (area_id not in self.router_v3.area_ids):
                 self.fail("Router is missing one or more areas")
         self.assertEqual(len(conf.INTERFACE_NAMES), len(self.router_v2.interfaces))
         self.assertEqual(len(conf.INTERFACE_NAMES), len(self.router_v3.interfaces))
         router_interfaces_v2 = []
         router_interfaces_v3 = []
         for interface_id in self.router_v2.interfaces:
-            for area_id in self.router_v2.areas:
-                if interface_id in self.router_v2.areas[area_id].interfaces:
+            for area_id in self.router_v2.area_ids:
+                if interface_id in self.router_v2.area_ids[area_id].interfaces:
                     router_interfaces_v2.append(interface_id)
-                    self.assertTrue(self.router_v2.areas[area_id].is_interface_operating(interface_id))
+                    self.assertTrue(self.router_v2.area_ids[area_id].is_interface_operating(interface_id))
         for interface_id in self.router_v3.interfaces:
-            for area_id in self.router_v3.areas:
-                if interface_id in self.router_v3.areas[area_id].interfaces:
+            for area_id in self.router_v3.area_ids:
+                if interface_id in self.router_v3.area_ids[area_id].interfaces:
                     router_interfaces_v3.append(interface_id)
-                    self.assertTrue(self.router_v3.areas[area_id].is_interface_operating(interface_id))
+                    self.assertTrue(self.router_v3.area_ids[area_id].is_interface_operating(interface_id))
         self.assertEqual(set(conf.INTERFACE_NAMES), set(router_interfaces_v2))
         self.assertEqual(set(conf.INTERFACE_NAMES), set(router_interfaces_v3))
         self.assertEqual(conf.MTU, self.router_v2.max_ip_datagram)
@@ -62,24 +59,22 @@ class RouterTest(unittest.TestCase):
 
         self.assertEqual(len(conf.INTERFACE_NAMES), len(self.router_v2.packet_pipelines))
         self.assertEqual(len(conf.INTERFACE_NAMES), len(self.router_v3.packet_pipelines))
-        self.assertEqual(len(conf.INTERFACE_NAMES), len(self.router_v2.interface_shutdown_events))
-        self.assertEqual(len(conf.INTERFACE_NAMES), len(self.router_v3.interface_shutdown_events))
-        self.assertEqual(len(conf.INTERFACE_NAMES), len(self.router_v2.interface_threads))
-        self.assertEqual(len(conf.INTERFACE_NAMES), len(self.router_v3.interface_threads))
+        self.assertEqual(len(conf.INTERFACE_NAMES), len(self.router_v2.socket_shutdown_events))
+        self.assertEqual(len(conf.INTERFACE_NAMES), len(self.router_v3.socket_shutdown_events))
+        self.assertEqual(len(conf.INTERFACE_NAMES), len(self.router_v2.socket_threads))
+        self.assertEqual(len(conf.INTERFACE_NAMES), len(self.router_v3.socket_threads))
         for interface_id in self.router_v2.interfaces:
-            self.assertFalse(self.router_v2.interface_shutdown_events[interface_id].is_set())
-            self.assertTrue(self.router_v2.interface_threads[interface_id].isAlive())
+            self.assertFalse(self.router_v2.socket_shutdown_events[interface_id].is_set())
+            self.assertTrue(self.router_v2.socket_threads[interface_id].isAlive())
         for interface_id in self.router_v3.interfaces:
-            self.assertFalse(self.router_v3.interface_shutdown_events[interface_id].is_set())
-            self.assertTrue(self.router_v3.interface_threads[interface_id].isAlive())
-        self.assertTrue(self.router_v2.command_pipeline.empty())
-        self.assertTrue(self.router_v3.command_pipeline.empty())
+            self.assertFalse(self.router_v3.socket_shutdown_events[interface_id].is_set())
+            self.assertTrue(self.router_v3.socket_threads[interface_id].isAlive())
         self.assertFalse(self.router_v2.router_shutdown_event.is_set())
         self.assertFalse(self.router_v3.router_shutdown_event.is_set())
 
         for r in [self.router_v2, self.router_v3]:
-            for area_id in r.areas:
-                router_lsa = r.areas[area_id].database.get_lsdb([], None)[0]
+            for area_id in r.area_ids:
+                router_lsa = r.area_ids[area_id].database.get_lsdb([], None)[0]
                 time.sleep(2)
                 ls_age = router_lsa.header.ls_age
                 self.assertTrue(ls_age > 0)
@@ -98,9 +93,9 @@ class RouterTest(unittest.TestCase):
     #  Successful run - 0-10 s
     def test_constructor_invalid_parameters(self):
         with self.assertRaises(ValueError):
-            router.Router(1, self.command_pipeline_v2, self.shutdown_event_v2)
+            router.Router(1, self.shutdown_event_v2, conf.INTERFACE_NAMES, conf.INTERFACE_AREAS, False, [])
         with self.assertRaises(ValueError):
-            router.Router(4, self.command_pipeline_v2, self.shutdown_event_v2)
+            router.Router(4, self.shutdown_event_v2, conf.INTERFACE_NAMES, conf.INTERFACE_AREAS, False, [])
 
     def tearDown(self):
         self.shutdown_event_v2.set()
