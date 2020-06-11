@@ -1,5 +1,6 @@
 import socket
 import struct
+import queue
 
 import conf.conf as conf
 import general.utils as utils
@@ -17,10 +18,16 @@ ENCODING = "UTF-8"
 class Socket:
 
     def __init__(self):
-        self.is_dr = False  # If router is DR/BDR - Global parameter only needed for testing purposes
+        #  Test parameters
+        self.is_dr = False  # If router is DR/BDR
+        self.exit_pipeline_v2 = queue.Queue()
+        self.exit_pipeline_v3 = queue.Queue()
 
     #  Listens to IPv4 packets in the network until signaled to stop
-    def receive_ipv4(self, pipeline, shutdown, interface, accept_self_packets, is_dr, localhost, network):
+    def receive_ipv4(self, pipeline, shutdown, interface, accept_self_packets, is_dr, localhost):
+        if localhost:  # No sockets will be used in the integration tests
+            return
+
         if pipeline is None:
             raise ValueError("No pipeline provided")
         if shutdown is None:
@@ -29,9 +36,6 @@ class Socket:
             raise ValueError("No interface to bind provided")
         if interface.strip() == '':
             raise ValueError("Empty interface to bind provided")
-        #  If router is operating on localhost, a list of IP addresses in the network is required
-        if localhost & (network is None):
-            raise ValueError("No interface IP addresses provided")
 
         #  Creates socket and binds it to interface
         self.is_dr = is_dr
@@ -55,17 +59,16 @@ class Socket:
                 array = Socket.process_ipv4_data(data[0])  # [packet_byte_stream, source_ip_address]
                 #  If packet is not from itself OR if packets from itself are allowed
                 if (array[1] != utils.Utils.get_ipv4_address_from_interface_name(interface)) | accept_self_packets:
-                    if not localhost:
-                        pipeline.put(array)
-                    #  If router is operating on localhost and packet comes from the network
-                    elif localhost & (array[1] in network):
-                        pipeline.put(array)
+                    pipeline.put(array)
             except socket.timeout:
                 pass  # Required since program will block until packet is received
         s.close()
 
     #  Listens to IPv6 packets in the network until signaled to stop
-    def receive_ipv6(self, pipeline, shutdown, interface, accept_self_packets, is_dr, localhost, network):
+    def receive_ipv6(self, pipeline, shutdown, interface, accept_self_packets, is_dr, localhost):
+        if localhost:  # No sockets will be used in the integration tests
+            return
+
         if pipeline is None:
             raise ValueError("No pipeline provided")
         if shutdown is None:
@@ -74,9 +77,6 @@ class Socket:
             raise ValueError("No interface to bind provided")
         if interface.strip() == '':
             raise ValueError("Empty interface to bind provided")
-        #  If router is operating on localhost, a list of IP addresses in the network is required
-        if localhost & (network is None):
-            raise ValueError("No interface IP addresses provided")
 
         #  Creates socket and binds it to interface
         self.is_dr = is_dr
@@ -103,17 +103,13 @@ class Socket:
                 global_address = utils.Utils.get_ipv6_global_address_from_interface_name(interface)
                 #  If packet is not from itself OR if packets from itself are allowed
                 if (source_ip_address not in [link_local_address, global_address]) | accept_self_packets:
-                    if not localhost:
-                        pipeline.put([packet_bytes, source_ip_address])
-                    #  If router is operating on localhost and packet comes from the network
-                    elif localhost & (source_ip_address in network):
-                        pipeline.put([packet_bytes, source_ip_address])
+                    pipeline.put([packet_bytes, source_ip_address])
             except socket.timeout:
                 pass
         s.close()
 
     #  Sends the supplied IPv4 packet to the supplied address through the supplied interface
-    def send_ipv4(self, packet, destination_address, interface):
+    def send_ipv4(self, packet, destination_address, interface, localhost):
         if packet is None:
             raise ValueError("No data to send provided")
         if packet.strip() == '':
@@ -126,6 +122,12 @@ class Socket:
             raise ValueError("No interface to bind provided")
         if interface.strip() == '':
             raise ValueError("Empty interface to bind provided")
+
+        if localhost:  # Socket will not be used in integration tests
+            source_address = utils.Utils.get_ipv4_address_from_interface_name(interface)
+            data = [packet, source_address, destination_address]
+            self.exit_pipeline_v2.put(data)
+            return
 
         #  Creates socket and binds it to interface - Default TTL is 1 and is the required TTL, so it remains unchanged
         s = socket.socket(socket.AF_INET, socket.SOCK_RAW, conf.OSPF_PROTOCOL_NUMBER)
@@ -136,7 +138,7 @@ class Socket:
         s.close()
 
     #  Sends the supplied IPv6 packet to the supplied address through the supplied interface
-    def send_ipv6(self, packet, destination_address, interface):
+    def send_ipv6(self, packet, destination_address, interface, localhost):
         if packet is None:
             raise ValueError("No data to send provided")
         if packet.strip() == '':
@@ -149,6 +151,12 @@ class Socket:
             raise ValueError("No interface to bind provided")
         if interface.strip() == '':
             raise ValueError("Empty interface to bind provided")
+
+        if localhost:  # Socket will not be used in integration tests
+            source_address = utils.Utils.get_ipv6_link_local_address_from_interface_name(interface)
+            data = [packet, source_address, destination_address]
+            self.exit_pipeline_v3.put(data)
+            return
 
         #  Creates socket and binds it to interface - Default TTL is 1 and is the required TTL, so it remains unchanged
         s = socket.socket(socket.AF_INET6, socket.SOCK_RAW, conf.OSPF_PROTOCOL_NUMBER)

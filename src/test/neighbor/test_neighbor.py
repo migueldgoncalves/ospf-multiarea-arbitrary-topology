@@ -27,10 +27,10 @@ class TestNeighbor(unittest.TestCase):
         self.neighbor_dr = '1.1.1.1'
         self.neighbor_bdr = '2.2.2.2'
         self.neighbor_v2 = neighbor.Neighbor(self.neighbor_id, self.neighbor_priority, 0, self.neighbor_ipv4_address,
-                                             self.neighbor_options, self.neighbor_dr, self.neighbor_bdr)
+                                             self.neighbor_options, self.neighbor_dr, self.neighbor_bdr, conf.ROUTER_ID)
         self.neighbor_v3 = neighbor.Neighbor(self.neighbor_id, self.neighbor_priority, self.neighbor_interface_id,
                                              self.neighbor_ipv6_address, self.neighbor_options, self.neighbor_dr,
-                                             self.neighbor_bdr)
+                                             self.neighbor_bdr, conf.ROUTER_ID)
 
     #  Successful run - 1 s
     def test_constructor_successful(self):
@@ -78,10 +78,10 @@ class TestNeighbor(unittest.TestCase):
     def test_constructor_invalid_parameters(self):
         with self.assertRaises(ValueError):
             neighbor.Neighbor('', self.neighbor_priority, self.neighbor_interface_id, self.neighbor_ipv4_address,
-                              self.neighbor_options, self.neighbor_dr, self.neighbor_bdr)
+                              self.neighbor_options, self.neighbor_dr, self.neighbor_bdr, conf.ROUTER_ID)
         with self.assertRaises(ValueError):
             neighbor.Neighbor(self.neighbor_id, self.neighbor_priority, self.neighbor_interface_id,
-                              self.neighbor_ipv6_address, -1, self.neighbor_dr, self.neighbor_bdr)
+                              self.neighbor_ipv6_address, -1, self.neighbor_dr, self.neighbor_bdr, conf.ROUTER_ID)
 
     #  Successful run - 42 s
     def test_is_expired(self):

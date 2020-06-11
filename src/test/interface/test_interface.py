@@ -34,11 +34,11 @@ class InterfaceTest(unittest.TestCase):
         self.interface_shutdown_v2 = threading.Event()
         self.interface_shutdown_v3 = threading.Event()
         self.interface_ospfv2 = interface.Interface(
-            self.interface_identifier, self.ipv4_address, '', self.network_mask, [], self.area_id,
-            self.interface_pipeline_v2, self.interface_shutdown_v2, conf.VERSION_IPV4, None)
+            conf.ROUTER_ID, self.interface_identifier, self.ipv4_address, '', self.network_mask, [], self.area_id,
+            self.interface_pipeline_v2, self.interface_shutdown_v2, conf.VERSION_IPV4, None, False)
         self.interface_ospfv3 = interface.Interface(
-            self.interface_identifier, '', self.ipv6_address, '', self.link_prefixes, self.area_id,
-            self.interface_pipeline_v3, self.interface_shutdown_v3, conf.VERSION_IPV6, None)
+            conf.ROUTER_ID, self.interface_identifier, '', self.ipv6_address, '', self.link_prefixes, self.area_id,
+            self.interface_pipeline_v3, self.interface_shutdown_v3, conf.VERSION_IPV6, None, False)
 
     #  #  #  #  #  #
     #  Main methods  #
@@ -58,12 +58,10 @@ class InterfaceTest(unittest.TestCase):
         #  Creates thread with socket that listens for packets from the router itself
         thread_socket_v2 = threading.Thread(
             target=socket_v2.receive_ipv4,
-            args=(socket_pipeline_v2, socket_shutdown_v2, self.interface_identifier, accept_self_packets, is_dr, False,
-                  None))
+            args=(socket_pipeline_v2, socket_shutdown_v2, self.interface_identifier, accept_self_packets, is_dr, False))
         thread_socket_v3 = threading.Thread(
             target=socket_v3.receive_ipv6,
-            args=(socket_pipeline_v3, socket_shutdown_v3, self.interface_identifier, accept_self_packets, is_dr, False,
-                  None))
+            args=(socket_pipeline_v3, socket_shutdown_v3, self.interface_identifier, accept_self_packets, is_dr, False))
         thread_socket_v2.start()
         thread_socket_v3.start()
 
@@ -202,12 +200,10 @@ class InterfaceTest(unittest.TestCase):
         #  Creates thread with socket that listens for packets in the network
         thread_socket_v2 = threading.Thread(
             target=socket_v2.receive_ipv4,
-            args=(socket_pipeline_v2, socket_shutdown_v2, self.interface_identifier, accept_self_packets, is_dr, False,
-                  None))
+            args=(socket_pipeline_v2, socket_shutdown_v2, self.interface_identifier, accept_self_packets, is_dr, False))
         thread_socket_v3 = threading.Thread(
             target=socket_v3.receive_ipv6,
-            args=(socket_pipeline_v3, socket_shutdown_v3, self.interface_identifier, accept_self_packets, is_dr, False,
-                  None))
+            args=(socket_pipeline_v3, socket_shutdown_v3, self.interface_identifier, accept_self_packets, is_dr, False))
         thread_socket_v2.start()
         thread_socket_v3.start()
 
@@ -351,14 +347,18 @@ class InterfaceTest(unittest.TestCase):
 
     #  Successful run - 8-10 s
     def test_election_algorithm(self):
-        neighbor_v2_1 = neighbor.Neighbor('10.10.10.10', conf.ROUTER_PRIORITY, 1, '222.222.1.10', 0,
-                                          conf.DEFAULT_DESIGNATED_ROUTER, conf.DEFAULT_DESIGNATED_ROUTER)
-        neighbor_v2_2 = neighbor.Neighbor('11.11.11.11', conf.ROUTER_PRIORITY, 2, '222.222.1.11', 0,
-                                          conf.DEFAULT_DESIGNATED_ROUTER, conf.DEFAULT_DESIGNATED_ROUTER)
-        neighbor_v3_1 = neighbor.Neighbor('10.10.10.10', conf.ROUTER_PRIORITY, 1, '2001:db8:cafe:1::10', 0,
-                                          conf.DEFAULT_DESIGNATED_ROUTER, conf.DEFAULT_DESIGNATED_ROUTER)
-        neighbor_v3_2 = neighbor.Neighbor('11.11.11.11', conf.ROUTER_PRIORITY, 2, '2001:db8:cafe:1::11', 0,
-                                          conf.DEFAULT_DESIGNATED_ROUTER, conf.DEFAULT_DESIGNATED_ROUTER)
+        neighbor_v2_1 = neighbor.Neighbor(
+            '10.10.10.10', conf.ROUTER_PRIORITY, 1, '222.222.1.10', 0, conf.DEFAULT_DESIGNATED_ROUTER,
+            conf.DEFAULT_DESIGNATED_ROUTER, conf.ROUTER_ID)
+        neighbor_v2_2 = neighbor.Neighbor(
+            '11.11.11.11', conf.ROUTER_PRIORITY, 2, '222.222.1.11', 0, conf.DEFAULT_DESIGNATED_ROUTER,
+            conf.DEFAULT_DESIGNATED_ROUTER, conf.ROUTER_ID)
+        neighbor_v3_1 = neighbor.Neighbor(
+            '10.10.10.10', conf.ROUTER_PRIORITY, 1, '2001:db8:cafe:1::10', 0, conf.DEFAULT_DESIGNATED_ROUTER,
+            conf.DEFAULT_DESIGNATED_ROUTER, conf.ROUTER_ID)
+        neighbor_v3_2 = neighbor.Neighbor(
+            '11.11.11.11', conf.ROUTER_PRIORITY, 2, '2001:db8:cafe:1::11', 0, conf.DEFAULT_DESIGNATED_ROUTER,
+            conf.DEFAULT_DESIGNATED_ROUTER, conf.ROUTER_ID)
         neighbor_v2_1.set_neighbor_state(conf.NEIGHBOR_STATE_2_WAY)
         neighbor_v2_2.set_neighbor_state(conf.NEIGHBOR_STATE_2_WAY)
         neighbor_v3_1.set_neighbor_state(conf.NEIGHBOR_STATE_2_WAY)
@@ -619,15 +619,15 @@ class InterfaceTest(unittest.TestCase):
         #  Router joins link where DR and BDR are elected
 
         neighbor_v2_1 = neighbor.Neighbor('1.1.1.1', conf.ROUTER_PRIORITY, 1, '222.222.0.1', 0, '222.222.0.1',
-                                          '222.222.0.2')
+                                          '222.222.0.2', conf.ROUTER_ID)
         neighbor_v2_2 = neighbor.Neighbor('2.2.2.2', conf.ROUTER_PRIORITY, 2, '222.222.0.2', 0, '222.222.0.1',
-                                          '222.222.0.2')
+                                          '222.222.0.2', conf.ROUTER_ID)
         neighbor_v2_1.set_neighbor_state(conf.NEIGHBOR_STATE_2_WAY)
         neighbor_v2_2.set_neighbor_state(conf.NEIGHBOR_STATE_2_WAY)
         neighbor_v3_1 = neighbor.Neighbor(
-            '1.1.1.1', conf.ROUTER_PRIORITY, 1, '2001:db8:cafe:1::1', 0, '1.1.1.1', '2.2.2.2')
+            '1.1.1.1', conf.ROUTER_PRIORITY, 1, '2001:db8:cafe:1::1', 0, '1.1.1.1', '2.2.2.2', conf.ROUTER_ID)
         neighbor_v3_2 = neighbor.Neighbor(
-            '2.2.2.2', conf.ROUTER_PRIORITY, 2, '2001:db8:cafe:1::2', 0, '1.1.1.1', '2.2.2.2')
+            '2.2.2.2', conf.ROUTER_PRIORITY, 2, '2001:db8:cafe:1::2', 0, '1.1.1.1', '2.2.2.2', conf.ROUTER_ID)
         neighbor_v3_1.set_neighbor_state(conf.NEIGHBOR_STATE_2_WAY)
         neighbor_v3_2.set_neighbor_state(conf.NEIGHBOR_STATE_2_WAY)
 
@@ -674,15 +674,15 @@ class InterfaceTest(unittest.TestCase):
         #  Link DR fails
 
         neighbor_v2_1 = neighbor.Neighbor('10.10.10.10', conf.ROUTER_PRIORITY, 1, '222.222.1.10', 0, '222.222.1.10',
-                                          self.interface_ospfv2.ipv4_address)
-        neighbor_v2_2 = neighbor.Neighbor(
-            '2.2.2.2', conf.ROUTER_PRIORITY, 2, '222.222.0.2', 0, '222.222.1.10', self.interface_ospfv2.ipv4_address)
+                                          self.interface_ospfv2.ipv4_address, conf.ROUTER_ID)
+        neighbor_v2_2 = neighbor.Neighbor('2.2.2.2', conf.ROUTER_PRIORITY, 2, '222.222.0.2', 0, '222.222.1.10',
+                                          self.interface_ospfv2.ipv4_address, conf.ROUTER_ID)
         neighbor_v2_1.set_neighbor_state(conf.NEIGHBOR_STATE_DOWN)  # DR fails
         neighbor_v2_2.set_neighbor_state(conf.NEIGHBOR_STATE_FULL)
-        neighbor_v3_1 = neighbor.Neighbor(
-            '10.10.10.10', conf.ROUTER_PRIORITY, 1, '2001:db8:cafe:1::10', 0, '10.10.10.10', conf.ROUTER_ID)
-        neighbor_v3_2 = neighbor.Neighbor(
-            '2.2.2.2', conf.ROUTER_PRIORITY, 2, '2001:db8:cafe:1::2', 0, '10.10.10.10', conf.ROUTER_ID)
+        neighbor_v3_1 = neighbor.Neighbor('10.10.10.10', conf.ROUTER_PRIORITY, 1, '2001:db8:cafe:1::10', 0,
+                                          '10.10.10.10', conf.ROUTER_ID, conf.ROUTER_ID)
+        neighbor_v3_2 = neighbor.Neighbor('2.2.2.2', conf.ROUTER_PRIORITY, 2, '2001:db8:cafe:1::2', 0, '10.10.10.10',
+                                          conf.ROUTER_ID, conf.ROUTER_ID)
         neighbor_v3_1.set_neighbor_state(conf.NEIGHBOR_STATE_DOWN)
         neighbor_v3_2.set_neighbor_state(conf.NEIGHBOR_STATE_FULL)
 
@@ -743,13 +743,15 @@ class InterfaceTest(unittest.TestCase):
         self.assertEqual(conf.NEIGHBOR_STATE_FULL, self.interface_ospfv3.neighbors['10.10.10.10'].neighbor_state)
 
         self.reset_interface(conf.INTERFACE_STATE_DROTHER)
-        neighbor_v2_3 = neighbor.Neighbor('9.9.9.9', conf.ROUTER_PRIORITY, 2, '222.222.1.9', 0,
-                                          conf.DEFAULT_DESIGNATED_ROUTER, conf.DEFAULT_DESIGNATED_ROUTER)
+        neighbor_v2_3 = neighbor.Neighbor(
+            '9.9.9.9', conf.ROUTER_PRIORITY, 2, '222.222.1.9', 0, conf.DEFAULT_DESIGNATED_ROUTER,
+            conf.DEFAULT_DESIGNATED_ROUTER, conf.ROUTER_ID)
         neighbor_v2_2.set_neighbor_state(conf.NEIGHBOR_STATE_DOWN)
         neighbor_v2_1.set_neighbor_state(conf.NEIGHBOR_STATE_FULL)
         neighbor_v2_3.set_neighbor_state(conf.NEIGHBOR_STATE_2_WAY)
-        neighbor_v3_3 = neighbor.Neighbor('9.9.9.9', conf.ROUTER_PRIORITY, 2, '2001:db8:cafe:1::9', 0,
-                                          conf.DEFAULT_DESIGNATED_ROUTER, conf.DEFAULT_DESIGNATED_ROUTER)
+        neighbor_v3_3 = neighbor.Neighbor(
+            '9.9.9.9', conf.ROUTER_PRIORITY, 2, '2001:db8:cafe:1::9', 0, conf.DEFAULT_DESIGNATED_ROUTER,
+            conf.DEFAULT_DESIGNATED_ROUTER, conf.ROUTER_ID)
         neighbor_v3_2.set_neighbor_state(conf.NEIGHBOR_STATE_DOWN)
         neighbor_v3_1.set_neighbor_state(conf.NEIGHBOR_STATE_FULL)
         neighbor_v3_3.set_neighbor_state(conf.NEIGHBOR_STATE_2_WAY)
@@ -805,10 +807,14 @@ class InterfaceTest(unittest.TestCase):
             [[conf.ROUTER_ID, conf.ROUTER_PRIORITY, self.interface_ospfv3.designated_router,
               self.interface_ospfv3.backup_designated_router]], self.interface_ospfv3.election_algorithm_step_1())
 
-        neighbor_v2_1 = neighbor.Neighbor('10.10.10.10', 1, 1, '222.222.1.10', 0, '222.222.0.1', '222.222.0.2')
-        neighbor_v2_2 = neighbor.Neighbor('11.11.11.11', 2, 2, '222.222.1.11', 0, '222.222.0.3', '222.222.0.4')
-        neighbor_v3_1 = neighbor.Neighbor('10.10.10.10', 1, 1, '2001:db8:cafe:1::10', 0, '1.1.1.1', '2.2.2.2')
-        neighbor_v3_2 = neighbor.Neighbor('11.11.11.11', 2, 2, '2001:db8:cafe:1::11', 0, '3.3.3.3', '4.4.4.4')
+        neighbor_v2_1 = neighbor.Neighbor(
+            '10.10.10.10', 1, 1, '222.222.1.10', 0, '222.222.0.1', '222.222.0.2', conf.ROUTER_ID)
+        neighbor_v2_2 = neighbor.Neighbor(
+            '11.11.11.11', 2, 2, '222.222.1.11', 0, '222.222.0.3', '222.222.0.4', conf.ROUTER_ID)
+        neighbor_v3_1 = neighbor.Neighbor(
+            '10.10.10.10', 1, 1, '2001:db8:cafe:1::10', 0, '1.1.1.1', '2.2.2.2', conf.ROUTER_ID)
+        neighbor_v3_2 = neighbor.Neighbor(
+            '11.11.11.11', 2, 2, '2001:db8:cafe:1::11', 0, '3.3.3.3', '4.4.4.4', conf.ROUTER_ID)
         neighbor_v2_1.set_neighbor_state(conf.NEIGHBOR_STATE_2_WAY)
         neighbor_v2_2.set_neighbor_state(conf.NEIGHBOR_STATE_2_WAY)
         neighbor_v3_1.set_neighbor_state(conf.NEIGHBOR_STATE_2_WAY)

@@ -15,8 +15,7 @@ This class contains the top-level OSPF data structures and operations
 
 class Router:
 
-    def __init__(self, ospf_version, router_shutdown_event, interface_ids, area_ids, localhost,
-                 network_interfaces):
+    def __init__(self, router_id, ospf_version, router_shutdown_event, interface_ids, area_ids, localhost):
         if ospf_version not in [conf.VERSION_IPV4, conf.VERSION_IPV6]:
             raise ValueError("Invalid OSPF version")
         self.ospf_version = ospf_version
@@ -24,24 +23,17 @@ class Router:
         #  Localhost operation parameters - Only for test purposes
 
         self.localhost = localhost  # If router is operating on localhost or not - If False router operates normally
-        self.network_interfaces = network_interfaces  # Contains list of interfaces in same localhost network
-        self.network_addresses = []
-        for identifier in self.network_interfaces:
-            if self.ospf_version == conf.VERSION_IPV4:
-                self.network_addresses.append(utils.Utils.get_ipv4_address_from_interface_name(identifier))
-            elif self.ospf_version == conf.VERSION_IPV6:
-                self.network_addresses.append(utils.Utils.get_ipv6_link_local_address_from_interface_name(identifier))
         self.interface_ids = interface_ids  # Interfaces in this machine
         self.area_ids = area_ids  # OSPF areas of the interfaces
 
         #  OSPF top-level parameters
 
-        self.router_id = conf.ROUTER_ID
+        self.router_id = router_id
         self.areas = {}
         external_routing_capable = False
         for area_id in self.area_ids:
-            new_area = area.Area(
-                self.ospf_version, area_id, external_routing_capable, self.interface_ids, self.area_ids)
+            new_area = area.Area(self.router_id, self.ospf_version, area_id, external_routing_capable,
+                                 self.interface_ids, self.area_ids, self.localhost)
             self.areas[area_id] = new_area
         self.interfaces = {}
         for area_id in self.area_ids:
@@ -66,12 +58,12 @@ class Router:
                 self.socket_threads[interface_id] = threading.Thread(
                     target=self.packet_socket.receive_ipv4,
                     args=(self.packet_pipelines[interface_id], self.socket_shutdown_events[interface_id], interface_id,
-                          accept_self_packets, is_dr, localhost, self.network_addresses))
+                          accept_self_packets, is_dr, localhost))
             else:
                 self.socket_threads[interface_id] = threading.Thread(
                     target=self.packet_socket.receive_ipv6,
                     args=(self.packet_pipelines[interface_id], self.socket_shutdown_events[interface_id], interface_id,
-                          accept_self_packets, is_dr, localhost, self.network_addresses))
+                          accept_self_packets, is_dr, localhost))
             self.socket_threads[interface_id].start()
         self.router_shutdown_event = router_shutdown_event
         self.start_time = datetime.datetime.now()

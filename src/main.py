@@ -1,5 +1,4 @@
 import cmd
-import queue
 import threading
 
 import router.router as router
@@ -65,28 +64,28 @@ class Main(cmd.Cmd):
         return True
 
     def preloop(self):
-        print("Starting router...")
+        print(conf.ROUTER_ID + ": Starting router...")
         self.shutdown_event_v2 = threading.Event()
         self.shutdown_event_v3 = threading.Event()
 
-        self.router_v2 = router.Router(
-            conf.VERSION_IPV4, self.shutdown_event_v2, conf.INTERFACE_NAMES, conf.INTERFACE_AREAS, False, [])
-        self.router_v3 = router.Router(
-            conf.VERSION_IPV6, self.shutdown_event_v3, conf.INTERFACE_NAMES, conf.INTERFACE_AREAS, False, [])
+        self.router_v2 = router.Router(conf.ROUTER_ID, conf.VERSION_IPV4, self.shutdown_event_v2, conf.INTERFACE_NAMES,
+                                       conf.INTERFACE_AREAS, False)
+        self.router_v3 = router.Router(conf.ROUTER_ID, conf.VERSION_IPV6, self.shutdown_event_v3, conf.INTERFACE_NAMES,
+                                       conf.INTERFACE_AREAS, False)
 
         self.thread_v2 = threading.Thread(target=self.router_v2.main_loop)
         self.thread_v3 = threading.Thread(target=self.router_v3.main_loop)
         self.thread_v2.start()
         self.thread_v3.start()
-        print("Router started")
+        print(conf.ROUTER_ID + ": Router started")
 
     def postloop(self):
-        print("Shutting down router...")
+        print(conf.ROUTER_ID + ": Shutting down router...")
         self.shutdown_event_v2.set()
         self.shutdown_event_v3.set()
         self.thread_v2.join()
         self.thread_v3.join()
-        print("Router down")
+        print(conf.ROUTER_ID + ": Router down")
 
 
 if __name__ == '__main__':

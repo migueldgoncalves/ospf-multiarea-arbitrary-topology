@@ -20,11 +20,12 @@ SHUTDOWN_EVENT = 3
 
 class Area:
 
-    def __init__(self, ospf_version, area_id, external_routing_capable, interfaces, areas):
+    def __init__(self, router_id, ospf_version, area_id, external_routing_capable, interfaces, areas, localhost):
         if ospf_version not in [conf.VERSION_IPV4, conf.VERSION_IPV6]:
             raise ValueError("Invalid OSPF version")
         if not utils.Utils.is_ipv4_address(area_id):
             raise ValueError("Invalid Area ID")
+        self.router_id = router_id
         self.ospf_version = ospf_version
         self.area_id = area_id  # 0.0.0.0 - Backbone area
         self.interfaces = {}  # Contains as key their identifier, and as value the list above mentioned
@@ -35,6 +36,7 @@ class Area:
         self.populate_lsdb_startup()
 
         #  Creates the interfaces that belong to this area
+        self.localhost = localhost
         for i in range(len(interfaces)):
             if areas[i] == self.area_id:  # If an interface belonging to this area is found
                 self.create_interface(interfaces[i])
@@ -43,12 +45,12 @@ class Area:
     def populate_lsdb_startup(self):
         router_lsa = lsa.Lsa()
         if self.ospf_version == conf.VERSION_IPV4:
-            link_state_id = conf.ROUTER_ID
+            link_state_id = self.router_id
             options = 0
         else:
             link_state_id = '0.0.0.0'
             options = conf.OPTIONS
-        router_lsa.create_header(conf.INITIAL_LS_AGE, conf.OPTIONS, conf.LSA_TYPE_ROUTER, link_state_id, conf.ROUTER_ID,
+        router_lsa.create_header(conf.INITIAL_LS_AGE, conf.OPTIONS, conf.LSA_TYPE_ROUTER, link_state_id, self.router_id,
                                  conf.INITIAL_SEQUENCE_NUMBER, self.ospf_version)
         router_lsa.create_router_lsa_body(False, False, False, options, self.ospf_version)
         self.database.add_lsa(router_lsa)
@@ -59,7 +61,7 @@ class Area:
             referenced_link_state_id = router_lsa.header.link_state_id
             referenced_advertising_router = router_lsa.header.advertising_router
             intra_area_prefix_lsa.create_header(
-                conf.INITIAL_LS_AGE, conf.OPTIONS, conf.LSA_TYPE_INTRA_AREA_PREFIX, link_state_id, conf.ROUTER_ID,
+                conf.INITIAL_LS_AGE, conf.OPTIONS, conf.LSA_TYPE_INTRA_AREA_PREFIX, link_state_id, self.router_id,
                 conf.INITIAL_SEQUENCE_NUMBER, self.ospf_version)
             intra_area_prefix_lsa.create_intra_area_prefix_lsa_body(referenced_ls_type, referenced_link_state_id,
                                                                     referenced_advertising_router)
@@ -68,7 +70,7 @@ class Area:
     #  Creates and starts an interface associated with this area
     def create_interface(self, interface_id):
         if interface_id in self.interfaces:
-            print("OSPFv" + str(self.ospf_version), "interface", interface_id, "is already created")
+            print(self.router_id + ": OSPFv" + str(self.ospf_version), "interface", interface_id, "is already created")
             return
 
         pipeline = queue.Queue()
@@ -76,13 +78,15 @@ class Area:
         if self.ospf_version == conf.VERSION_IPV4:
             ip_address = utils.Utils.get_ipv4_address_from_interface_name(interface_id)
             network_mask = utils.Utils.get_ipv4_network_mask_from_interface_name(interface_id)
-            new_interface = interface.Interface(interface_id, ip_address, '', network_mask, [], self.area_id,
-                                                pipeline, shutdown, self.ospf_version, self.database)
+            new_interface = interface.Interface(
+                self.router_id, interface_id, ip_address, '', network_mask, [], self.area_id, pipeline, shutdown,
+                self.ospf_version, self.database, self.localhost)
         else:
             ip_address = utils.Utils.get_ipv6_link_local_address_from_interface_name(interface_id)
             link_prefix = utils.Utils.get_ipv6_prefix_from_interface_name(interface_id)
-            new_interface = interface.Interface(interface_id, '', ip_address, '', [link_prefix],
-                                                self.area_id, pipeline, shutdown, self.ospf_version, self.database)
+            new_interface = interface.Interface(
+                self.router_id, interface_id, '', ip_address, '', [link_prefix], self.area_id, pipeline, shutdown,
+                self.ospf_version, self.database, self.localhost)
 
         interface_thread = threading.Thread(target=new_interface.interface_loop)
 
@@ -101,9 +105,10 @@ class Area:
             interface_data[PIPELINE].queue.clear()  # Clears interface thread pipeline
             interface_data[SHUTDOWN_EVENT].clear()  # Resets shutdown event of interface thread
             interface_data[INTERFACE_THREAD].start()
-            print("OSPFv" + str(self.ospf_version), "interface", interface_id, "started")
+            print(self.router_id + ": OSPFv" + str(self.ospf_version), "interface", interface_id, "started")
         else:
-            print("OSPFv" + str(self.ospf_version), "interface", interface_id, "is already operating")
+            print(self.router_id + ": OSPFv" + str(self.ospf_version), "interface", interface_id,
+                  "is already operating")
 
     #  Performs shutdown of a specified interface
     def shutdown_interface(self, interface_id):
@@ -112,9 +117,10 @@ class Area:
             interface_data[SHUTDOWN_EVENT].set()  # Signals interface thread to shutdown
             interface_data[INTERFACE_THREAD].join()
             interface_data[PIPELINE].queue.clear()
-            print("OSPFv" + str(self.ospf_version), "interface", interface_id, "successfully shutdown")
+            print(self.router_id + ": OSPFv" + str(self.ospf_version), "interface", interface_id,
+                  "successfully shutdown")
         else:
-            print("OSPFv" + str(self.ospf_version), "interface", interface_id, "is already down")
+            print(self.router_id + ": OSPFv" + str(self.ospf_version), "interface", interface_id, "is already down")
 
     #  Shutdown event is set when interface should stop operating
     def is_interface_operating(self, interface_id):

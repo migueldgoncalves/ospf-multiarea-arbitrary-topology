@@ -21,8 +21,8 @@ class Interface:
 
     ospf_identifier = 0
 
-    def __init__(self, physical_identifier, ipv4_address, ipv6_address, network_mask, link_prefixes, area_id, pipeline,
-                 interface_shutdown, version, lsdb):
+    def __init__(self, router_id, physical_identifier, ipv4_address, ipv6_address, network_mask, link_prefixes, area_id,
+                 pipeline, interface_shutdown, version, lsdb, localhost):
 
         #  OSPF interface parameters
 
@@ -54,6 +54,7 @@ class Interface:
 
         #  Implementation-specific parameters
 
+        self.router_id = router_id
         self.version = version
         self.socket = sock.Socket()  # Socket that will send packets
         self.pipeline = pipeline  # For receiving incoming packets
@@ -65,14 +66,15 @@ class Interface:
         self.ls_acknowledgement_packet = packet.Packet()
         if self.version == conf.VERSION_IPV4:  # Running OSPFv2 protocol
             self.hello_packet_to_send.create_header_v2(
-                conf.PACKET_TYPE_HELLO, conf.ROUTER_ID, area_id, conf.NULL_AUTHENTICATION, conf.DEFAULT_AUTH)
+                conf.PACKET_TYPE_HELLO, self.router_id, area_id, conf.NULL_AUTHENTICATION, conf.DEFAULT_AUTH)
         else:  # Running OSPFv3 protocol
             source_address = utils.Utils.get_ipv6_link_local_address_from_interface_name(self.physical_identifier)
             destination_address = conf.ALL_OSPF_ROUTERS_IPV6
             self.hello_packet_to_send.create_header_v3(
-                conf.PACKET_TYPE_HELLO, conf.ROUTER_ID, area_id, self.instance_id, source_address, destination_address)
+                conf.PACKET_TYPE_HELLO, self.router_id, area_id, self.instance_id, source_address, destination_address)
         self.lsa_lock = threading.RLock()  # For controlling access to interface LSA list
         self.lsdb = lsdb  # Reference to the area LSDB
+        self.localhost = localhost
 
         self.hello_thread = None
         self.hello_timer = timer.Timer()
@@ -152,7 +154,7 @@ class Interface:
                         neighbor_options = incoming_packet.body.options
                         new_neighbor = neighbor.Neighbor(
                             neighbor_id, neighbor_priority, neighbor_interface_id, source_ip, neighbor_options,
-                            neighbor_dr, neighbor_bdr)
+                            neighbor_dr, neighbor_bdr, self.router_id)
                         self.neighbors[neighbor_id] = new_neighbor
 
                     #  Existing neighbor
@@ -209,7 +211,7 @@ class Interface:
                         if neighbor_i_bit & neighbor_m_bit & neighbor_ms_bit:
                             if len(neighbor_lsa_headers) == 0:
                                 if utils.Utils.ipv4_to_decimal(neighbor_id) > \
-                                        utils.Utils.ipv4_to_decimal(conf.ROUTER_ID):
+                                        utils.Utils.ipv4_to_decimal(self.router_id):
                                     neighbor_router.master_slave = False
                                     neighbor_router.dd_sequence = incoming_packet.body.dd_sequence_number
                                     neighbor_router.neighbor_options = neighbor_options
@@ -219,7 +221,7 @@ class Interface:
                         elif (not incoming_packet.body.i_bit) & (not incoming_packet.body.ms_bit):
                             if incoming_packet.body.dd_sequence_number == neighbor_router.dd_sequence:
                                 if utils.Utils.ipv4_to_decimal(neighbor_id) < \
-                                        utils.Utils.ipv4_to_decimal(conf.ROUTER_ID):
+                                        utils.Utils.ipv4_to_decimal(self.router_id):
                                     neighbor_router.master_slave = True
                                     neighbor_router.dd_sequence += 1
                                     neighbor_router.neighbor_options = neighbor_options
@@ -284,11 +286,11 @@ class Interface:
                             conf.NEIGHBOR_STATE_EXCHANGE, conf.NEIGHBOR_STATE_LOADING, conf.NEIGHBOR_STATE_FULL]:
                         continue  # Packet ignored
                     if self.version == conf.VERSION_IPV4:
-                        self.ls_update_packet.create_header_v2(conf.PACKET_TYPE_LS_UPDATE, conf.ROUTER_ID, self.area_id,
+                        self.ls_update_packet.create_header_v2(conf.PACKET_TYPE_LS_UPDATE, self.router_id, self.area_id,
                                                                conf.DEFAULT_AUTH, conf.NULL_AUTHENTICATION)
                     else:
                         self.ls_update_packet.create_header_v3(
-                            conf.PACKET_TYPE_LS_UPDATE, conf.ROUTER_ID, self.area_id, self.instance_id,
+                            conf.PACKET_TYPE_LS_UPDATE, self.router_id, self.area_id, self.instance_id,
                             self.ipv6_address, neighbor_router.neighbor_ip_address)
 
                     lsa_not_found = False
@@ -328,11 +330,11 @@ class Interface:
                             self.lsdb.add_lsa(new_lsa)
                     if self.version == conf.VERSION_IPV4:
                         self.ls_acknowledgement_packet.create_header_v2(
-                            conf.PACKET_TYPE_LS_ACKNOWLEDGMENT, conf.ROUTER_ID, self.area_id, conf.DEFAULT_AUTH,
+                            conf.PACKET_TYPE_LS_ACKNOWLEDGMENT, self.router_id, self.area_id, conf.DEFAULT_AUTH,
                             conf.NULL_AUTHENTICATION)
                     else:
                         self.ls_acknowledgement_packet.create_header_v3(
-                            conf.PACKET_TYPE_LS_ACKNOWLEDGMENT, conf.ROUTER_ID, self.area_id, self.instance_id,
+                            conf.PACKET_TYPE_LS_ACKNOWLEDGMENT, self.router_id, self.area_id, self.instance_id,
                             self.ipv6_address, neighbor_router.neighbor_ip_address)
                     self.ls_acknowledgement_packet.create_ls_acknowledgement_packet_body(self.version)
                     for new_lsa in incoming_packet.body.lsa_list:
@@ -366,9 +368,9 @@ class Interface:
     def send_packet(self, packet_to_send, destination_address, neighbor_router):
         packet_bytes = packet_to_send.pack_packet()
         if self.version == conf.VERSION_IPV4:
-            self.socket.send_ipv4(packet_bytes, destination_address, self.physical_identifier)
+            self.socket.send_ipv4(packet_bytes, destination_address, self.physical_identifier, self.localhost)
         else:
-            self.socket.send_ipv6(packet_bytes, destination_address, self.physical_identifier)
+            self.socket.send_ipv6(packet_bytes, destination_address, self.physical_identifier, self.localhost)
 
         #  Every LS Request and LS Update packets must be acknowledged
         if packet_to_send.header.packet_type in [conf.PACKET_TYPE_LS_REQUEST, conf.PACKET_TYPE_LS_UPDATE]:
@@ -389,8 +391,9 @@ class Interface:
         self.hello_thread.join()
         self.waiting_thread.join()
         #  Reset interface values
-        self.__init__(self.physical_identifier, self.ipv4_address, self.ipv6_address, self.network_mask,
-                      self.link_prefixes, self.area_id, self.pipeline, self.interface_shutdown, self.version, self.lsdb)
+        self.__init__(self.router_id, self.physical_identifier, self.ipv4_address, self.ipv6_address, self.network_mask,
+                      self.link_prefixes, self.area_id, self.pipeline, self.interface_shutdown, self.version, self.lsdb,
+                      self.localhost)
 
     #  #  #  #  #  #  #  #  #  #  #  #  #
     #  Interface event handling methods  #
@@ -466,7 +469,7 @@ class Interface:
         if self.version == conf.VERSION_IPV4:
             identifier = self.ipv4_address
         else:
-            identifier = conf.ROUTER_ID
+            identifier = self.router_id
         known_routers = [[identifier, self.router_priority, self.designated_router, self.backup_designated_router]]
         for neighbor_id in self.neighbors:
             if self.neighbors[neighbor_id].neighbor_state not in [conf.NEIGHBOR_STATE_DOWN, conf.NEIGHBOR_STATE_INIT]:
@@ -523,7 +526,7 @@ class Interface:
         if self.version == conf.VERSION_IPV4:
             identifier = self.ipv4_address
         else:
-            identifier = conf.ROUTER_ID
+            identifier = self.router_id
         #  Steps 2 and 3 can only be rerun eventually if it is the algorithm first run
         if first_run:
             #  This router has become DR/BDR, or ceased being DR/BDR
@@ -547,7 +550,7 @@ class Interface:
         if self.version == conf.VERSION_IPV4:
             identifier = self.ipv4_address
         else:
-            identifier = conf.ROUTER_ID
+            identifier = self.router_id
         if identifier == determined_dr:
             self.set_interface_state(conf.INTERFACE_STATE_DR)  # Nothing is done if state is already the desired one
         elif identifier == determined_bdr:
@@ -589,18 +592,19 @@ class Interface:
     def set_interface_state(self, new_state):
         old_state = self.state
         if new_state != old_state:
-            print("OSPFv" + str(self.version), "interface", self.physical_identifier,
+            print(self.router_id + ": OSPFv" + str(self.version), "interface", self.physical_identifier,
                   "changed state from", old_state, "to", new_state)
             self.state = new_state
 
     #  Changes DR or BDR value and prints a message
     def set_dr_bdr(self, value_name, new_value):
         if (value_name == Interface.DR) & (new_value != self.designated_router):
-            print("OSPFv" + str(self.version), value_name, "changed from", self.designated_router, "to", new_value)
+            print(self.router_id + ": OSPFv" + str(self.version), value_name, "changed from", self.designated_router,
+                  "to", new_value)
             self.designated_router = new_value
         elif (value_name == Interface.BDR) & (new_value != self.backup_designated_router):
-            print(
-                "OSPFv" + str(self.version), value_name, "changed from", self.backup_designated_router, "to", new_value)
+            print(self.router_id + ": OSPFv" + str(self.version), value_name, "changed from",
+                  self.backup_designated_router, "to", new_value)
             self.backup_designated_router = new_value
         else:
             pass
@@ -616,7 +620,7 @@ class Interface:
         time.sleep(0.1)  # Required to immediately give the CPU to the neighbor timer thread
         if neighbor_router.neighbor_state == conf.NEIGHBOR_STATE_DOWN:
             neighbor_router.set_neighbor_state(conf.NEIGHBOR_STATE_INIT)
-        if conf.ROUTER_ID in incoming_packet.body.neighbors:
+        if self.router_id in incoming_packet.body.neighbors:
             #  Neighbor acknowledges this router as neighbor
             self.event_2_way_received(neighbor_router, neighbor_id, source_ip, False)
         else:
@@ -634,13 +638,13 @@ class Interface:
                 neighbor_router.generate_dd_sequence_number()
                 neighbor_router.master_slave = True
                 if self.version == conf.VERSION_IPV4:
-                    self.dd_packet.create_header_v2(conf.PACKET_TYPE_DB_DESCRIPTION, conf.ROUTER_ID,
+                    self.dd_packet.create_header_v2(conf.PACKET_TYPE_DB_DESCRIPTION, self.router_id,
                                                     self.area_id, conf.NULL_AUTHENTICATION, conf.DEFAULT_AUTH)
                     self.dd_packet.create_db_description_packet_body(
                         conf.MTU, conf.OPTIONS, True, True, neighbor_router.master_slave,
                         self.neighbors[neighbor_id].dd_sequence, [], conf.VERSION_IPV4)
                 else:
-                    self.dd_packet.create_header_v3(conf.PACKET_TYPE_DB_DESCRIPTION, conf.ROUTER_ID,
+                    self.dd_packet.create_header_v3(conf.PACKET_TYPE_DB_DESCRIPTION, self.router_id,
                                                     self.area_id, self.instance_id, self.ipv6_address, source_ip)
                     self.dd_packet.create_db_description_packet_body(
                         conf.MTU, conf.OPTIONS, True, True, neighbor_router.master_slave,
@@ -662,11 +666,11 @@ class Interface:
                 neighbor_router.add_lsa_identifier(neighbor_router.db_summary_list, lsa_header.get_lsa_identifier())
         if neighbor_router.master_slave:  # This router is the master
             if self.version == conf.VERSION_IPV4:
-                self.dd_packet.create_header_v2(conf.PACKET_TYPE_DB_DESCRIPTION, conf.ROUTER_ID, self.area_id,
+                self.dd_packet.create_header_v2(conf.PACKET_TYPE_DB_DESCRIPTION, self.router_id, self.area_id,
                                                 conf.DEFAULT_AUTH, conf.NULL_AUTHENTICATION)
             else:
                 self.dd_packet.create_header_v3(
-                    conf.PACKET_TYPE_DB_DESCRIPTION, conf.ROUTER_ID, self.area_id, self.instance_id, self.ipv6_address,
+                    conf.PACKET_TYPE_DB_DESCRIPTION, self.router_id, self.area_id, self.instance_id, self.ipv6_address,
                     neighbor_router.neighbor_ip_address)
             self.dd_packet.create_db_description_packet_body(
                 self.max_ip_datagram, conf.OPTIONS, False, True, True, neighbor_router.dd_sequence,
@@ -681,11 +685,11 @@ class Interface:
             neighbor_router.set_neighbor_state(conf.NEIGHBOR_STATE_LOADING)
             if self.version == conf.VERSION_IPV4:
                 self.ls_request_packet.create_header_v2(
-                    conf.PACKET_TYPE_LS_REQUEST, conf.ROUTER_ID, self.area_id, conf.DEFAULT_AUTH,
+                    conf.PACKET_TYPE_LS_REQUEST, self.router_id, self.area_id, conf.DEFAULT_AUTH,
                     conf.NULL_AUTHENTICATION)
             else:
                 self.ls_request_packet.create_header_v3(
-                    conf.PACKET_TYPE_LS_REQUEST, conf.ROUTER_ID, self.area_id, self.instance_id, self.ipv6_address,
+                    conf.PACKET_TYPE_LS_REQUEST, self.router_id, self.area_id, self.instance_id, self.ipv6_address,
                     neighbor_router.neighbor_ip_address)
             self.ls_request_packet.create_ls_request_packet_body(self.version)
             for identifier in neighbor_router.ls_request_list:
@@ -722,13 +726,13 @@ class Interface:
         neighbor_router.dd_sequence += 1
         neighbor_router.master_slave = True
         if self.version == conf.VERSION_IPV4:
-            self.dd_packet.create_header_v2(conf.PACKET_TYPE_DB_DESCRIPTION, conf.ROUTER_ID, self.area_id,
+            self.dd_packet.create_header_v2(conf.PACKET_TYPE_DB_DESCRIPTION, self.router_id, self.area_id,
                                             conf.NULL_AUTHENTICATION, conf.DEFAULT_AUTH)
             self.dd_packet.create_db_description_packet_body(
                 conf.MTU, conf.OPTIONS, True, True, neighbor_router.master_slave, neighbor_router.dd_sequence, [],
                 conf.VERSION_IPV4)
         else:
-            self.dd_packet.create_header_v3(conf.PACKET_TYPE_DB_DESCRIPTION, conf.ROUTER_ID, self.area_id,
+            self.dd_packet.create_header_v3(conf.PACKET_TYPE_DB_DESCRIPTION, self.router_id, self.area_id,
                                             self.instance_id, self.ipv6_address, source_ip)
             self.dd_packet.create_db_description_packet_body(
                 conf.MTU, conf.OPTIONS, True, True, neighbor_router.master_slave, neighbor_router.dd_sequence, [],
@@ -791,7 +795,7 @@ class Interface:
             return True
         #  This router is DR/BDR
         if ((self.ipv4_address in [self.designated_router, self.backup_designated_router]) & (
-                self.version == conf.VERSION_IPV4)) | ((conf.ROUTER_ID in [
+                self.version == conf.VERSION_IPV4)) | ((self.router_id in [
                 self.designated_router, self.backup_designated_router]) & (self.version == conf.VERSION_IPV6)):
             return True
         #  Neighbor is DR/BDR

@@ -37,7 +37,7 @@ class SocketTest(unittest.TestCase):
         accept_self_packets = False
         is_dr = False
         thread = threading.Thread(target=self.socket.receive_ipv4, args=(
-            self.pipeline, self.shutdown, conf.INTERFACE_NAMES[0], accept_self_packets, is_dr, False, None))
+            self.pipeline, self.shutdown, conf.INTERFACE_NAMES[0], accept_self_packets, is_dr, False))
         thread.start()
 
         while self.pipeline.qsize() == 0:
@@ -64,7 +64,7 @@ class SocketTest(unittest.TestCase):
         accept_self_packets = False
         is_dr = False
         thread = threading.Thread(target=self.socket.receive_ipv6, args=(
-            self.pipeline, self.shutdown, conf.INTERFACE_NAMES[0], accept_self_packets, is_dr, False, None))
+            self.pipeline, self.shutdown, conf.INTERFACE_NAMES[0], accept_self_packets, is_dr, False))
         thread.start()
 
         while self.pipeline.qsize() == 0:
@@ -91,7 +91,7 @@ class SocketTest(unittest.TestCase):
         accept_self_packets = False
         is_dr = False
         thread = threading.Thread(target=self.socket.receive_ipv4, args=(
-            self.pipeline, self.shutdown, conf.INTERFACE_NAMES[0], accept_self_packets, is_dr, False, None))
+            self.pipeline, self.shutdown, conf.INTERFACE_NAMES[0], accept_self_packets, is_dr, False))
         thread.start()
         self.shutdown.set()
         thread.join()
@@ -99,7 +99,7 @@ class SocketTest(unittest.TestCase):
 
         is_dr = True
         thread = threading.Thread(target=self.socket.receive_ipv4, args=(
-            self.pipeline, self.shutdown, conf.INTERFACE_NAMES[0], accept_self_packets, is_dr, False, None))
+            self.pipeline, self.shutdown, conf.INTERFACE_NAMES[0], accept_self_packets, is_dr, False))
         thread.start()
         self.shutdown.set()
         thread.join()
@@ -111,7 +111,7 @@ class SocketTest(unittest.TestCase):
         accept_self_packets = False
         is_dr = False
         thread = threading.Thread(target=self.socket.receive_ipv6, args=(
-            self.pipeline, self.shutdown, conf.INTERFACE_NAMES[0], accept_self_packets, is_dr, False, None))
+            self.pipeline, self.shutdown, conf.INTERFACE_NAMES[0], accept_self_packets, is_dr, False))
         thread.start()
         self.shutdown.set()
         thread.join()
@@ -119,7 +119,7 @@ class SocketTest(unittest.TestCase):
 
         is_dr = True
         thread = threading.Thread(target=self.socket.receive_ipv6, args=(
-            self.pipeline, self.shutdown, conf.INTERFACE_NAMES[0], accept_self_packets, is_dr, False, None))
+            self.pipeline, self.shutdown, conf.INTERFACE_NAMES[0], accept_self_packets, is_dr, False))
         thread.start()
         self.shutdown.set()
         thread.join()
@@ -131,19 +131,19 @@ class SocketTest(unittest.TestCase):
         is_dr = False
         with self.assertRaises(ValueError):
             sock.Socket.receive_ipv4(sock.Socket(), None, self.shutdown, conf.INTERFACE_NAMES[0],
-                                     accept_self_packets, is_dr, False, None)
+                                     accept_self_packets, is_dr, False)
         with self.assertRaises(ValueError):
             sock.Socket.receive_ipv4(sock.Socket(), self.pipeline, None, conf.INTERFACE_NAMES[0],
-                                     accept_self_packets, is_dr, False, None)
+                                     accept_self_packets, is_dr, False)
         with self.assertRaises(ValueError):
             sock.Socket.receive_ipv4(sock.Socket(), self.pipeline, self.shutdown, None,
-                                     accept_self_packets, is_dr, False, None)
+                                     accept_self_packets, is_dr, False)
         with self.assertRaises(ValueError):
             sock.Socket.receive_ipv4(sock.Socket(), self.pipeline, self.shutdown, '',
-                                     accept_self_packets, is_dr, False, None)
+                                     accept_self_packets, is_dr, False)
         with self.assertRaises(ValueError):
             sock.Socket.receive_ipv4(sock.Socket(), self.pipeline, self.shutdown, '        ',
-                                     accept_self_packets, is_dr, False, None)
+                                     accept_self_packets, is_dr, False)
 
     #  Successful run - Instant
     def test_receive_invalid_parameters_ipv6(self):
@@ -151,19 +151,19 @@ class SocketTest(unittest.TestCase):
         is_dr = False
         with self.assertRaises(ValueError):
             sock.Socket.receive_ipv6(sock.Socket(), None, self.shutdown, conf.INTERFACE_NAMES[0],
-                                     accept_self_packets, is_dr, False, None)
+                                     accept_self_packets, is_dr, False)
         with self.assertRaises(ValueError):
             sock.Socket.receive_ipv6(sock.Socket(), self.pipeline, None, conf.INTERFACE_NAMES[0],
-                                     accept_self_packets, is_dr, False, None)
+                                     accept_self_packets, is_dr, False)
         with self.assertRaises(ValueError):
             sock.Socket.receive_ipv6(sock.Socket(), self.pipeline, self.shutdown, None,
-                                     accept_self_packets, is_dr, False, None)
+                                     accept_self_packets, is_dr, False)
         with self.assertRaises(ValueError):
             sock.Socket.receive_ipv6(sock.Socket(), self.pipeline, self.shutdown, '',
-                                     accept_self_packets, is_dr, False, None)
+                                     accept_self_packets, is_dr, False)
         with self.assertRaises(ValueError):
             sock.Socket.receive_ipv6(sock.Socket(), self.pipeline, self.shutdown, '        ',
-                                     accept_self_packets, is_dr, False, None)
+                                     accept_self_packets, is_dr, False)
 
     #  Successful run - 11-21 s
     @timeout_decorator.timeout(TIMEOUT_SECONDS)
@@ -171,10 +171,10 @@ class SocketTest(unittest.TestCase):
         accept_self_packets = True
         is_dr = False
         thread = threading.Thread(target=self.socket.receive_ipv4, args=(
-            self.pipeline, self.shutdown, conf.INTERFACE_NAMES[0], accept_self_packets, is_dr, False, None))
+            self.pipeline, self.shutdown, conf.INTERFACE_NAMES[0], accept_self_packets, is_dr, False))
         thread.start()
         time.sleep(1)   # Needed to give CPU to other thread
-        self.socket.send_ipv4(DATA_TO_SEND_OSPFV2, conf.ALL_OSPF_ROUTERS_IPV4, conf.INTERFACE_NAMES[0])
+        self.socket.send_ipv4(DATA_TO_SEND_OSPFV2, conf.ALL_OSPF_ROUTERS_IPV4, conf.INTERFACE_NAMES[0], False)
         time.sleep(10)  # Wait of 10 s ensures other router always sends one and only one Hello packet during wait
         self.assertTrue(self.pipeline.qsize() > 1)  # Hello packets from other router will appear while waiting
 
@@ -207,10 +207,10 @@ class SocketTest(unittest.TestCase):
         accept_self_packets = True
         is_dr = False
         thread = threading.Thread(target=self.socket.receive_ipv6, args=(
-            self.pipeline, self.shutdown, conf.INTERFACE_NAMES[0], accept_self_packets, is_dr, False, None))
+            self.pipeline, self.shutdown, conf.INTERFACE_NAMES[0], accept_self_packets, is_dr, False))
         thread.start()
         time.sleep(1)
-        self.socket.send_ipv6(DATA_TO_SEND_OSPFV3, conf.ALL_OSPF_ROUTERS_IPV6, conf.INTERFACE_NAMES[0])
+        self.socket.send_ipv6(DATA_TO_SEND_OSPFV3, conf.ALL_OSPF_ROUTERS_IPV6, conf.INTERFACE_NAMES[0], False)
         time.sleep(10)
         self.assertTrue(self.pipeline.qsize() > 1)
 
@@ -238,49 +238,49 @@ class SocketTest(unittest.TestCase):
     def test_send_invalid_parameters_ipv4(self):
         with self.assertRaises(ValueError):
             sock.Socket.send_ipv4(
-                sock.Socket(), None, conf.ALL_OSPF_ROUTERS_IPV4, conf.INTERFACE_NAMES[0])
+                sock.Socket(), None, conf.ALL_OSPF_ROUTERS_IPV4, conf.INTERFACE_NAMES[0], False)
         with self.assertRaises(ValueError):
             sock.Socket.send_ipv4(
-                sock.Socket(), '', conf.ALL_OSPF_ROUTERS_IPV4, conf.INTERFACE_NAMES[0])
+                sock.Socket(), '', conf.ALL_OSPF_ROUTERS_IPV4, conf.INTERFACE_NAMES[0], False)
         with self.assertRaises(ValueError):
             sock.Socket.send_ipv4(
-                sock.Socket(), '        ', conf.ALL_OSPF_ROUTERS_IPV4, conf.INTERFACE_NAMES[0])
+                sock.Socket(), '        ', conf.ALL_OSPF_ROUTERS_IPV4, conf.INTERFACE_NAMES[0], False)
         with self.assertRaises(ValueError):
-            sock.Socket.send_ipv4(sock.Socket(), DATA_TO_SEND_OSPFV2, None, conf.INTERFACE_NAMES[0])
+            sock.Socket.send_ipv4(sock.Socket(), DATA_TO_SEND_OSPFV2, None, conf.INTERFACE_NAMES[0], False)
         with self.assertRaises(ValueError):
-            sock.Socket.send_ipv4(sock.Socket(), DATA_TO_SEND_OSPFV2, '', conf.INTERFACE_NAMES[0])
+            sock.Socket.send_ipv4(sock.Socket(), DATA_TO_SEND_OSPFV2, '', conf.INTERFACE_NAMES[0], False)
         with self.assertRaises(ValueError):
-            sock.Socket.send_ipv4(sock.Socket(), DATA_TO_SEND_OSPFV2, '        ', conf.INTERFACE_NAMES[0])
+            sock.Socket.send_ipv4(sock.Socket(), DATA_TO_SEND_OSPFV2, '        ', conf.INTERFACE_NAMES[0], False)
         with self.assertRaises(ValueError):
-            sock.Socket.send_ipv4(sock.Socket(), DATA_TO_SEND_OSPFV2, conf.ALL_OSPF_ROUTERS_IPV4, None)
+            sock.Socket.send_ipv4(sock.Socket(), DATA_TO_SEND_OSPFV2, conf.ALL_OSPF_ROUTERS_IPV4, None, False)
         with self.assertRaises(ValueError):
-            sock.Socket.send_ipv4(sock.Socket(), DATA_TO_SEND_OSPFV2, conf.ALL_OSPF_ROUTERS_IPV4, '')
+            sock.Socket.send_ipv4(sock.Socket(), DATA_TO_SEND_OSPFV2, conf.ALL_OSPF_ROUTERS_IPV4, '', False)
         with self.assertRaises(ValueError):
-            sock.Socket.send_ipv4(sock.Socket(), DATA_TO_SEND_OSPFV2, conf.ALL_OSPF_ROUTERS_IPV4, '        ')
+            sock.Socket.send_ipv4(sock.Socket(), DATA_TO_SEND_OSPFV2, conf.ALL_OSPF_ROUTERS_IPV4, '        ', False)
 
     #  Successful run - Instant
     def test_send_invalid_parameters_ipv6(self):
         with self.assertRaises(ValueError):
             sock.Socket.send_ipv6(
-                sock.Socket(), None, conf.ALL_OSPF_ROUTERS_IPV6, conf.INTERFACE_NAMES[0])
+                sock.Socket(), None, conf.ALL_OSPF_ROUTERS_IPV6, conf.INTERFACE_NAMES[0], False)
         with self.assertRaises(ValueError):
             sock.Socket.send_ipv6(
-                sock.Socket(), '', conf.ALL_OSPF_ROUTERS_IPV6, conf.INTERFACE_NAMES[0])
+                sock.Socket(), '', conf.ALL_OSPF_ROUTERS_IPV6, conf.INTERFACE_NAMES[0], False)
         with self.assertRaises(ValueError):
             sock.Socket.send_ipv6(
-                sock.Socket(), '        ', conf.ALL_OSPF_ROUTERS_IPV6, conf.INTERFACE_NAMES[0])
+                sock.Socket(), '        ', conf.ALL_OSPF_ROUTERS_IPV6, conf.INTERFACE_NAMES[0], False)
         with self.assertRaises(ValueError):
-            sock.Socket.send_ipv6(sock.Socket(), DATA_TO_SEND_OSPFV2, None, conf.INTERFACE_NAMES[0])
+            sock.Socket.send_ipv6(sock.Socket(), DATA_TO_SEND_OSPFV2, None, conf.INTERFACE_NAMES[0], False)
         with self.assertRaises(ValueError):
-            sock.Socket.send_ipv6(sock.Socket(), DATA_TO_SEND_OSPFV2, '', conf.INTERFACE_NAMES[0])
+            sock.Socket.send_ipv6(sock.Socket(), DATA_TO_SEND_OSPFV2, '', conf.INTERFACE_NAMES[0], False)
         with self.assertRaises(ValueError):
-            sock.Socket.send_ipv6(sock.Socket(), DATA_TO_SEND_OSPFV2, '        ', conf.INTERFACE_NAMES[0])
+            sock.Socket.send_ipv6(sock.Socket(), DATA_TO_SEND_OSPFV2, '        ', conf.INTERFACE_NAMES[0], False)
         with self.assertRaises(ValueError):
-            sock.Socket.send_ipv6(sock.Socket(), DATA_TO_SEND_OSPFV2, conf.ALL_OSPF_ROUTERS_IPV6, None)
+            sock.Socket.send_ipv6(sock.Socket(), DATA_TO_SEND_OSPFV2, conf.ALL_OSPF_ROUTERS_IPV6, None, False)
         with self.assertRaises(ValueError):
-            sock.Socket.send_ipv6(sock.Socket(), DATA_TO_SEND_OSPFV2, conf.ALL_OSPF_ROUTERS_IPV6, '')
+            sock.Socket.send_ipv6(sock.Socket(), DATA_TO_SEND_OSPFV2, conf.ALL_OSPF_ROUTERS_IPV6, '', False)
         with self.assertRaises(ValueError):
-            sock.Socket.send_ipv6(sock.Socket(), DATA_TO_SEND_OSPFV2, conf.ALL_OSPF_ROUTERS_IPV6, '        ')
+            sock.Socket.send_ipv6(sock.Socket(), DATA_TO_SEND_OSPFV2, conf.ALL_OSPF_ROUTERS_IPV6, '        ', False)
 
 
 if __name__ == '__main__':

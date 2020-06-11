@@ -13,7 +13,7 @@ This class represents the OSPF neighbor and contains its data and operations
 class Neighbor:
 
     def __init__(self, neighbor_id, neighbor_priority, neighbor_interface_id, neighbor_ip_address, neighbor_options,
-                 neighbor_dr, neighbor_bdr):
+                 neighbor_dr, neighbor_bdr, router_id):
         is_valid, message = self.parameter_validation(neighbor_id, neighbor_options)
         if not is_valid:  # At least one of the parameters failed validation
             raise ValueError(message)
@@ -26,7 +26,7 @@ class Neighbor:
         self.neighbor_state = conf.NEIGHBOR_STATE_DOWN  # Initial state
         self.neighbor_dr = neighbor_dr  # 0.0.0.0 means no DR is known by the neighbor
         self.neighbor_bdr = neighbor_bdr
-        print("OSPFv" + str(utils.Utils.get_ospf_version(self.neighbor_ip_address)),
+        print(router_id + ": OSPFv" + str(utils.Utils.get_ospf_version(self.neighbor_ip_address)),
               "neighbor found with ID", self.neighbor_id)
         self.master_slave = False  # True -> This router is master
         self.dd_sequence = 0
@@ -44,6 +44,7 @@ class Neighbor:
         self.inactivity_shutdown = threading.Event()
         self.retransmission_shutdown = threading.Event()
         self.last_sent_packet = None  # Last DD Description, LS Request or LS Update sent to neighbor
+        self.router_id = router_id
 
         #  Sets timer that monitors neighbor last activity
         timeout_seconds = conf.ROUTER_DEAD_INTERVAL
@@ -104,7 +105,7 @@ class Neighbor:
         old_state = self.neighbor_state
         if new_state != old_state:
             if old_state != conf.NEIGHBOR_STATE_DOWN:
-                print("OSPFv" + str(utils.Utils.get_ospf_version(self.neighbor_ip_address)),
+                print(self.router_id + ": OSPFv" + str(utils.Utils.get_ospf_version(self.neighbor_ip_address)),
                       "neighbor", self.neighbor_id, "changed state from", old_state, "to", new_state)
             self.neighbor_state = new_state
 

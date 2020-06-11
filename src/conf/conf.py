@@ -95,9 +95,7 @@ POINT_TO_POINT_INTERFACE = 2
 #  General constants
 
 IPV4_HEADER_BASE_LENGTH = 20
-IPV6_HEADER_BASE_LENGTH = 40
 SOURCE_IPV4_ADDRESS_1ST_BYTE = 12  # 1st byte of the source IPv4 address is the 13th of the IPv4 header
-SOURCE_IPV6_ADDRESS_1ST_BYTE = 8
 
 BYTE_SIZE = 8
 BASE_16 = 16
