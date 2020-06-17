@@ -188,7 +188,31 @@ class TestLsa(unittest.TestCase):
         self.assertEqual([[64, 0, '2001:db8:cafe:3::']], unpacked_lsa.body.prefixes)
 
     #  Successful run - Instant
+    def test_is_lsa_checksum_valid(self):
+        new_lsa = lsa.Lsa()
+        self.assertFalse(new_lsa.is_lsa_checksum_valid())
+        new_lsa.create_header(1, 2, 1, '0.0.0.0', '1.1.1.1', 0, conf.VERSION_IPV4)
+        self.assertFalse(new_lsa.is_lsa_checksum_valid())
+        new_lsa.create_router_lsa_body(False, False, False, 2, conf.VERSION_IPV4)
+        self.assertTrue(new_lsa.is_lsa_checksum_valid())
+        new_lsa.header.ls_age = 2
+        self.assertTrue(new_lsa.is_lsa_checksum_valid())
+        new_lsa.header.options = 3
+        self.assertFalse(new_lsa.is_lsa_checksum_valid())
+        new_lsa.set_lsa_checksum()
+        self.assertTrue(new_lsa.is_lsa_checksum_valid())
+        new_lsa.header.ls_checksum = 1
+        self.assertFalse(new_lsa.is_lsa_checksum_valid())
+        new_lsa.set_lsa_checksum()
+        self.assertTrue(new_lsa.is_lsa_checksum_valid())
+
+    #  Successful run - Instant
     def test_get_fresher_lsa_successful(self):
+        first, second = self.reset_lsa_instances()
+        #  One of the provided LSA instances is None
+        self.assertEqual(header.FIRST, lsa.Lsa.get_fresher_lsa(first, None))
+        self.assertEqual(header.SECOND, lsa.Lsa.get_fresher_lsa(None, second))
+
         first, second = self.reset_lsa_instances()
         #  Sequence Numbers are different
         first.header.ls_sequence_number += 1
@@ -255,11 +279,6 @@ class TestLsa(unittest.TestCase):
 
     #  Successful run - Instant
     def test_get_fresher_lsa_invalid_parameters(self):
-        first, second = self.reset_lsa_instances()
-        with self.assertRaises(ValueError):
-            lsa.Lsa.get_fresher_lsa(None, second)
-        with self.assertRaises(ValueError):
-            lsa.Lsa.get_fresher_lsa(first, None)
         with self.assertRaises(ValueError):
             lsa.Lsa.get_fresher_lsa(None, None)
         first, second = self.reset_lsa_instances()
@@ -322,3 +341,42 @@ class TestLsa(unittest.TestCase):
         second.create_header(0, 0, conf.LSA_TYPE_ROUTER, '0.0.0.0', conf.ROUTER_ID, conf.INITIAL_SEQUENCE_NUMBER,
                              conf.VERSION_IPV4)
         return first, second
+
+    #  Successful run - Instant
+    def test_is_ls_type_valid(self):
+        self.assertFalse(lsa.Lsa.is_ls_type_valid(1, 1))
+        self.assertFalse(lsa.Lsa.is_ls_type_valid(1, 4))
+
+        self.assertFalse(lsa.Lsa.is_ls_type_valid(0, 2))
+        self.assertTrue(lsa.Lsa.is_ls_type_valid(1, 2))
+        self.assertTrue(lsa.Lsa.is_ls_type_valid(2, 2))
+        self.assertTrue(lsa.Lsa.is_ls_type_valid(3, 2))
+        self.assertTrue(lsa.Lsa.is_ls_type_valid(4, 2))
+        self.assertTrue(lsa.Lsa.is_ls_type_valid(5, 2))
+        self.assertFalse(lsa.Lsa.is_ls_type_valid(6, 2))
+        self.assertFalse(lsa.Lsa.is_ls_type_valid(7, 2))
+        self.assertFalse(lsa.Lsa.is_ls_type_valid(8, 2))
+        self.assertTrue(lsa.Lsa.is_ls_type_valid(9, 2))
+        self.assertTrue(lsa.Lsa.is_ls_type_valid(10, 2))
+        self.assertTrue(lsa.Lsa.is_ls_type_valid(11, 2))
+        self.assertFalse(lsa.Lsa.is_ls_type_valid(12, 2))
+
+        self.assertFalse(lsa.Lsa.is_ls_type_valid(0, 3))
+        self.assertTrue(lsa.Lsa.is_ls_type_valid(1, 3))
+        self.assertTrue(lsa.Lsa.is_ls_type_valid(2, 3))
+        self.assertTrue(lsa.Lsa.is_ls_type_valid(3, 3))
+        self.assertTrue(lsa.Lsa.is_ls_type_valid(4, 3))
+        self.assertTrue(lsa.Lsa.is_ls_type_valid(5, 3))
+        self.assertFalse(lsa.Lsa.is_ls_type_valid(6, 3))
+        self.assertFalse(lsa.Lsa.is_ls_type_valid(7, 3))
+        self.assertTrue(lsa.Lsa.is_ls_type_valid(8, 3))
+        self.assertTrue(lsa.Lsa.is_ls_type_valid(9, 3))
+        self.assertFalse(lsa.Lsa.is_ls_type_valid(10, 3))
+        self.assertFalse(lsa.Lsa.is_ls_type_valid(11, 3))
+        self.assertFalse(lsa.Lsa.is_ls_type_valid(12, 3))
+        self.assertTrue(lsa.Lsa.is_ls_type_valid((1 << 13) + 1, 3))
+        self.assertFalse(lsa.Lsa.is_ls_type_valid((1 << 13) + 10, 3))
+        self.assertTrue(lsa.Lsa.is_ls_type_valid((2 << 13) + 1, 3))
+        self.assertFalse(lsa.Lsa.is_ls_type_valid((2 << 13) + 10, 3))
+        self.assertFalse(lsa.Lsa.is_ls_type_valid((3 << 13) + 1, 3))
+        self.assertFalse(lsa.Lsa.is_ls_type_valid((3 << 13) + 10, 3))

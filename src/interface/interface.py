@@ -1,5 +1,6 @@
 import threading
 import time
+import queue
 
 import neighbor.neighbor as neighbor
 import packet.packet as packet
@@ -8,6 +9,7 @@ import general.timer as timer
 import general.sock as sock
 import general.utils as utils
 import lsa.header as header
+import lsa.lsa as lsa
 
 '''
 This class represents the OSPF interface and contains its data and operations
@@ -75,6 +77,7 @@ class Interface:
         self.lsa_lock = threading.RLock()  # For controlling access to interface LSA list
         self.lsdb = lsdb  # Reference to the area LSDB
         self.localhost = localhost
+        self.flooding_pipeline = queue.Queue()  # Area layer will flood any LSAs here through the proper interfaces
 
         self.hello_thread = None
         self.hello_timer = timer.Timer()
@@ -315,32 +318,66 @@ class Interface:
                             conf.NEIGHBOR_STATE_EXCHANGE, conf.NEIGHBOR_STATE_LOADING, conf.NEIGHBOR_STATE_FULL]:
                         continue
 
-                    lsa_identifiers = []
-                    for lsa in incoming_packet.body.lsa_list:
-                        lsa_identifiers.append(lsa.get_lsa_identifier())
-                    for identifier in lsa_identifiers:
-                        neighbor_router.delete_lsa_identifier(neighbor_router.ls_request_list, identifier)  # If there
-                        if len(neighbor_router.ls_request_list) == 0:
-                            neighbor_router.stop_retransmission_timer()  # All requested LSAs have been received
+                    for received_lsa in incoming_packet.body.lsa_list:
 
-                    for new_lsa in incoming_packet.body.lsa_list:
-                        #  TODO: Compare instances of the same LSA
-                        if self.lsdb.get_lsa(new_lsa.header.ls_type, new_lsa.header.link_state_id,
-                                             new_lsa.header.advertising_router, [self]) is None:  # LSA is new
-                            self.lsdb.add_lsa(new_lsa)
-                    if self.version == conf.VERSION_IPV4:
-                        self.ls_acknowledgement_packet.create_header_v2(
-                            conf.PACKET_TYPE_LS_ACKNOWLEDGMENT, self.router_id, self.area_id, conf.DEFAULT_AUTH,
-                            conf.NULL_AUTHENTICATION)
-                    else:
-                        self.ls_acknowledgement_packet.create_header_v3(
-                            conf.PACKET_TYPE_LS_ACKNOWLEDGMENT, self.router_id, self.area_id, self.instance_id,
-                            self.ipv6_address, neighbor_router.neighbor_ip_address)
-                    self.ls_acknowledgement_packet.create_ls_acknowledgement_packet_body(self.version)
-                    for new_lsa in incoming_packet.body.lsa_list:
-                        self.ls_acknowledgement_packet.add_lsa_header(new_lsa.header)
-                    self.send_packet(
-                        self.ls_acknowledgement_packet, neighbor_router.neighbor_ip_address, neighbor_router)
+                        if not received_lsa.is_lsa_checksum_valid():
+                            continue
+                        if not received_lsa.is_ls_type_valid(received_lsa.header.ls_type, self.version):
+                            continue
+
+                        local_copy = self.lsdb.get_lsa(received_lsa.header.ls_type, received_lsa.header.link_state_id,
+                                                       received_lsa.header.advertising_router, [self])
+
+                        if received_lsa.header.ls_age == conf.MAX_AGE:
+                            #  Received LSA not in LSDB
+                            if local_copy is None:
+                                neighbor_state_exchange_loading = False  # No neighbors in states EXCHANGE or LOADING
+                                for n in self.neighbors:
+                                    if self.neighbors[n].neighbor_state in [
+                                        conf.NEIGHBOR_STATE_EXCHANGE, conf.NEIGHBOR_STATE_LOADING]:
+                                        neighbor_state_exchange_loading = True
+                                if not neighbor_state_exchange_loading:
+                                    #  Acknowledge LSA
+                                    if self.version == conf.VERSION_IPV4:
+                                        self.ls_acknowledgement_packet.create_header_v2(
+                                            conf.PACKET_TYPE_LS_ACKNOWLEDGMENT, self.router_id, self.area_id,
+                                            conf.DEFAULT_AUTH, conf.NULL_AUTHENTICATION)
+                                    else:
+                                        self.ls_acknowledgement_packet.create_header_v3(
+                                            conf.PACKET_TYPE_LS_ACKNOWLEDGMENT, self.router_id, self.area_id,
+                                            self.instance_id, self.ipv6_address, neighbor_router.neighbor_ip_address)
+                                    self.ls_acknowledgement_packet.create_ls_acknowledgement_packet_body(self.version)
+                                    self.ls_acknowledgement_packet.add_lsa_header(received_lsa.header)
+                                    self.send_packet(self.ls_acknowledgement_packet,
+                                                     neighbor_router.neighbor_ip_address, neighbor_router)
+                                    continue  # Proceed to next LSA
+
+                        #  If LSA instance is not in LSDB or if received instance is more recent
+                        if (local_copy is None) | (lsa.Lsa.get_fresher_lsa(received_lsa, local_copy) == header.SECOND):
+                            #  TODO: Check case where LSA has been received less than 5 seconds ago
+                            self.flooding_pipeline.put([received_lsa, neighbor_id])  # This LSA will be flooded
+                            for n in self.neighbors:
+                                self.neighbors[n].ls_retransmission_list = []
+                            if received_lsa.header.ls_type == conf.LSA_TYPE_LINK:  # TODO: Generalize to all link-local scope LSAs
+                                self.add_link_local_lsa(received_lsa)
+                            else:
+                                self.lsdb.add_lsa(received_lsa)
+
+                            #  TODO: Acknowledge LS Update packet
+                            #  TODO: Handle self-originated LSAs
+
+                        elif received_lsa.get_lsa_identifier() in neighbor_router.ls_request_list:
+                            self.event_bad_ls_req(neighbor_router, source_ip)
+                            break
+
+                        elif lsa.Lsa.get_fresher_lsa(received_lsa, local_copy) == header.BOTH:
+                            if received_lsa.get_lsa_identifier() in neighbor_router.ls_retransmission_list:
+                                neighbor_router.delete_lsa_identifier(
+                                    neighbor_router.ls_retransmission_list, received_lsa.get_lsa_identifier())
+
+                        else:  # Local copy of LSA is more recent
+                            #  TODO
+                            pass
 
                     if len(neighbor_router.ls_request_list) == 0:
                         self.event_loading_done(neighbor_router)
@@ -699,7 +736,8 @@ class Interface:
     #  LoadingDone event
     @staticmethod
     def event_loading_done(neighbor_router):
-        neighbor_router.set_neighbor_state(conf.NEIGHBOR_STATE_FULL)
+        if neighbor_router.neighbor_state == conf.NEIGHBOR_STATE_LOADING:
+            neighbor_router.set_neighbor_state(conf.NEIGHBOR_STATE_FULL)
 
     #  AdjOK? event
     def event_adj_ok(self, neighbor_router, neighbor_id, source_ip):
@@ -868,4 +906,5 @@ class Interface:
             new_lsa_identifier = new_lsa.get_lsa_identifier()
             self.delete_link_local_lsa(new_lsa_identifier[0], new_lsa_identifier[1], new_lsa_identifier[2])
 
+            new_lsa.installation_time = time.perf_counter()
             self.link_local_lsa_list.append(new_lsa)

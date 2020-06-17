@@ -1,4 +1,5 @@
 import threading
+import time
 
 import conf.conf as conf
 
@@ -92,6 +93,7 @@ class Lsdb:
             lsa_identifier = lsa.get_lsa_identifier()
             self.delete_lsa(lsa_identifier[0], lsa_identifier[1], lsa_identifier[2], [])
 
+            lsa.installation_time = time.perf_counter()
             ls_type = lsa.get_lsa_type_from_lsa()
             if ls_type == conf.LSA_TYPE_ROUTER:
                 self.router_lsa_list.append(lsa)

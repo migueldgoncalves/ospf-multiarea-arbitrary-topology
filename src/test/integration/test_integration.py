@@ -8,7 +8,7 @@ import area.area as area
 import general.utils as utils
 
 '''
-This class tests integration between 2 routers running on localhost
+This class tests integration between 2 router processes running inside the VM
 '''
 
 

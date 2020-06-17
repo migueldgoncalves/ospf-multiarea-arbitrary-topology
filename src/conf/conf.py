@@ -40,6 +40,9 @@ LSA_TYPE_INTER_AREA_ROUTER = 4  # Just for OSPFv3
 LSA_TYPE_AS_EXTERNAL = 5
 LSA_TYPE_LINK = 8  # Just for OSPFv3
 LSA_TYPE_INTRA_AREA_PREFIX = 9  # Just for OSPFv3
+LSA_TYPE_OPAQUE_LINK_LOCAL = 9  # Just for OSPFv2
+LSA_TYPE_OPAQUE_AREA = 10  # Just for OSPFv2
+LSA_TYPE_OPAQUE_AS = 11  # Just for OSPFv2
 
 #  1st element in interface names tuple must match 1st element in interface areas tuple, and so on
 #  Ex: Interface "ens33" belongs to area '0.0.0.0'

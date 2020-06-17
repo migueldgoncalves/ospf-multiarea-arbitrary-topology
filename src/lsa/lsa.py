@@ -21,6 +21,7 @@ class Lsa:
         self.body = None
 
         self.system_time = time.perf_counter()  # Current system time in seconds
+        self.installation_time = time.perf_counter()
 
     #  #  #  #  #  #  #
     #  Main methods   #
@@ -153,6 +154,15 @@ class Lsa:
             body_bytes = self.body.pack_lsa_body()
             self.header.ls_checksum = utils.Utils.create_fletcher_checksum(header_bytes + body_bytes)
 
+    #  Returns True is LSA checksum is valid
+    def is_lsa_checksum_valid(self):
+        if self.body is None:
+            return False
+        header_bytes = self.header.pack_header()[2:]  # Without the LS Age field
+        body_bytes = self.body.pack_lsa_body()
+        checksum = utils.Utils.create_fletcher_checksum(header_bytes + body_bytes)
+        return checksum == 0  # Checksum of LSA with valid checksum will always be 0
+
     #  Calculates LSA length and inserts it on given LSA header
     def set_lsa_length(self):
         if self.body is not None:
@@ -207,6 +217,28 @@ class Lsa:
     #  Given 2 instances of LSAs, states which of them is fresher or if both have same freshness
     @staticmethod
     def get_fresher_lsa(first, second):
-        if (first is None) | (second is None):
+        if (first is None) & (second is None):
             raise ValueError("LSA cannot be None")
-        return header.Header.get_fresher_lsa_header(first.header, second.header)
+        elif first is None:
+            return header.SECOND
+        elif second is None:
+            return header.FIRST
+        else:
+            return header.Header.get_fresher_lsa_header(first.header, second.header)
+
+    #  Returns True if provided LS Type is valid for provided OSPF version - Includes Opaque-LSAs for OSPFv2
+    @staticmethod
+    def is_ls_type_valid(ls_type, version):
+        if version == conf.VERSION_IPV4:
+            return ls_type in [conf.LSA_TYPE_ROUTER, conf.LSA_TYPE_NETWORK, conf.LSA_TYPE_SUMMARY_TYPE_3,
+                               conf.LSA_TYPE_SUMMARY_TYPE_4, conf.LSA_TYPE_AS_EXTERNAL, conf.LSA_TYPE_OPAQUE_LINK_LOCAL,
+                               conf.LSA_TYPE_OPAQUE_AREA, conf.LSA_TYPE_OPAQUE_AS]
+        elif version == conf.VERSION_IPV6:
+            s1_s2_bits = header.Header.get_s1_s2_bits(ls_type)
+            ls_type = header.Header.get_ls_type(ls_type)
+            return (ls_type in [conf.LSA_TYPE_ROUTER, conf.LSA_TYPE_NETWORK, conf.LSA_TYPE_INTER_AREA_PREFIX,
+                                conf.LSA_TYPE_INTER_AREA_ROUTER, conf.LSA_TYPE_AS_EXTERNAL, conf.LSA_TYPE_LINK,
+                                conf.LSA_TYPE_INTRA_AREA_PREFIX]) & (
+                    s1_s2_bits in [conf.LINK_LOCAL_SCOPING, conf.AREA_SCOPING, conf.AS_SCOPING])
+        else:
+            return False

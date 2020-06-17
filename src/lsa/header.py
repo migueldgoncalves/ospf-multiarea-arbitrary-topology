@@ -148,8 +148,12 @@ class Header:  # OSPFv2 and OSPFv3 - 20 bytes
     #  Given 2 instances of LSA headers, states which of them is fresher or if both have same freshness
     @staticmethod
     def get_fresher_lsa_header(first, second):
-        if (first is None) | (second is None):
+        if (first is None) & (second is None):
             return ValueError("LSA header cannot be None")
+        elif first is None:
+            return SECOND
+        elif second is None:
+            return FIRST
 
         first_sequence_number = first.ls_sequence_number
         first_checksum = first.ls_checksum
