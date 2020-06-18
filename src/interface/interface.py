@@ -78,6 +78,7 @@ class Interface:
         self.lsdb = lsdb  # Reference to the area LSDB
         self.localhost = localhost
         self.flooding_pipeline = queue.Queue()  # Area layer will flood any LSAs here through the proper interfaces
+        self.lsa_list_to_ack = []  # Stores LSA headers to be flooded in same LS Acknowledgement packet
 
         self.hello_thread = None
         self.hello_timer = timer.Timer()
@@ -92,6 +93,13 @@ class Interface:
         self.waiting_timeout = threading.Event()
         self.waiting_timer_shutdown = threading.Event()
         self.waiting_timer_seconds = conf.ROUTER_DEAD_INTERVAL
+
+        self.ls_ack_timer_thread = None
+        self.ls_ack_timer = timer.Timer()
+        self.ls_ack_timer_reset = threading.Event()
+        self.ls_ack_timer_timeout = threading.Event()
+        self.ls_ack_timer_shutdown = threading.Event()
+        self.ls_ack_timer_seconds = conf.LS_ACK_TRANSMISSION_DELAY
 
     #  #  #  #  #  #
     #  Main methods  #
@@ -334,7 +342,7 @@ class Interface:
                                 neighbor_state_exchange_loading = False  # No neighbors in states EXCHANGE or LOADING
                                 for n in self.neighbors:
                                     if self.neighbors[n].neighbor_state in [
-                                        conf.NEIGHBOR_STATE_EXCHANGE, conf.NEIGHBOR_STATE_LOADING]:
+                                            conf.NEIGHBOR_STATE_EXCHANGE, conf.NEIGHBOR_STATE_LOADING]:
                                         neighbor_state_exchange_loading = True
                                 if not neighbor_state_exchange_loading:
                                     #  Acknowledge LSA
@@ -353,15 +361,34 @@ class Interface:
                                     continue  # Proceed to next LSA
 
                         #  If LSA instance is not in LSDB or if received instance is more recent
-                        if (local_copy is None) | (lsa.Lsa.get_fresher_lsa(received_lsa, local_copy) == header.SECOND):
-                            #  TODO: Check case where LSA has been received less than 5 seconds ago
+                        if (local_copy is None) | (lsa.Lsa.get_fresher_lsa(received_lsa, local_copy) == header.FIRST):
+                            #  If 2 instances of same LSA were received with less than 1 second of interval
+                            if local_copy is not None:
+                                if (local_copy.header.advertising_router != self.router_id) & (
+                                        time.perf_counter() - local_copy.installation_time < conf.MIN_LS_ARRIVAL):
+                                    continue
+
                             self.flooding_pipeline.put([received_lsa, neighbor_id])  # This LSA will be flooded
                             for n in self.neighbors:
                                 self.neighbors[n].ls_retransmission_list = []
-                            if received_lsa.header.ls_type == conf.LSA_TYPE_LINK:  # TODO: Generalize to all link-local scope LSAs
+                            flooding_scope = received_lsa.header.get_s1_s2_bits(received_lsa.header.ls_type)
+                            u_bit = received_lsa.header.get_u_bit(received_lsa.header.ls_type)
+                            ls_type = received_lsa.header.ls_type
+                            if (flooding_scope == conf.LINK_LOCAL_SCOPING) | (
+                                    (not lsa.Lsa.is_ls_type_valid(ls_type, self.version)) & (not u_bit)):
                                 self.add_link_local_lsa(received_lsa)
                             else:
                                 self.lsdb.add_lsa(received_lsa)
+
+                            #  Adds LSA header to list of LSAs to acknowledge
+                            if len(self.lsa_list_to_ack) == 0:  # Start grouping of received LSAs to acknowledge
+                                self.ls_ack_timer_timeout.clear()
+                                self.ls_ack_timer_shutdown.clear()
+                                self.ls_ack_timer_thread = threading.Thread(
+                                    target=self.ls_ack_timer.single_shot_timer,
+                                    args=(self.ls_ack_timer_reset, self.ls_ack_timer_timeout,
+                                          self.ls_ack_timer_shutdown, self.ls_ack_timer_seconds))
+                                self.ls_ack_timer_thread.start()
 
                             #  TODO: Acknowledge LS Update packet
                             #  TODO: Handle self-originated LSAs
@@ -388,6 +415,11 @@ class Interface:
 
                 else:
                     pass
+
+            #  Sends LS Acknowledge packet if required
+            if self.ls_ack_timer_timeout.is_set():
+                self.ls_ack_timer_shutdown.set()
+                self.ls_ack_timer_thread.join()
 
             #  Sends Hello packet
             if self.hello_timeout.is_set():
@@ -425,8 +457,10 @@ class Interface:
             self.event_kill_nbr(n)
         self.hello_timer_shutdown.set()
         self.waiting_timer_shutdown.set()
+        self.ls_ack_timer_shutdown.set()
         self.hello_thread.join()
         self.waiting_thread.join()
+        self.ls_ack_timer_thread.join()
         #  Reset interface values
         self.__init__(self.router_id, self.physical_identifier, self.ipv4_address, self.ipv6_address, self.network_mask,
                       self.link_prefixes, self.area_id, self.pipeline, self.interface_shutdown, self.version, self.lsdb,

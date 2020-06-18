@@ -21,7 +21,7 @@ class Lsa:
         self.body = None
 
         self.system_time = time.perf_counter()  # Current system time in seconds
-        self.installation_time = time.perf_counter()
+        self.installation_time = time.perf_counter()  # Time of installation in LSDB
 
     #  #  #  #  #  #  #
     #  Main methods   #
