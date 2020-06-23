@@ -1,6 +1,7 @@
 import queue
 import threading
 import datetime
+import time
 
 import general.utils as utils
 import general.sock as sock
@@ -98,7 +99,7 @@ class Router:
                         data = current_interface.flooding_pipeline.get()
                         lsa_instance = data[0]
                         lsa_identifier = lsa_instance.get_lsa_identifier()
-                        sending_neighbor_id = data[1]
+                        sending_neighbor_id = data[1]  # Can be this router ID
                         ls_type = lsa_instance.get_lsa_type_from_lsa()
 
                         eligible_interfaces = []
@@ -125,6 +126,8 @@ class Router:
                                 elif flooding_scope == conf.LINK_LOCAL_SCOPING:
                                     eligible_interfaces.append(current_interface)
                                 else:
+                                    current_interface.flooded_pipeline.put(False)
+                                    time.sleep(0.1)  # Give CPU to other threads
                                     continue  # Invalid flooding scope
                             else:  # LSA with unknown LS Type and U-bit set to False has link-local flooding scope
                                 eligible_interfaces.append(current_interface)
@@ -156,33 +159,23 @@ class Router:
                                 should_retransmit_lsa = True
 
                             if not should_retransmit_lsa:
+                                current_interface.flooded_pipeline.put(False)
+                                time.sleep(0.1)
                                 continue  # LSA will not be flooded
                             #  LSA came from DR or BDR of current interface
                             if (i == j) & (sending_neighbor_id in [current_interface.designated_router,
                                                                    current_interface.backup_designated_router]):
+                                current_interface.flooded_pipeline.put(False)
+                                time.sleep(0.1)
                                 continue
                             if (i == j) & (current_interface.state == conf.INTERFACE_STATE_BACKUP):
+                                current_interface.flooded_pipeline.put(False)
+                                time.sleep(0.1)
                                 continue
 
-                            #  Get IP address(es)
-                            lsa_instance.increase_lsa_age()  # Increases LS Age by 1 s
-                            if self.ospf_version == conf.VERSION_IPV4:
-                                all_ospf_ip = conf.ALL_OSPF_ROUTERS_IPV4
-                                all_dr_ip = conf.ALL_DR_IPV4
-                                point_point_neighbor_ip = list(current_interface.neighbors.values())[0].ipv4_address
-                            else:
-                                all_ospf_ip = conf.ALL_OSPF_ROUTERS_IPV6
-                                all_dr_ip = conf.ALL_DR_IPV6
-                                point_point_neighbor_ip = list(current_interface.neighbors.values())[0].ipv6_address
-                            if (current_interface.type == conf.BROADCAST_INTERFACE) & (current_interface.state in [
-                                    conf.INTERFACE_STATE_DR, conf.INTERFACE_STATE_BACKUP]):
-                                destination_addresses = all_ospf_ip
-                            elif current_interface.type == conf.BROADCAST_INTERFACE:
-                                destination_addresses = all_dr_ip
-                            else:  # Point-to-point interface
-                                destination_addresses = point_point_neighbor_ip
-
                             #  Flood the LSA through the interface
+                            lsa_instance.increase_lsa_age()  # Increases LS Age by 1 s
+                            destination_address = j.get_flooding_ip_address()
                             ls_update_packet = packet.Packet()
                             if self.ospf_version == conf.VERSION_IPV4:
                                 ls_update_packet.create_header_v2(conf.PACKET_TYPE_LS_UPDATE, self.router_id, a,
@@ -190,14 +183,17 @@ class Router:
                             else:
                                 ls_update_packet.create_header_v3(
                                     conf.PACKET_TYPE_LS_UPDATE, self.router_id, a, current_interface.instance_id,
-                                    current_interface.ipv6_address, destination_addresses)
+                                    current_interface.ipv6_address, destination_address)
                             ls_update_packet.create_ls_update_packet_body(self.ospf_version)
                             ls_update_packet.add_lsa(lsa_instance)
                             sending_socket = sock.Socket()
                             if self.ospf_version == conf.VERSION_IPV4:
-                                sending_socket.send_ipv4(ls_update_packet, destination_addresses, j, False)
+                                sending_socket.send_ipv4(ls_update_packet, destination_address, j, False)
                             elif self.ospf_version == conf.VERSION_IPV6:
-                                sending_socket.send_ipv6(packet, destination_addresses, j, False)
+                                sending_socket.send_ipv6(packet, destination_address, j, False)
+                            current_interface.flooded_pipeline.put(True)
+                            time.sleep(0.1)
+                            current_interface.update_ls_retransmission_lists(lsa_identifier, destination_address)
 
         #  Router signalled to shutdown
         self.shutdown_router()

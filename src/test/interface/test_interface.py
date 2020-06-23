@@ -1024,6 +1024,35 @@ class InterfaceTest(unittest.TestCase):
         new_packet = self.interface_ospfv2.create_hello_packet().pack_packet()
         self.assertEqual(PACKET_BYTES, new_packet)
 
+    #  Successful run - Instant
+    def test_get_flooding_ip_address(self):
+        self.assertEqual('', self.interface_ospfv2.get_flooding_ip_address())
+        self.assertEqual('', self.interface_ospfv3.get_flooding_ip_address())
+        neighbor_ospfv2 = neighbor.Neighbor('10.10.10.10', 1, 0, '222.222.0.1', 0, '0.0.0.0', '0.0.0.0', conf.ROUTER_ID)
+        neighbor_ospfv3 = neighbor.Neighbor('10.10.10.10', 1, 1, 'fe80::1', 0, '0.0.0.0', '0.0.0.0', conf.ROUTER_ID)
+        self.interface_ospfv2.neighbors['10.10.10.10'] = neighbor_ospfv2
+        self.interface_ospfv3.neighbors['10.10.10.10'] = neighbor_ospfv3
+        self.assertEqual(conf.ALL_DR_IPV4, self.interface_ospfv2.get_flooding_ip_address())
+        self.assertEqual(conf.ALL_DR_IPV6, self.interface_ospfv3.get_flooding_ip_address())
+        self.interface_ospfv2.state = conf.INTERFACE_STATE_DR
+        self.interface_ospfv3.state = conf.INTERFACE_STATE_DR
+        self.assertEqual(conf.ALL_OSPF_ROUTERS_IPV4, self.interface_ospfv2.get_flooding_ip_address())
+        self.assertEqual(conf.ALL_OSPF_ROUTERS_IPV6, self.interface_ospfv3.get_flooding_ip_address())
+        self.interface_ospfv2.state = conf.INTERFACE_STATE_BACKUP
+        self.interface_ospfv3.state = conf.INTERFACE_STATE_BACKUP
+        self.assertEqual(conf.ALL_OSPF_ROUTERS_IPV4, self.interface_ospfv2.get_flooding_ip_address())
+        self.assertEqual(conf.ALL_OSPF_ROUTERS_IPV6, self.interface_ospfv3.get_flooding_ip_address())
+        self.interface_ospfv2.state = conf.INTERFACE_STATE_DROTHER
+        self.interface_ospfv3.state = conf.INTERFACE_STATE_DROTHER
+        self.assertEqual(conf.ALL_DR_IPV4, self.interface_ospfv2.get_flooding_ip_address())
+        self.assertEqual(conf.ALL_DR_IPV6, self.interface_ospfv3.get_flooding_ip_address())
+        self.interface_ospfv2.state = conf.INTERFACE_STATE_POINT_POINT
+        self.interface_ospfv3.state = conf.INTERFACE_STATE_POINT_POINT
+        self.interface_ospfv2.type = conf.POINT_TO_POINT_INTERFACE
+        self.interface_ospfv3.type = conf.POINT_TO_POINT_INTERFACE
+        self.assertEqual('222.222.0.1', self.interface_ospfv2.get_flooding_ip_address())
+        self.assertEqual('fe80::1', self.interface_ospfv3.get_flooding_ip_address())
+
     #  #  #  #  #  #  #  #  #  #  #  #
     #  Link-local LSA list methods  #
     #  #  #  #  #  #  #  #  #  #  #  #

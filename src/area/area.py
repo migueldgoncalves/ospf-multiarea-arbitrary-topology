@@ -32,7 +32,7 @@ class Area:
         self.external_routing_capable = external_routing_capable
 
         #  LSDB initialization
-        self.database = lsdb.Lsdb()
+        self.database = lsdb.Lsdb(self.ospf_version)
         self.populate_lsdb_startup()
 
         #  Creates the interfaces that belong to this area
@@ -53,7 +53,7 @@ class Area:
         router_lsa.create_header(conf.INITIAL_LS_AGE, conf.OPTIONS, conf.LSA_TYPE_ROUTER, link_state_id, self.router_id,
                                  conf.INITIAL_SEQUENCE_NUMBER, self.ospf_version)
         router_lsa.create_router_lsa_body(False, False, False, options, self.ospf_version)
-        self.database.add_lsa(router_lsa)
+        self.database.add_lsa(router_lsa, None)
 
         if self.ospf_version == conf.VERSION_IPV6:
             intra_area_prefix_lsa = lsa.Lsa()
@@ -65,7 +65,7 @@ class Area:
                 conf.INITIAL_SEQUENCE_NUMBER, self.ospf_version)
             intra_area_prefix_lsa.create_intra_area_prefix_lsa_body(referenced_ls_type, referenced_link_state_id,
                                                                     referenced_advertising_router)
-            self.database.add_lsa(intra_area_prefix_lsa)
+            self.database.add_lsa(intra_area_prefix_lsa, None)
 
     #  Creates and starts an interface associated with this area
     def create_interface(self, interface_id):

@@ -211,3 +211,16 @@ class Header:  # OSPFv2 and OSPFv3 - 20 bytes
 
         else:
             raise ValueError("Invalid LSA parameters")
+
+    #  Returns next LS Sequence Number given a valid LS Sequence Number
+    @staticmethod
+    def get_next_ls_sequence_number(ls_sequence_number):
+        if (ls_sequence_number < 0) | (ls_sequence_number > conf.MAX_VALUE_32_BITS) | (
+                ls_sequence_number == 0x80000000):
+            raise ValueError("Invalid LS Sequence Number")
+        elif ls_sequence_number == 0x7FFFFFFF:
+            return 0x80000001  # Wrapping the LS Sequence Number
+        elif ls_sequence_number == 0xFFFFFFFF:
+            return 0
+        else:
+            return ls_sequence_number + 1

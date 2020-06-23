@@ -380,3 +380,25 @@ class TestLsa(unittest.TestCase):
         self.assertFalse(lsa.Lsa.is_ls_type_valid((2 << 13) + 10, 3))
         self.assertFalse(lsa.Lsa.is_ls_type_valid((3 << 13) + 1, 3))
         self.assertFalse(lsa.Lsa.is_ls_type_valid((3 << 13) + 10, 3))
+
+    #  Successful run - Instant
+    def test_get_next_ls_sequence_number(self):
+        with self.assertRaises(ValueError):
+            lsa.Lsa.get_next_ls_sequence_number(-1)
+        with self.assertRaises(ValueError):
+            lsa.Lsa.get_next_ls_sequence_number(0x80000000)
+        with self.assertRaises(ValueError):
+            lsa.Lsa.get_next_ls_sequence_number(conf.MAX_VALUE_32_BITS + 1)
+
+        ls_sequence_number = 0x80000001  # Initial LS Sequence Number
+        self.assertEqual(ls_sequence_number + 1, lsa.Lsa.get_next_ls_sequence_number(ls_sequence_number))
+        ls_sequence_number = 0xFFFFFFFE
+        self.assertEqual(ls_sequence_number + 1, lsa.Lsa.get_next_ls_sequence_number(ls_sequence_number))
+        ls_sequence_number = 0xFFFFFFFF
+        self.assertEqual(0, lsa.Lsa.get_next_ls_sequence_number(ls_sequence_number))
+        ls_sequence_number = 0
+        self.assertEqual(ls_sequence_number + 1, lsa.Lsa.get_next_ls_sequence_number(ls_sequence_number))
+        ls_sequence_number = 0x7FFFFFFE
+        self.assertEqual(ls_sequence_number + 1, lsa.Lsa.get_next_ls_sequence_number(ls_sequence_number))
+        ls_sequence_number = 0x7FFFFFFF
+        self.assertEqual(0x80000001, lsa.Lsa.get_next_ls_sequence_number(ls_sequence_number))

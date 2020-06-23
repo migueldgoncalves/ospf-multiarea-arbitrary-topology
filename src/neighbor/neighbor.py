@@ -145,6 +145,9 @@ class Neighbor:
             raise ValueError("Invalid LSA list")
         if lsa_list.__contains__(lsa_identifier):
             lsa_list.remove(lsa_identifier)
+        if ((lsa_list == self.ls_request_list) & (len(self.ls_request_list) == 0)) | (
+                (lsa_list == self.ls_retransmission_list) & (len(self.ls_retransmission_list) == 0)):
+            self.stop_retransmission_timer()
 
     #  Validates constructor parameters - Returns error message in case of failed validation
     @staticmethod

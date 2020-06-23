@@ -24,7 +24,7 @@ class Lsa:
         self.installation_time = time.perf_counter()  # Time of installation in LSDB
 
     #  #  #  #  #  #  #
-    #  Main methods   #
+    #  Main methods  #
     #  #  #  #  #  #  #
 
     #  Adds an OSPF header to the LSA with the provided arguments
@@ -140,9 +140,9 @@ class Lsa:
         self.set_lsa_length()
         self.set_lsa_checksum()
 
-    #  #  #  #  #  #  #   #
+    #  #  #  #  #  #  #  #
     #  Auxiliary methods  #
-    #  #  #  #  #  #  #   #
+    #  #  #  #  #  #  #  #
 
     #  Calculates LSA checksum and inserts it on LSA header
     def set_lsa_checksum(self):
@@ -207,6 +207,9 @@ class Lsa:
     def get_ospf_version(self):
         return self.header.ospf_version
 
+    def is_lsa_self_originated(self, router_id):
+        return router_id == self.header.advertising_router
+
     # Given a bite stream with LSAs, returns the length of the first LSA
     @staticmethod
     def get_lsa_length(lsa_bytes):
@@ -242,3 +245,8 @@ class Lsa:
                     s1_s2_bits in [conf.LINK_LOCAL_SCOPING, conf.AREA_SCOPING, conf.AS_SCOPING])
         else:
             return False
+
+    #  Returns next LS Sequence Number given a valid LS Sequence Number
+    @staticmethod
+    def get_next_ls_sequence_number(ls_sequence_number):
+        return header.Header.get_next_ls_sequence_number(ls_sequence_number)

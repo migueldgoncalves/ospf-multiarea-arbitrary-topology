@@ -53,8 +53,8 @@ class TestLsdb(unittest.TestCase):
         self.lsa_ospfv3_4.create_header(38, 0, 8, '0.0.0.4', '1.1.1.1', 2147483650, conf.VERSION_IPV6)
         self.lsa_ospfv3_4.create_link_lsa_body(1, 51, 'fe80::c001:18ff:fe34:0')
 
-        self.lsdb_ospfv2 = lsdb.Lsdb()
-        self.lsdb_ospfv3 = lsdb.Lsdb()
+        self.lsdb_ospfv2 = lsdb.Lsdb(conf.VERSION_IPV4)
+        self.lsdb_ospfv3 = lsdb.Lsdb(conf.VERSION_IPV6)
 
     #  Successful run - Instant
     def test_constructor_test(self):
@@ -67,7 +67,7 @@ class TestLsdb(unittest.TestCase):
 
     #  Successful run - Instant
     def test_get_lsa(self):
-        self.populateLsdb()
+        self.populate_lsdb()
 
         #  Get LSDB
 
@@ -155,7 +155,7 @@ class TestLsdb(unittest.TestCase):
 
     #  Successful run - Instant
     def test_delete_lsa(self):
-        self.populateLsdb()
+        self.populate_lsdb()
 
         #  Delete a LSA
 
@@ -183,7 +183,7 @@ class TestLsdb(unittest.TestCase):
 
         #  Clean LSDB
 
-        self.populateLsdb()
+        self.populate_lsdb()
 
         self.lsdb_ospfv2.clean_lsdb([self.interface_ospfv2])
         self.assertEqual(0, len(self.lsdb_ospfv2.get_lsdb([self.interface_ospfv2], None)))
@@ -192,7 +192,10 @@ class TestLsdb(unittest.TestCase):
 
     #  Successful run - Instant
     def test_add_lsa(self):
-        self.lsdb_ospfv2.add_lsa(self.lsa_ospfv2_1)
+
+        #  OSPFv2
+
+        self.lsdb_ospfv2.add_lsa(self.lsa_ospfv2_1, None)
         self.assertEqual(1, len(self.lsdb_ospfv2.get_lsdb([self.interface_ospfv2], None)))
         self.assertEqual(1, self.lsdb_ospfv2.get_lsdb([self.interface_ospfv2], None)[0].header.ls_type)
         self.assertEqual(
@@ -200,22 +203,24 @@ class TestLsdb(unittest.TestCase):
         lsa_ospfv2_3 = lsa.Lsa()
         lsa_ospfv2_3.create_header(1, 34, 1, '1.1.1.1', '1.1.1.1', 10000, conf.VERSION_IPV4)
         lsa_ospfv2_3.create_router_lsa_body(False, False, False, 0, conf.VERSION_IPV4)
-        self.lsdb_ospfv2.add_lsa(lsa_ospfv2_3)
+        self.lsdb_ospfv2.add_lsa(lsa_ospfv2_3, None)
         self.assertEqual(1, len(self.lsdb_ospfv2.get_lsdb([self.interface_ospfv2], None)))
         self.assertEqual(1, self.lsdb_ospfv2.get_lsdb([self.interface_ospfv2], None)[0].header.ls_type)
         self.assertEqual(10000, self.lsdb_ospfv2.get_lsdb([self.interface_ospfv2], None)[0].header.ls_sequence_number)
         lsa_ospfv2_4 = lsa.Lsa()
         lsa_ospfv2_4.create_header(1, 34, 1, '4.4.4.4', '1.1.1.1', 10000, conf.VERSION_IPV4)
         lsa_ospfv2_4.create_router_lsa_body(False, False, False, 0, conf.VERSION_IPV4)
-        self.lsdb_ospfv2.add_lsa(lsa_ospfv2_4)
+        self.lsdb_ospfv2.add_lsa(lsa_ospfv2_4, None)
         self.assertEqual(2, len(self.lsdb_ospfv2.get_lsdb([self.interface_ospfv2], None)))
         self.assertEqual('1.1.1.1', self.lsdb_ospfv2.get_lsdb([self.interface_ospfv2], None)[0].header.link_state_id)
         self.assertEqual('4.4.4.4', self.lsdb_ospfv2.get_lsdb([self.interface_ospfv2], None)[1].header.link_state_id)
-        self.lsdb_ospfv2.add_lsa(self.lsa_ospfv2_2)
+        self.lsdb_ospfv2.add_lsa(self.lsa_ospfv2_2, None)
         self.assertEqual(3, len(self.lsdb_ospfv2.get_lsdb([self.interface_ospfv2], None)))
         self.assertEqual(2, self.lsdb_ospfv2.get_lsdb([self.interface_ospfv2], None)[2].header.ls_type)
 
-        self.lsdb_ospfv3.add_lsa(self.lsa_ospfv3_1)
+        #  OSPFv3 - Area scope LSAs
+
+        self.lsdb_ospfv3.add_lsa(self.lsa_ospfv3_1, None)
         self.assertEqual(1, len(self.lsdb_ospfv3.get_lsdb([self.interface_ospfv3], None)))
         self.assertEqual(0x2001, self.lsdb_ospfv3.get_lsdb([self.interface_ospfv3], None)[0].header.ls_type)
         self.assertEqual(
@@ -223,24 +228,35 @@ class TestLsdb(unittest.TestCase):
         lsa_ospfv3_5 = lsa.Lsa()
         lsa_ospfv3_5.create_header(1, 0, 1, '0.0.0.0', '2.2.2.2', 10000, conf.VERSION_IPV6)
         lsa_ospfv3_5.create_router_lsa_body(False, False, False, 51, conf.VERSION_IPV6)
-        self.lsdb_ospfv3.add_lsa(lsa_ospfv3_5)
+        self.lsdb_ospfv3.add_lsa(lsa_ospfv3_5, None)
         self.assertEqual(1, len(self.lsdb_ospfv3.get_lsdb([self.interface_ospfv3], None)))
         self.assertEqual(0x2001, self.lsdb_ospfv3.get_lsdb([self.interface_ospfv3], None)[0].header.ls_type)
         self.assertEqual(10000, self.lsdb_ospfv3.get_lsdb([self.interface_ospfv3], None)[0].header.ls_sequence_number)
         lsa_ospfv3_6 = lsa.Lsa()
         lsa_ospfv3_6.create_header(1, 0, 9, '5.5.5.5', '2.2.2.2', 2147483653, conf.VERSION_IPV6)
         lsa_ospfv3_6.create_intra_area_prefix_lsa_body(1, '0.0.0.0', '2.2.2.2')
-        self.lsdb_ospfv3.add_lsa(lsa_ospfv3_6)
+        self.lsdb_ospfv3.add_lsa(lsa_ospfv3_6, None)
         self.assertEqual(2, len(self.lsdb_ospfv3.get_lsdb([self.interface_ospfv3], None)))
         self.assertEqual('0.0.0.0', self.lsdb_ospfv3.get_lsdb([self.interface_ospfv3], None)[0].header.link_state_id)
         self.assertEqual('5.5.5.5', self.lsdb_ospfv3.get_lsdb([self.interface_ospfv3], None)[1].header.link_state_id)
-        self.lsdb_ospfv3.add_lsa(self.lsa_ospfv3_2)
+        self.lsdb_ospfv3.add_lsa(self.lsa_ospfv3_2, None)
         self.assertEqual(3, len(self.lsdb_ospfv3.get_lsdb([self.interface_ospfv3], None)))
         self.assertEqual(0x2001, self.lsdb_ospfv3.get_lsdb([self.interface_ospfv3], None)[0].header.ls_type)
         self.assertEqual(0x2002, self.lsdb_ospfv3.get_lsdb([self.interface_ospfv3], None)[1].header.ls_type)
         self.assertEqual(0x2009, self.lsdb_ospfv3.get_lsdb([self.interface_ospfv3], None)[2].header.ls_type)
 
-    def populateLsdb(self):
+        #  OSPFv3 - Link-local scope LSAs
+
+        self.interface_ospfv3.link_local_lsa_list = []
+        self.lsdb_ospfv3.add_lsa(self.lsa_ospfv3_4, self.interface_ospfv3)
+        self.assertEqual(3, len(self.lsdb_ospfv3.get_lsdb([self.interface_ospfv3], None)))
+        self.assertEqual(1, len(self.interface_ospfv3.link_local_lsa_list))
+        ls_type = self.lsa_ospfv3_4.header.ls_type
+        link_state_id = self.lsa_ospfv3_4.header.link_state_id
+        advertising_router = self.lsa_ospfv3_4.header.advertising_router
+        self.assertEqual(0x2008, self.interface_ospfv3.get_link_local_lsa(ls_type, link_state_id, advertising_router))
+
+    def populate_lsdb(self):
         self.lsdb_ospfv2.router_lsa_list.append(self.lsa_ospfv2_1)
         self.lsdb_ospfv2.network_lsa_list.append(self.lsa_ospfv2_2)
         self.lsdb_ospfv3.router_lsa_list.append(self.lsa_ospfv3_1)
