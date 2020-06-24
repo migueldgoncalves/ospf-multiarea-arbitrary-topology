@@ -1,6 +1,7 @@
 import threading
 import time
 import queue
+import copy
 
 import neighbor.neighbor as neighbor
 import packet.packet as packet
@@ -755,21 +756,7 @@ class Interface:
             print(self.router_id + ": OSPFv" + str(self.version), "interface", self.physical_identifier,
                   "changed state from", old_state, "to", new_state)
             self.state = new_state
-            #  TODO: Update LSAs
-
-            #  Update LSA(s)
-            router_lsa = self.lsdb.get_lsa(conf.LSA_TYPE_ROUTER, self.router_id, self.router_id, [self])
-            if self.state == conf.INTERFACE_STATE_DOWN:
-                pass
-            elif self.type == conf.POINT_TO_POINT_INTERFACE:
-                neighbor_router = list(self.neighbors.values())[0]
-                if neighbor_router.neighbor_state == conf.NEIGHBOR_STATE_FULL:
-                    if self.version == conf.VERSION_IPV4:
-                        router_lsa.body.add_link_info_v2(neighbor_router.neighbor_id, neighbor_router.neighbor_ip_address, conf.POINT_TO_POINT_LINK, conf.DEFAULT_TOS, self.cost)
-            '''query_lsa.header.ls_age = 0
-            query_lsa.header.ls_sequence_number += 1
-            self.lsdb.add_lsa(query_lsa)
-            self.flooding_pipeline.put([query_lsa, self.router_id])'''
+            self.event_interface_state_change(old_state, new_state)  # Updates Router-LSA if needed
 
     #  Changes DR or BDR value and prints a message
     def set_dr_bdr(self, value_name, new_value):
@@ -778,6 +765,7 @@ class Interface:
             print(self.router_id + ": OSPFv" + str(self.version), value_name, "changed from", self.designated_router,
                   "to", new_value)
             self.designated_router = new_value
+            self.event_network_dr_change()
         elif (value_name == Interface.BDR) & (new_value != self.backup_designated_router):
             print(self.router_id + ": OSPFv" + str(self.version), value_name, "changed from",
                   self.backup_designated_router, "to", new_value)
@@ -795,7 +783,7 @@ class Interface:
         neighbor_router.reset_inactivity_timer()
         time.sleep(0.1)  # Required to immediately give the CPU to the neighbor timer thread
         if neighbor_router.neighbor_state == conf.NEIGHBOR_STATE_DOWN:
-            neighbor_router.set_neighbor_state(conf.NEIGHBOR_STATE_INIT)
+            self.set_neighbor_state(neighbor_router, conf.NEIGHBOR_STATE_INIT)
         if self.router_id in incoming_packet.body.neighbors:
             #  Neighbor acknowledges this router as neighbor
             self.event_2_way_received(neighbor_router, neighbor_id, source_ip, False)
@@ -808,9 +796,9 @@ class Interface:
             self.event_neighbor_change()
             #  Neither this router nor neighbor are DR/BDR
             if not self.should_be_fully_adjacent(neighbor_id):
-                neighbor_router.set_neighbor_state(conf.NEIGHBOR_STATE_2_WAY)
+                self.set_neighbor_state(neighbor_router, conf.NEIGHBOR_STATE_2_WAY)
             else:  # Routers can become fully adjacent
-                neighbor_router.set_neighbor_state(conf.NEIGHBOR_STATE_EXSTART)
+                self.set_neighbor_state(neighbor_router, conf.NEIGHBOR_STATE_EXSTART)
                 neighbor_router.generate_dd_sequence_number()
                 neighbor_router.master_slave = True
                 if self.version == conf.VERSION_IPV4:
@@ -831,7 +819,7 @@ class Interface:
 
     #  NegotiationDone event
     def event_negotiation_done(self, neighbor_router):
-        neighbor_router.set_neighbor_state(conf.NEIGHBOR_STATE_EXCHANGE)
+        self.set_neighbor_state(neighbor_router, conf.NEIGHBOR_STATE_EXCHANGE)
         lsdb_summary = self.lsdb.get_lsa_headers([self], None)
         neighbor_router.db_summary_list = []
         for lsa_header in lsdb_summary:
@@ -856,9 +844,9 @@ class Interface:
     #  ExchangeDone event
     def event_exchange_done(self, neighbor_router):
         if len(neighbor_router.ls_request_list) == 0:
-            neighbor_router.set_neighbor_state(conf.NEIGHBOR_STATE_FULL)
+            self.set_neighbor_state(neighbor_router, conf.NEIGHBOR_STATE_FULL)
         else:
-            neighbor_router.set_neighbor_state(conf.NEIGHBOR_STATE_LOADING)
+            self.set_neighbor_state(neighbor_router, conf.NEIGHBOR_STATE_LOADING)
             if self.version == conf.VERSION_IPV4:
                 self.ls_request_packet.create_header_v2(
                     conf.PACKET_TYPE_LS_REQUEST, self.router_id, self.area_id, conf.DEFAULT_AUTH,
@@ -873,10 +861,9 @@ class Interface:
             self.send_packet(self.ls_request_packet, neighbor_router.neighbor_ip_address, neighbor_router)
 
     #  LoadingDone event
-    @staticmethod
-    def event_loading_done(neighbor_router):
+    def event_loading_done(self, neighbor_router):
         if neighbor_router.neighbor_state == conf.NEIGHBOR_STATE_LOADING:
-            neighbor_router.set_neighbor_state(conf.NEIGHBOR_STATE_FULL)
+            self.set_neighbor_state(neighbor_router, conf.NEIGHBOR_STATE_FULL)
 
     #  AdjOK? event
     def event_adj_ok(self, neighbor_router, neighbor_id, source_ip):
@@ -889,14 +876,14 @@ class Interface:
             if self.should_be_fully_adjacent(neighbor_id):
                 pass  # Neighbor remains at state EXSTART or higher
             else:
-                neighbor_router.set_neighbor_state(conf.NEIGHBOR_STATE_2_WAY)
+                self.set_neighbor_state(neighbor_router, conf.NEIGHBOR_STATE_2_WAY)
                 neighbor_router.ls_retransmission_list = []
                 neighbor_router.db_summary_list = []
                 neighbor_router.ls_request_list = []
 
     #  SeqNumberMismatch event
     def event_seq_number_mismatch(self, neighbor_router, source_ip):
-        neighbor_router.set_neighbor_state(conf.NEIGHBOR_STATE_EXSTART)
+        self.set_neighbor_state(neighbor_router, conf.NEIGHBOR_STATE_EXSTART)
         neighbor_router.ls_retransmission_list = []
         neighbor_router.db_summary_list = []
         neighbor_router.ls_request_list = []
@@ -934,7 +921,7 @@ class Interface:
     #  1-WayReceived event
     def event_1_way_received(self, neighbor_router):
         if neighbor_router.neighbor_state not in [conf.NEIGHBOR_STATE_DOWN, conf.NEIGHBOR_STATE_INIT]:
-            neighbor_router.set_neighbor_state(conf.NEIGHBOR_STATE_INIT)
+            self.set_neighbor_state(neighbor_router, conf.NEIGHBOR_STATE_INIT)
             neighbor_router.ls_retransmission_list = []
             neighbor_router.db_summary_list = []
             neighbor_router.ls_request_list = []
@@ -991,16 +978,58 @@ class Interface:
         self.generate_lsa_instance(lsa_instance, self.router_id)
 
     #  Interface state changed
-    def event_interface_state_change(self):
-        pass
+    def event_interface_state_change(self, old_state, new_state):
+        router_lsa = copy.deepcopy(self.lsdb.get_lsa(conf.LSA_TYPE_ROUTER, self.router_id, self.router_id, [self]))
+        if new_state == conf.INTERFACE_STATE_DOWN:
+            router_lsa.body.delete_interface_link_info(self.ipv4_address, self.network_mask, self.ospf_identifier)
+        elif self.version == conf.VERSION_IPV4:
+            link_id = utils.Utils.get_ipv4_prefix_from_interface_name(self.physical_identifier)
+            link_data = self.network_mask
+            link_type = conf.LINK_TO_STUB_NETWORK
+            tos_number = conf.DEFAULT_TOS
+            metric = self.cost
+            if self.type == conf.POINT_TO_POINT_INTERFACE:
+                if new_state == conf.INTERFACE_STATE_POINT_POINT:
+                    router_lsa.body.add_link_info_v2(link_id, link_data, link_type, tos_number, metric)
+                elif old_state == conf.INTERFACE_STATE_POINT_POINT:
+                    router_lsa.body.delete_link_info_v2(link_id, link_data, link_type, tos_number, metric)
+            elif self.type == conf.BROADCAST_INTERFACE:
+                if new_state == conf.INTERFACE_STATE_WAITING:
+                    router_lsa.body.add_link_info_v2(link_id, link_data, link_type, tos_number, metric)
+        self.generate_lsa_instance(router_lsa, self.router_id)
 
     #  Network DR changed
     def event_network_dr_change(self):
-        pass
+        if self.state == conf.BROADCAST_INTERFACE:
+            fully_adjacent = False
+            for neighbor_id in self.neighbors:
+                if self.neighbors[neighbor_id].neighbor_state == conf.NEIGHBOR_STATE_FULL:
+                    fully_adjacent = True
+            transit_network_link = False
+            if (self.router_id == self.designated_router) & fully_adjacent:
+                transit_network_link = True
+            elif self.neighbors[self.designated_router].neighbor_state == conf.NEIGHBOR_STATE_FULL:
+                transit_network_link = True
+
+            router_lsa = copy.deepcopy(self.lsdb.get_lsa(conf.LSA_TYPE_ROUTER, self.router_id, self.router_id))
+            if self.router_id == self.designated_router:
+                link_id = self.ipv4_address
+            else:
+                link_id = self.neighbors[self.designated_router].neighbor_ip_address
+            network_prefix = utils.Utils.get_ipv4_prefix_from_interface_name(self.physical_identifier)
+            router_lsa.delete_interface_link_info(self.ipv4_address, network_prefix, self.ospf_identifier)
+            if transit_network_link:
+                router_lsa.add_link_info_v2(
+                    link_id, self.ipv4_address, conf.LINK_TO_TRANSIT_NETWORK, conf.DEFAULT_TOS, self.cost)
+            else:
+                router_lsa.add_link_info_v2(
+                    network_prefix, self.network_mask, conf.LINK_TO_STUB_NETWORK, conf.DEFAULT_TOS, self.cost)
+
+            self.generate_lsa_instance(router_lsa, self.router_id)
 
     #  Neighbor reached/left FULL state
     def event_neighbor_full_state(self):
-        pass
+        self.event_network_dr_change()
 
     #  Given LSA instance generates new instance, installs it in LSDB and floods it
     def generate_lsa_instance(self, lsa_instance, neighbor_id):
@@ -1080,6 +1109,13 @@ class Interface:
                 if self.neighbors[n].ip_address == flooding_address:
                     self.neighbors[n].add_lsa_identifier(self.neighbors[n].ls_retransmission_list, lsa_identifier)
                     self.neighbors[n].start_retransmission_timer()
+
+    #  Changes neighbor state
+    def set_neighbor_state(self, neighbor_router, new_state):
+        old_state = neighbor_router.neighbor_state
+        if new_state != old_state:
+            neighbor_router.set_neighbor_state(new_state)
+            self.event_neighbor_full_state()
 
     #  #  #  #  #  #  #  #  #  #  #  #
     #  Link-local LSA list methods  #

@@ -30,16 +30,49 @@ class Router(body.Body):  # OSPFv2 - 4 bytes + 12 bytes / link; OSPFv3 - 4 bytes
 
     #  Adds data for one link (interface) to the OSPFv2 LSA body
     def add_link_info_v2(self, link_id, link_data, link_type, tos_number, metric):
-        if self.version == conf.VERSION_IPV4:
-            new_link = [link_id, link_data, link_type, tos_number, metric]
+        new_link = [link_id, link_data, link_type, tos_number, metric]
+        if (self.version == conf.VERSION_IPV4) & (new_link not in self.links):
             self.links.append(new_link)
             self.link_number += 1
 
     #  Adds data for one link (interface) to the OSPFv3 LSA body
     def add_link_info_v3(self, link_type, metric, interface_id, neighbor_interface_id, neighbor_router_id):
-        if self.version == conf.VERSION_IPV6:
-            new_link = [link_type, metric, interface_id, neighbor_interface_id, neighbor_router_id]
+        new_link = [link_type, metric, interface_id, neighbor_interface_id, neighbor_router_id]
+        if (self.version == conf.VERSION_IPV6) & (new_link not in self.links):
             self.links.append(new_link)
+
+    def has_link_info_v2(self, link_id, link_data, link_type, tos_number, metric):
+        return [link_id, link_data, link_type, tos_number, metric] in self.links
+
+    def has_link_info_v3(self, link_type, metric, interface_id, neighbor_interface_id, neighbor_router_id):
+        return [link_type, metric, interface_id, neighbor_interface_id, neighbor_router_id] in self.links
+
+    #  Deletes all link information produced by provided interface
+    def delete_interface_link_info(self, interface_ip, subnet_ip, interface_id):
+        remaining_links = []
+        for info in self.links:
+            if (interface_ip in [info[0], info[1]]) | (subnet_ip in [info[0], info[1]]) | (interface_id == info[2]):
+                pass  # Link information produced by current interface matching desired type(s)
+            else:
+                remaining_links.append(info)
+        self.links = remaining_links
+        self.link_number = len(self.links)
+
+    #  Deletes data for one link from the OSPFv2 LSA body
+    def delete_link_info_v2(self, link_id, link_data, link_type, tos_number, metric):
+        if [link_id, link_data, link_type, tos_number, metric] in self.links:
+            self.links.remove([link_id, link_data, link_type, tos_number, metric])
+
+    #  Deletes data for one link from the OSPFv3 LSA body
+    def delete_link_info_v3(self, link_type, metric, interface_id, neighbor_interface_id, neighbor_router_id):
+        if [link_type, metric, interface_id, neighbor_interface_id, neighbor_router_id] in self.links:
+            self.links.remove([link_type, metric, interface_id, neighbor_interface_id, neighbor_router_id])
+
+    def get_link_type(self, link_info):
+        if self.version == conf.VERSION_IPV4:
+            return link_info[2]
+        elif self.version == conf.VERSION_IPV6:
+            return link_info[0]
 
     #  Creates byte object suitable to be sent and recognized as the body of an OSPF Router-LSA
     def pack_lsa_body(self):
