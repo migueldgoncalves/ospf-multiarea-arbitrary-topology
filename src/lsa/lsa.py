@@ -107,9 +107,43 @@ class Lsa:
         self.set_lsa_length()
         self.set_lsa_checksum()
 
+    def has_link_info_v2(self, link_id, link_data, link_type, tos_number, metric):
+        return [link_id, link_data, link_type, tos_number, metric] in self.body.links
+
+    def has_link_info_v3(self, link_type, metric, interface_id, neighbor_interface_id, neighbor_router_id):
+        return [link_type, metric, interface_id, neighbor_interface_id, neighbor_router_id] in self.body.links
+
+    #  Deletes all link information produced by provided interface in Router-LSA
+    def delete_interface_link_info(self, interface_ip, subnet_ip, interface_id):
+        self.body.delete_interface_link_info(self, interface_ip, subnet_ip, interface_id)
+        self.set_lsa_length()
+        self.set_lsa_checksum()
+
+    #  Deletes data for one link from the OSPFv2 LSA body
+    def delete_link_info_v2(self, link_id, link_data, link_type, tos_number, metric):
+        self.body.delete_link_info_v2(self, link_id, link_data, link_type, tos_number, metric)
+        self.set_lsa_length()
+        self.set_lsa_checksum()
+
+    #  Deletes data for one link from the OSPFv3 LSA body
+    def delete_link_info_v3(self, link_type, metric, interface_id, neighbor_interface_id, neighbor_router_id):
+        self.body.delete_link_info_v3(self, link_type, metric, interface_id, neighbor_interface_id, neighbor_router_id)
+        self.set_lsa_length()
+        self.set_lsa_checksum()
+
     #  Adds an OSPF Network-LSA body to the LSA with the provided arguments
     def create_network_lsa_body(self, network_mask, options, attached_routers, version):
         self.body = network.Network(network_mask, options, attached_routers, version)
+        self.set_lsa_length()
+        self.set_lsa_checksum()
+
+    def add_attached_router(self, router_id):
+        self.body.add_attached_router(router_id)
+        self.set_lsa_length()
+        self.set_lsa_checksum()
+
+    def delete_attached_router(self, router_id):
+        self.body.delete_attached_router(router_id)
         self.set_lsa_length()
         self.set_lsa_checksum()
 
@@ -137,6 +171,21 @@ class Lsa:
             self.body.add_prefix_info(prefix_length, prefix_options, metric, prefix)
         else:  # Link-LSA
             self.body.add_prefix_info(prefix_length, prefix_options, prefix)
+        self.set_lsa_length()
+        self.set_lsa_checksum()
+
+    def has_prefix_info(self, prefix_length, prefix_options, metric, prefix, lsa_type):
+        if lsa_type == conf.LSA_TYPE_INTRA_AREA_PREFIX:
+            return self.body.has_prefix_info(self, prefix_length, prefix_options, metric, prefix)
+        else:
+            return self.body.has_prefix_info(self, prefix_length, prefix_options, prefix)
+
+    #  Deletes data for one prefix from the Intra-Area-Prefix-LSA and Link-LSA body
+    def delete_prefix_info(self, prefix_length, prefix_options, metric, prefix, lsa_type):
+        if lsa_type == conf.LSA_TYPE_INTRA_AREA_PREFIX:
+            self.body.delete_prefix_info(prefix_length, prefix_options, metric, prefix)
+        else:
+            self.body.delete_prefix_info(prefix_length, prefix_options, prefix)
         self.set_lsa_length()
         self.set_lsa_checksum()
 

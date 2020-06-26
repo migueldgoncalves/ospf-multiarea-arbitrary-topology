@@ -68,12 +68,6 @@ class Router(body.Body):  # OSPFv2 - 4 bytes + 12 bytes / link; OSPFv3 - 4 bytes
         if [link_type, metric, interface_id, neighbor_interface_id, neighbor_router_id] in self.links:
             self.links.remove([link_type, metric, interface_id, neighbor_interface_id, neighbor_router_id])
 
-    def get_link_type(self, link_info):
-        if self.version == conf.VERSION_IPV4:
-            return link_info[2]
-        elif self.version == conf.VERSION_IPV6:
-            return link_info[0]
-
     #  Creates byte object suitable to be sent and recognized as the body of an OSPF Router-LSA
     def pack_lsa_body(self):
         flags_byte = (self.bit_v << 2) + (self.bit_e << 1) + self.bit_b

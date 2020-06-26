@@ -28,8 +28,20 @@ class Link(body.Body):  # 24 bytes + 4-20 bytes / prefix
 
     #  Adds data for one prefix to the LSA body
     def add_prefix_info(self, prefix_length, prefix_options, prefix):
-        self.prefix_number += 1
-        self.prefixes.append([prefix_length, prefix_options, prefix])
+        prefix_info = [prefix_length, prefix_options, prefix]
+        if prefix_info not in self.prefixes:
+            self.prefix_number += 1
+            self.prefixes.append(prefix_info)
+
+    def has_prefix_info(self, prefix_length, prefix_options, prefix):
+        return [prefix_length, prefix_options, prefix] in self.prefixes
+
+    #  Deletes data for one prefix from the LSA body
+    def delete_prefix_info(self, prefix_length, prefix_options, prefix):
+        prefix_info = [prefix_length, prefix_options, prefix]
+        if prefix_info in self.prefixes:
+            self.prefix_number -= 1
+            self.prefixes.remove(prefix_info)
 
     #  Creates byte object suitable to be sent and recognized as the body of an OSPF Link-LSA
     def pack_lsa_body(self):

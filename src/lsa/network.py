@@ -21,6 +21,14 @@ class Network(body.Body):  # OSPFv2 and OSPFv3 - 4 bytes + 4 bytes / link
         self.attached_routers = attached_routers  # 4 bytes / router
         self.version = version
 
+    def add_attached_router(self, router_id):
+        if router_id not in self.attached_routers:
+            self.attached_routers.append(router_id)
+
+    def delete_attached_router(self, router_id):
+        if router_id in self.attached_routers:
+            self.attached_routers.remove(router_id)
+
     #  Creates byte object suitable to be sent and recognized as the body of an OSPF Network-LSA
     def pack_lsa_body(self):
         if self.version == conf.VERSION_IPV4:

@@ -11,6 +11,52 @@ This class tests the OSPF Intra-Area-Prefix-LSA body class and its operations
 class TestIntraAreaPrefix(unittest.TestCase):
 
     #  Successful run - Instant
+    def test_add_prefix_info(self):
+        lsa_body = intra_area_prefix.IntraAreaPrefix(0x2001, '0.0.0.0', '8.8.8.8')
+        self.assertEqual(0, len(lsa_body.prefixes))
+        self.assertEqual(0, lsa_body.prefix_number)
+        lsa_body.add_prefix_info(0, 0, 10, '::')
+        self.assertEqual(1, len(lsa_body.prefixes))
+        self.assertEqual(1, lsa_body.prefix_number)
+        self.assertTrue('::', lsa_body.prefixes[0][3])
+        lsa_body.add_prefix_info(0, 0, 10, '::')
+        self.assertEqual(1, len(lsa_body.prefixes))
+        self.assertEqual(1, lsa_body.prefix_number)
+        lsa_body.add_prefix_info(1, 0, 10, '::')
+        self.assertEqual(2, len(lsa_body.prefixes))
+        self.assertEqual(2, lsa_body.prefix_number)
+        self.assertEqual(1, lsa_body.prefixes[1][0])
+
+    #  Successful run - Instant
+    def test_has_prefix_info(self):
+        lsa_body = intra_area_prefix.IntraAreaPrefix(0x2001, '0.0.0.0', '8.8.8.8')
+        lsa_body.add_prefix_info(0, 0, 10, '::')
+        self.assertTrue(lsa_body.has_prefix_info(0, 0, 10, '::'))
+        self.assertFalse(lsa_body.has_prefix_info(1, 0, 10, '::'))
+        self.assertFalse(lsa_body.has_prefix_info(0, 1, 10, '::'))
+        self.assertFalse(lsa_body.has_prefix_info(0, 0, 11, '::'))
+        self.assertFalse(lsa_body.has_prefix_info(0, 0, 10, '1::'))
+
+    #  Successful run - Instant
+    def test_delete_prefix_info(self):
+        lsa_body = intra_area_prefix.IntraAreaPrefix(0x2001, '0.0.0.0', '8.8.8.8')
+        lsa_body.add_prefix_info(0, 0, 10, '::')
+        lsa_body.add_prefix_info(1, 0, 10, '::')
+        self.assertEqual(2, len(lsa_body.prefixes))
+        self.assertEqual(2, lsa_body.prefix_number)
+        lsa_body.delete_prefix_info(0, 0, 10, '::')
+        self.assertEqual(1, len(lsa_body.prefixes))
+        self.assertEqual(1, lsa_body.prefix_number)
+        self.assertEqual(1, lsa_body.prefixes[0][0])
+        lsa_body.delete_prefix_info(0, 0, 10, '::')
+        self.assertEqual(1, len(lsa_body.prefixes))
+        self.assertEqual(1, lsa_body.prefix_number)
+        self.assertEqual(1, lsa_body.prefixes[0][0])
+        lsa_body.delete_prefix_info(1, 0, 10, '::')
+        self.assertEqual(0, len(lsa_body.prefixes))
+        self.assertEqual(0, lsa_body.prefix_number)
+
+    #  Successful run - Instant
     def test_pack_body(self):
         body_bytes = b'\x00\x00 \x01\x00\x00\x00\x00\x08\x08\x08\x08'
         self.assertEqual(body_bytes, intra_area_prefix.IntraAreaPrefix(0x2001, '0.0.0.0', '8.8.8.8').pack_lsa_body())
