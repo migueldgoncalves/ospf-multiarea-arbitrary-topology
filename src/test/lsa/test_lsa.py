@@ -15,7 +15,7 @@ class TestLsa(unittest.TestCase):
     #  Successful run - Instant
     def test_pack_lsa(self):
         #  Router-LSA - OSPFv2
-        body_bytes = b'\x00\x01"\x01\x01\x01\x01\x01\x01\x01\x01\x01\x80\x00\x00\x06\x0b\xb0\x00T\x00\x00\x00\x05\x03' \
+        lsa_bytes = b'\x00\x01"\x01\x01\x01\x01\x01\x01\x01\x01\x01\x80\x00\x00\x06\x0b\xb0\x00T\x00\x00\x00\x05\x03' \
                      b'\x03\x03\x03\xde\xde\x06\x01\x01\x00\x00@\xde\xde\x06\x00\xff\xff\xff\x00\x03\x00\x00@\xde\xde' \
                      b'\x03\x02\xde\xde\x03\x01\x02\x00\x00\n\xde\xde\x02\x00\xff\xff\xff\x00\x03\x00\x00\n\xde\xde' \
                      b'\x01\x00\xff\xff\xff\x00\x03\x00\x00\x01'
@@ -27,10 +27,10 @@ class TestLsa(unittest.TestCase):
         router_lsa.add_link_info_v2('222.222.3.2', '222.222.3.1', 2, 0, 10)
         router_lsa.add_link_info_v2('222.222.2.0', '255.255.255.0', 3, 0, 10)
         router_lsa.add_link_info_v2('222.222.1.0', '255.255.255.0', 3, 0, 1)
-        self.assertEqual(body_bytes, router_lsa.pack_lsa())
+        self.assertEqual(lsa_bytes, router_lsa.pack_lsa())
 
         #  Router-LSA - OSPFv3
-        body_bytes = b'\x00\x01 \x01\x00\x00\x00\x00\x02\x02\x02\x02\x80\x00\x00\x07,\x80\x008\x00\x00\x003\x02\x00' \
+        lsa_bytes = b'\x00\x01 \x01\x00\x00\x00\x00\x02\x02\x02\x02\x80\x00\x00\x07,\x80\x008\x00\x00\x003\x02\x00' \
                      b'\x00\x01\x00\x00\x00\x06\x00\x00\x00\x04\x03\x03\x03\x03\x02\x00\x00\n\x00\x00\x00\x05\x00\x00' \
                      b'\x00\x05\x02\x02\x02\x02'
         router_lsa = lsa.Lsa()
@@ -38,51 +38,51 @@ class TestLsa(unittest.TestCase):
         router_lsa.create_router_lsa_body(False, False, False, 51, conf.VERSION_IPV6)
         router_lsa.add_link_info_v3(2, 1, 6, 4, '3.3.3.3')
         router_lsa.add_link_info_v3(2, 10, 5, 5, '2.2.2.2')
-        self.assertEqual(body_bytes, router_lsa.pack_lsa())
+        self.assertEqual(lsa_bytes, router_lsa.pack_lsa())
 
         #  Network-LSA - OSPFv2
-        body_bytes = b'\x00\x01"\x02\xde\xde\x03\x02\x02\x02\x02\x02\x80\x00\x00\x01\xe0\x82\x00 \xff\xff\xff\x00\x02' \
+        lsa_bytes = b'\x00\x01"\x02\xde\xde\x03\x02\x02\x02\x02\x02\x80\x00\x00\x01\xe0\x82\x00 \xff\xff\xff\x00\x02' \
                      b'\x02\x02\x02\x01\x01\x01\x01'
         network_lsa = lsa.Lsa()
         network_lsa.create_header(1, 34, 2, '222.222.3.2', '2.2.2.2', 2147483649, conf.VERSION_IPV4)
         network_lsa.create_network_lsa_body('255.255.255.0', 0, ['2.2.2.2', '1.1.1.1'], conf.VERSION_IPV4)
-        self.assertEqual(body_bytes, network_lsa.pack_lsa())
+        self.assertEqual(lsa_bytes, network_lsa.pack_lsa())
 
         #  Network-LSA - OSPFv3
-        body_bytes = b'\x00\x01 \x02\x00\x00\x00\x05\x02\x02\x02\x02\x80\x00\x00\x02\xf6\xf7\x00 \x00\x00\x003\x02' \
+        lsa_bytes = b'\x00\x01 \x02\x00\x00\x00\x05\x02\x02\x02\x02\x80\x00\x00\x02\xf6\xf7\x00 \x00\x00\x003\x02' \
                      b'\x02\x02\x02\x01\x01\x01\x01'
         network_lsa = lsa.Lsa()
         network_lsa.create_header(1, 0, 2, '0.0.0.5', '2.2.2.2', 2147483650, conf.VERSION_IPV6)
         network_lsa.create_network_lsa_body('', 51, ['2.2.2.2', '1.1.1.1'], conf.VERSION_IPV6)
-        self.assertEqual(body_bytes, network_lsa.pack_lsa())
+        self.assertEqual(lsa_bytes, network_lsa.pack_lsa())
 
         #  Intra-Area-Prefix-LSA
-        body_bytes = b'\x00\x01 \t\x00\x00\x00\x00\x02\x02\x02\x02\x80\x00\x00\x05\xa7L\x00,\x00\x01 \x01\x00\x00\x00' \
+        lsa_bytes = b'\x00\x01 \t\x00\x00\x00\x00\x02\x02\x02\x02\x80\x00\x00\x05\xa7L\x00,\x00\x01 \x01\x00\x00\x00' \
                      b'\x00\x02\x02\x02\x02@\x00\x00\n \x01\r\xb8\xca\xfe\x00\x04'
         intra_area_prefix_lsa = lsa.Lsa()
         intra_area_prefix_lsa.create_header(1, 0, 9, '0.0.0.0', '2.2.2.2', 2147483653, conf.VERSION_IPV6)
         intra_area_prefix_lsa.create_intra_area_prefix_lsa_body(1, '0.0.0.0', '2.2.2.2')
         intra_area_prefix_lsa.add_prefix_info(64, 0, 10, '2001:db8:cafe:4::', conf.LSA_TYPE_INTRA_AREA_PREFIX)
-        self.assertEqual(body_bytes, intra_area_prefix_lsa.pack_lsa())
+        self.assertEqual(lsa_bytes, intra_area_prefix_lsa.pack_lsa())
 
         #  Link-LSA
-        body_bytes = b'\x00&\x00\x08\x00\x00\x00\x04\x01\x01\x01\x01\x80\x00\x00\x02\x80\xfe\x008\x01\x00\x003\xfe' \
+        lsa_bytes = b'\x00&\x00\x08\x00\x00\x00\x04\x01\x01\x01\x01\x80\x00\x00\x02\x80\xfe\x008\x01\x00\x003\xfe' \
                      b'\x80\x00\x00\x00\x00\x00\x00\xc0\x01\x18\xff\xfe4\x00\x00\x00\x00\x00\x01@\x00\x00\x00 \x01\r' \
                      b'\xb8\xca\xfe\x00\x03'
         link_lsa = lsa.Lsa()
         link_lsa.create_header(38, 0, 8, '0.0.0.4', '1.1.1.1', 2147483650, conf.VERSION_IPV6)
         link_lsa.create_link_lsa_body(1, 51, 'fe80::c001:18ff:fe34:0')
         link_lsa.add_prefix_info(64, 0, 0, '2001:db8:cafe:3::', conf.LSA_TYPE_LINK)
-        self.assertEqual(body_bytes, link_lsa.pack_lsa())
+        self.assertEqual(lsa_bytes, link_lsa.pack_lsa())
 
     #  Successful run - Instant
     def test_unpack_lsa(self):
         #  Router-LSA - OSPFv2
-        body_bytes = b'\x00\x01"\x01\x01\x01\x01\x01\x01\x01\x01\x01\x80\x00\x00\x06\x0b\xb0\x00T\x00\x00\x00\x05\x03' \
+        lsa_bytes = b'\x00\x01"\x01\x01\x01\x01\x01\x01\x01\x01\x01\x80\x00\x00\x06\x0b\xb0\x00T\x00\x00\x00\x05\x03' \
                      b'\x03\x03\x03\xde\xde\x06\x01\x01\x00\x00@\xde\xde\x06\x00\xff\xff\xff\x00\x03\x00\x00@\xde\xde' \
                      b'\x03\x02\xde\xde\x03\x01\x02\x00\x00\n\xde\xde\x02\x00\xff\xff\xff\x00\x03\x00\x00\n\xde\xde' \
                      b'\x01\x00\xff\xff\xff\x00\x03\x00\x00\x01'
-        unpacked_lsa = lsa.Lsa.unpack_lsa(body_bytes, conf.VERSION_IPV4)
+        unpacked_lsa = lsa.Lsa.unpack_lsa(lsa_bytes, conf.VERSION_IPV4)
         self.assertEqual(1, unpacked_lsa.header.ls_age)
         self.assertEqual(34, unpacked_lsa.header.options)
         self.assertEqual(1, unpacked_lsa.header.ls_type)
@@ -101,10 +101,10 @@ class TestLsa(unittest.TestCase):
                           ['222.222.1.0', '255.255.255.0', 3, 0, 1]], unpacked_lsa.body.links)
 
         #  Router-LSA - OSPFv3
-        body_bytes = b'\x00\x01 \x01\x00\x00\x00\x00\x02\x02\x02\x02\x80\x00\x00\x07,\x80\x008\x00\x00\x003\x02\x00' \
+        lsa_bytes = b'\x00\x01 \x01\x00\x00\x00\x00\x02\x02\x02\x02\x80\x00\x00\x07,\x80\x008\x00\x00\x003\x02\x00' \
                      b'\x00\x01\x00\x00\x00\x06\x00\x00\x00\x04\x03\x03\x03\x03\x02\x00\x00\n\x00\x00\x00\x05\x00\x00' \
                      b'\x00\x05\x02\x02\x02\x02'
-        unpacked_lsa = lsa.Lsa.unpack_lsa(body_bytes, conf.VERSION_IPV6)
+        unpacked_lsa = lsa.Lsa.unpack_lsa(lsa_bytes, conf.VERSION_IPV6)
         self.assertEqual(1, unpacked_lsa.header.ls_age)
         self.assertEqual(0x2001, unpacked_lsa.header.ls_type)
         self.assertEqual('0.0.0.0', unpacked_lsa.header.link_state_id)
@@ -120,9 +120,9 @@ class TestLsa(unittest.TestCase):
         self.assertEqual([[2, 1, 6, 4, '3.3.3.3'], [2, 10, 5, 5, '2.2.2.2']], unpacked_lsa.body.links)
 
         #  Network-LSA - OSPFv2
-        body_bytes = b'\x00\x01"\x02\xde\xde\x03\x02\x02\x02\x02\x02\x80\x00\x00\x01\xe0\x82\x00 \xff\xff\xff\x00\x02' \
+        lsa_bytes = b'\x00\x01"\x02\xde\xde\x03\x02\x02\x02\x02\x02\x80\x00\x00\x01\xe0\x82\x00 \xff\xff\xff\x00\x02' \
                      b'\x02\x02\x02\x01\x01\x01\x01'
-        unpacked_lsa = lsa.Lsa.unpack_lsa(body_bytes, conf.VERSION_IPV4)
+        unpacked_lsa = lsa.Lsa.unpack_lsa(lsa_bytes, conf.VERSION_IPV4)
         self.assertEqual(1, unpacked_lsa.header.ls_age)
         self.assertEqual(34, unpacked_lsa.header.options)
         self.assertEqual(2, unpacked_lsa.header.ls_type)
@@ -136,9 +136,9 @@ class TestLsa(unittest.TestCase):
         self.assertEqual(['2.2.2.2', '1.1.1.1'], unpacked_lsa.body.attached_routers)
 
         #  Network-LSA - OSPFv3
-        body_bytes = b'\x00\x01 \x02\x00\x00\x00\x05\x02\x02\x02\x02\x80\x00\x00\x02\xf6\xf7\x00 \x00\x00\x003\x02' \
+        lsa_bytes = b'\x00\x01 \x02\x00\x00\x00\x05\x02\x02\x02\x02\x80\x00\x00\x02\xf6\xf7\x00 \x00\x00\x003\x02' \
                      b'\x02\x02\x02\x01\x01\x01\x01'
-        unpacked_lsa = lsa.Lsa.unpack_lsa(body_bytes, conf.VERSION_IPV6)
+        unpacked_lsa = lsa.Lsa.unpack_lsa(lsa_bytes, conf.VERSION_IPV6)
         self.assertEqual(1, unpacked_lsa.header.ls_age)
         self.assertEqual(0x2002, unpacked_lsa.header.ls_type)
         self.assertEqual('0.0.0.5', unpacked_lsa.header.link_state_id)
@@ -151,9 +151,9 @@ class TestLsa(unittest.TestCase):
         self.assertEqual(['2.2.2.2', '1.1.1.1'], unpacked_lsa.body.attached_routers)
 
         #  Intra-Area-Prefix-LSA
-        body_bytes = b'\x00\x01 \t\x00\x00\x00\x00\x02\x02\x02\x02\x80\x00\x00\x05\xa7L\x00,\x00\x01 \x01\x00\x00\x00' \
+        lsa_bytes = b'\x00\x01 \t\x00\x00\x00\x00\x02\x02\x02\x02\x80\x00\x00\x05\xa7L\x00,\x00\x01 \x01\x00\x00\x00' \
                      b'\x00\x02\x02\x02\x02@\x00\x00\n \x01\r\xb8\xca\xfe\x00\x04'
-        unpacked_lsa = lsa.Lsa.unpack_lsa(body_bytes, conf.VERSION_IPV6)
+        unpacked_lsa = lsa.Lsa.unpack_lsa(lsa_bytes, conf.VERSION_IPV6)
         self.assertEqual(1, unpacked_lsa.header.ls_age)
         self.assertEqual(0x2009, unpacked_lsa.header.ls_type)
         self.assertEqual('0.0.0.0', unpacked_lsa.header.link_state_id)
@@ -169,10 +169,10 @@ class TestLsa(unittest.TestCase):
         self.assertEqual([[64, 0, 10, '2001:db8:cafe:4::']], unpacked_lsa.body.prefixes)
 
         #  Link-LSA
-        body_bytes = b'\x00&\x00\x08\x00\x00\x00\x04\x01\x01\x01\x01\x80\x00\x00\x02\x80\xfe\x008\x01\x00\x003\xfe' \
+        lsa_bytes = b'\x00&\x00\x08\x00\x00\x00\x04\x01\x01\x01\x01\x80\x00\x00\x02\x80\xfe\x008\x01\x00\x003\xfe' \
                      b'\x80\x00\x00\x00\x00\x00\x00\xc0\x01\x18\xff\xfe4\x00\x00\x00\x00\x00\x01@\x00\x00\x00 \x01\r' \
                      b'\xb8\xca\xfe\x00\x03'
-        unpacked_lsa = lsa.Lsa.unpack_lsa(body_bytes, conf.VERSION_IPV6)
+        unpacked_lsa = lsa.Lsa.unpack_lsa(lsa_bytes, conf.VERSION_IPV6)
         self.assertEqual(38, unpacked_lsa.header.ls_age)
         self.assertEqual(8, unpacked_lsa.header.ls_type)
         self.assertEqual('0.0.0.4', unpacked_lsa.header.link_state_id)

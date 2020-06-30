@@ -305,6 +305,22 @@ class PacketTest(unittest.TestCase):
         self.assertIsNone(self.packet_v3.body)
 
     #  Successful run - Instant
+    def test_is_packet_checksum_valid(self):
+        self.assertFalse(self.packet_v2.is_packet_checksum_valid('', ''))
+        self.assertFalse(self.packet_v3.is_packet_checksum_valid('fe80::c001:18ff:fe34:10', 'ff02::5'))
+
+        self.packet_v2.create_hello_v2_packet_body(
+            '255.255.255.0', 10, 2, 1, 40, '222.222.1.1', '0.0.0.0', ('1.1.1.1',))  # Includes checksum creation
+        self.packet_v3.create_hello_v3_packet_body(1, 10, 2, 1, 40, '222.222.1.1', '0.0.0.0', ('1.1.1.1',))
+        self.assertTrue(self.packet_v2.is_packet_checksum_valid('', ''))
+        self.assertTrue(self.packet_v3.is_packet_checksum_valid('fe80::c001:18ff:fe34:10', 'ff02::5'))
+
+        self.packet_v2.header.router_id = '10.10.10.10'
+        self.packet_v3.header.router_id = '10.10.10.10'
+        self.assertFalse(self.packet_v2.is_packet_checksum_valid('', ''))
+        self.assertFalse(self.packet_v3.is_packet_checksum_valid('fe80::c001:18ff:fe34:10', 'ff02::5'))
+
+    #  Successful run - Instant
     def test_deep_copy(self):
         self.packet_v2.create_hello_v2_packet_body('255.255.255.0', 10, 18, 1, 40, '222.222.1.1', '0.0.0.0', ())
 

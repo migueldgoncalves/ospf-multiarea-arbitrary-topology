@@ -139,19 +139,27 @@ class Utils:
     @staticmethod
     def is_ipv4_address(ip_address):
         try:
-            ipaddress.IPv4Address(ip_address)
-            return True
-        except ipaddress.AddressValueError:
+            int(ip_address)
             return False
+        except ValueError:
+            try:
+                ipaddress.IPv4Address(ip_address)
+                return True
+            except ipaddress.AddressValueError:
+                return False
 
     #  Returns True if argument is a valid IPv6 address
     @staticmethod
     def is_ipv6_address(ip_address):
         try:
-            ipaddress.IPv6Address(ip_address)
-            return True
-        except ipaddress.AddressValueError:
+            int(ip_address)
             return False
+        except ValueError:
+            try:
+                ipaddress.IPv6Address(ip_address)
+                return True
+            except ipaddress.AddressValueError:
+                return False
 
     #  Returns the version of the running OSPF protocol given an IP address
     @staticmethod

@@ -203,7 +203,7 @@ class Lsa:
             body_bytes = self.body.pack_lsa_body()
             self.header.ls_checksum = utils.Utils.create_fletcher_checksum(header_bytes + body_bytes)
 
-    #  Returns True is LSA checksum is valid
+    #  Returns True if LSA checksum is valid
     def is_lsa_checksum_valid(self):
         if self.body is None:
             return False

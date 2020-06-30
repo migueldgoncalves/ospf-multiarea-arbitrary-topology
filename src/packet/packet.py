@@ -1,4 +1,5 @@
 import struct
+import copy
 
 import general.utils as utils
 import packet.header as header
@@ -240,3 +241,17 @@ class Packet:
                                conf.PACKET_TYPE_LS_UPDATE, conf.PACKET_TYPE_LS_ACKNOWLEDGMENT]:
             raise ValueError("Invalid OSPF packet type")
         return packet_type
+
+    #  Returns True if packet checksum is valid
+    def is_packet_checksum_valid(self, source_address, destination_address):
+        if self.body is None:
+            return False
+        self.source_ipv6_address = source_address
+        self.destination_ipv6_address = destination_address
+        new_packet = copy.deepcopy(self)
+        new_packet.set_packet_checksum()
+        if self.header.checksum == new_packet.header.checksum:
+            correct_checksum = True
+        else:
+            correct_checksum = False
+        return correct_checksum  # Checksum of packet with valid checksum will always be 0

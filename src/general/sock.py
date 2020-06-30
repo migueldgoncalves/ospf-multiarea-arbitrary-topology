@@ -1,9 +1,11 @@
 import socket
 import struct
 import queue
+import warnings
 
 import conf.conf as conf
 import general.utils as utils
+import packet.packet as packet
 
 '''
 This class performs the socket operations in the router
@@ -109,10 +111,10 @@ class Socket:
         s.close()
 
     #  Sends the supplied IPv4 packet to the supplied address through the supplied interface
-    def send_ipv4(self, packet, destination_address, interface, localhost):
-        if packet is None:
+    def send_ipv4(self, packet_bytes, destination_address, interface, localhost):
+        if packet_bytes is None:
             raise ValueError("No data to send provided")
-        if packet.strip() == '':
+        if packet_bytes.strip() == '':
             raise ValueError("Empty data to send provided")
         if destination_address is None:
             raise ValueError("No destination address provided")
@@ -122,10 +124,11 @@ class Socket:
             raise ValueError("No interface to bind provided")
         if interface.strip() == '':
             raise ValueError("Empty interface to bind provided")
+        self.is_packet_checksum_valid(packet_bytes, conf.VERSION_IPV4, '', '')
 
         if localhost:  # Socket will not be used in integration tests
             source_address = utils.Utils.get_ipv4_address_from_interface_name(interface)
-            data = [packet, source_address, destination_address]
+            data = [packet_bytes, source_address, destination_address]
             self.exit_pipeline_v2.put(data)
             return
 
@@ -134,14 +137,14 @@ class Socket:
         s.setsockopt(socket.SOL_SOCKET, socket.SO_BINDTODEVICE, str(interface + '\0').encode(ENCODING))
 
         #  Sends packet
-        s.sendto(packet, (destination_address, PORT))
+        s.sendto(packet_bytes, (destination_address, PORT))
         s.close()
 
     #  Sends the supplied IPv6 packet to the supplied address through the supplied interface
-    def send_ipv6(self, packet, destination_address, interface, localhost):
-        if packet is None:
+    def send_ipv6(self, packet_bytes, destination_address, interface, localhost):
+        if packet_bytes is None:
             raise ValueError("No data to send provided")
-        if packet.strip() == '':
+        if packet_bytes.strip() == '':
             raise ValueError("Empty data to send provided")
         if destination_address is None:
             raise ValueError("No destination address provided")
@@ -151,10 +154,11 @@ class Socket:
             raise ValueError("No interface to bind provided")
         if interface.strip() == '':
             raise ValueError("Empty interface to bind provided")
+        source_address = utils.Utils.get_ipv6_link_local_address_from_interface_name(interface)
+        self.is_packet_checksum_valid(packet_bytes, conf.VERSION_IPV6, source_address, destination_address)
 
         if localhost:  # Socket will not be used in integration tests
-            source_address = utils.Utils.get_ipv6_link_local_address_from_interface_name(interface)
-            data = [packet, source_address, destination_address]
+            data = [packet_bytes, source_address, destination_address]
             self.exit_pipeline_v3.put(data)
             return
 
@@ -163,7 +167,7 @@ class Socket:
         s.setsockopt(socket.SOL_SOCKET, socket.SO_BINDTODEVICE, str(interface + '\0').encode(ENCODING))
 
         #  Sends packet
-        s.sendto(packet, (destination_address, PORT))
+        s.sendto(packet_bytes, (destination_address, PORT))
         s.close()
 
     #  Processes incoming IPv4 data
@@ -179,3 +183,11 @@ class Socket:
         source_ip_address = utils.Utils.decimal_to_ipv4(int.from_bytes(source_ip_bytes, byteorder="big"))
 
         return [ospf_packet, source_ip_address]
+
+    #  Launches warning if packet checksum is invalid
+    @staticmethod
+    def is_packet_checksum_valid(packet_bytes, version, source_address, destination_address):
+        packet_object = packet.Packet.unpack_packet(packet_bytes)
+        if not packet_object.is_packet_checksum_valid(source_address, destination_address):
+            warning = "Invalid packet checksum for OSPFv" + str(version)
+            warnings.warn(warning)

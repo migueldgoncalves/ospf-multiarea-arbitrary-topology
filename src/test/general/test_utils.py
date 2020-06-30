@@ -32,6 +32,8 @@ class UtilsTest(unittest.TestCase):
         self.assertEqual(16777215, utils.Utils.ipv4_to_decimal('0.255.255.255'))
         self.assertEqual(16777216, utils.Utils.ipv4_to_decimal('1.0.0.0'))
         self.assertEqual(4294967295, utils.Utils.ipv4_to_decimal('255.255.255.255'))
+        self.assertEqual(0, utils.Utils.ipv4_to_decimal(0))
+        self.assertEqual(4294967295, utils.Utils.ipv4_to_decimal(4294967295))
 
     #  Successful run - Instant
     def test_ipv4_to_decimal_invalid_ip(self):
@@ -69,6 +71,8 @@ class UtilsTest(unittest.TestCase):
         self.assertEqual('0.255.255.255', utils.Utils.decimal_to_ipv4(16777215))
         self.assertEqual('1.0.0.0', utils.Utils.decimal_to_ipv4(16777216))
         self.assertEqual('255.255.255.255', utils.Utils.decimal_to_ipv4(4294967295))
+        self.assertEqual('0.0.0.0', utils.Utils.decimal_to_ipv4('0.0.0.0'))
+        self.assertEqual('255.255.255.255', utils.Utils.decimal_to_ipv4('255.255.255.255'))
 
     #  Successful run - Instant
     def test_decimal_to_ipv6_successful(self):
@@ -237,6 +241,7 @@ class UtilsTest(unittest.TestCase):
         self.assertFalse(utils.Utils.is_ipv4_address('0.0.0 .0'))
         self.assertFalse(utils.Utils.is_ipv4_address('0.0.0. 0'))
         self.assertFalse(utils.Utils.is_ipv4_address('0.0.0.0 '))
+        self.assertFalse(utils.Utils.is_ipv4_address(1))
 
     #  Successful run - Instant
     def test_is_ipv6_address_invalid_ip(self):
@@ -270,6 +275,7 @@ class UtilsTest(unittest.TestCase):
         self.assertFalse(utils.Utils.is_ipv6_address('10000::0'))
         self.assertFalse(utils.Utils.is_ipv6_address('10000::10000'))
         self.assertFalse(utils.Utils.is_ipv6_address('10000:10000:10000:10000:10000:10000:10000:10000'))
+        self.assertFalse(utils.Utils.is_ipv6_address(1))
 
     #  Successful run - Instant
     def test_get_ospf_version(self):
