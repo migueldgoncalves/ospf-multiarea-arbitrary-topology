@@ -177,16 +177,20 @@ class Interface:
                     if neighbor_priority != self.neighbors[neighbor_id].neighbor_priority:  # Neighbor priority changed
                         neighbor_data_changed = True
                     self.neighbors[neighbor_id].neighbor_priority = neighbor_priority
+                    if self.version == conf.VERSION_IPV4:
+                        dr_bdr_id = source_ip  # DR/BDR identified by interface IP address
+                    else:
+                        dr_bdr_id = neighbor_id  # DR/BDR identified by router ID
                     #  Neighbor now declared itself as DR, or stops declaring itself as DR
-                    if (neighbor_dr == neighbor_id) & (self.neighbors[neighbor_id].neighbor_dr != neighbor_id):
+                    if (neighbor_dr == dr_bdr_id) & (self.neighbors[neighbor_id].neighbor_dr != dr_bdr_id):
                         neighbor_data_changed = True
-                    if (neighbor_dr != neighbor_id) & (self.neighbors[neighbor_id].neighbor_dr == neighbor_id):
+                    if (neighbor_dr != dr_bdr_id) & (self.neighbors[neighbor_id].neighbor_dr == dr_bdr_id):
                         neighbor_data_changed = True
                     self.neighbors[neighbor_id].neighbor_dr = neighbor_dr
                     #  Neighbor now declared itself as BDR, or stops declaring itself as BDR
-                    if (neighbor_bdr == neighbor_id) & (self.neighbors[neighbor_id].neighbor_bdr != neighbor_id):
+                    if (neighbor_bdr == dr_bdr_id) & (self.neighbors[neighbor_id].neighbor_bdr != dr_bdr_id):
                         neighbor_data_changed = True
-                    if (neighbor_bdr != neighbor_id) & (self.neighbors[neighbor_id].neighbor_bdr == neighbor_id):
+                    if (neighbor_bdr != dr_bdr_id) & (self.neighbors[neighbor_id].neighbor_bdr == dr_bdr_id):
                         neighbor_data_changed = True
                     self.neighbors[neighbor_id].neighbor_bdr = neighbor_bdr
                     if self.neighbors[neighbor_id].neighbor_state not in [
@@ -840,6 +844,17 @@ class Interface:
                 self.max_ip_datagram, conf.OPTIONS, False, True, True, neighbor_router.dd_sequence,
                 self.lsdb.get_lsa_headers([self], neighbor_router.db_summary_list), self.version)  # TODO: Case where not all LSAs fit in one packet
             self.send_packet(self.dd_packet, neighbor_router.neighbor_ip_address, neighbor_router)
+        else:  # This router is the slave
+            if self.version == conf.VERSION_IPV4:
+                self.dd_packet.create_header_v2(conf.PACKET_TYPE_DB_DESCRIPTION, self.router_id, self.area_id,
+                                                conf.DEFAULT_AUTH, conf.NULL_AUTHENTICATION)
+            else:
+                self.dd_packet.create_header_v3(
+                    conf.PACKET_TYPE_DB_DESCRIPTION, self.router_id, self.area_id, self.instance_id, self.ipv6_address,
+                    neighbor_router.neighbor_ip_address)
+            self.dd_packet.create_db_description_packet_body(
+                self.max_ip_datagram, conf.OPTIONS, False, True, False, neighbor_router.dd_sequence, [], self.version)  # TODO: Case where not all LSAs fit in one packet
+            self.send_packet(self.dd_packet, neighbor_router.neighbor_ip_address, neighbor_router)
 
     #  ExchangeDone event
     def event_exchange_done(self, neighbor_router):
@@ -980,7 +995,10 @@ class Interface:
     #  Interface state changed
     def event_interface_state_change(self, old_state, new_state):
         #  Router-LSA
-        router_lsa = copy.deepcopy(self.lsdb.get_lsa(conf.LSA_TYPE_ROUTER, self.router_id, self.router_id, [self]))
+        if self.version == conf.VERSION_IPV4:
+            router_lsa = copy.deepcopy(self.lsdb.get_lsa(conf.LSA_TYPE_ROUTER, self.router_id, self.router_id, [self]))
+        else:
+            router_lsa = copy.deepcopy(self.lsdb.get_lsa(conf.LSA_TYPE_ROUTER, '0.0.0.0', self.router_id, [self]))
         if new_state == conf.INTERFACE_STATE_DOWN:
             router_lsa.body.delete_interface_link_info(self.ipv4_address, self.network_mask, self.ospf_identifier)
             self.generate_lsa_instance(router_lsa, self.router_id)
@@ -1244,8 +1262,6 @@ class Interface:
         else:
             return None
         return intra_area_prefix_lsa
-
-    #  TODO: Error with Invalid Link State ID in OSPFv3. Ensure it is converted to IPv4 address. Check if it works afterwards
 
     #  Creates and returns the Link-LSA for this interface
     def create_link_lsa(self):

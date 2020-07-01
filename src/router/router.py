@@ -163,12 +163,12 @@ class Router:
                                 time.sleep(0.1)
                                 continue  # LSA will not be flooded
                             #  LSA came from DR or BDR of current interface
-                            if (i == j) & (sending_neighbor_id in [current_interface.designated_router,
-                                                                   current_interface.backup_designated_router]):
+                            if (i == j.physical_identifier) & (sending_neighbor_id in [
+                                    current_interface.designated_router, current_interface.backup_designated_router]):
                                 current_interface.flooded_pipeline.put(False)
                                 time.sleep(0.1)
                                 continue
-                            if (i == j) & (current_interface.state == conf.INTERFACE_STATE_BACKUP):
+                            if (i == j.physical_identifier) & (current_interface.state == conf.INTERFACE_STATE_BACKUP):
                                 current_interface.flooded_pipeline.put(False)
                                 time.sleep(0.1)
                                 continue
@@ -186,11 +186,14 @@ class Router:
                                     current_interface.ipv6_address, destination_address)
                             ls_update_packet.create_ls_update_packet_body(self.ospf_version)
                             ls_update_packet.add_lsa(lsa_instance)
+                            packet_bytes = ls_update_packet.pack_packet()
                             sending_socket = sock.Socket()
                             if self.ospf_version == conf.VERSION_IPV4:
-                                sending_socket.send_ipv4(ls_update_packet, destination_address, j, False)
+                                sending_socket.send_ipv4(
+                                    packet_bytes, destination_address, j.physical_identifier, False)
                             elif self.ospf_version == conf.VERSION_IPV6:
-                                sending_socket.send_ipv6(packet, destination_address, j, False)
+                                sending_socket.send_ipv6(
+                                    packet_bytes, destination_address, j.physical_identifier, False)
                             current_interface.flooded_pipeline.put(True)
                             time.sleep(0.1)
                             current_interface.update_ls_retransmission_lists(lsa_identifier, destination_address)

@@ -137,13 +137,14 @@ class Neighbor:
             raise ValueError("Invalid Link State ID")
         if not utils.Utils.is_ipv4_address(lsa_identifier[2]):
             raise ValueError("Invalid Advertising Router")
-        lsa_list.append(lsa_identifier)
+        if lsa_identifier not in lsa_list:
+            lsa_list.append(lsa_identifier)
 
     #  Deletes LSA identifier from one of the LSA lists
     def delete_lsa_identifier(self, lsa_list, lsa_identifier):
         if lsa_list not in [self.ls_retransmission_list, self.db_summary_list, self.ls_request_list]:
             raise ValueError("Invalid LSA list")
-        if lsa_list.__contains__(lsa_identifier):
+        if lsa_identifier in lsa_list:
             lsa_list.remove(lsa_identifier)
         if ((lsa_list == self.ls_request_list) & (len(self.ls_request_list) == 0)) | (
                 (lsa_list == self.ls_retransmission_list) & (len(self.ls_retransmission_list) == 0)):

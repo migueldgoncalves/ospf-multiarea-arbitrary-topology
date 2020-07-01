@@ -10,6 +10,7 @@ import interface.interface as interface
 import packet.packet as packet
 import lsa.lsa as lsa
 import neighbor.neighbor as neighbor
+import area.area as area
 
 '''
 This class tests the interface operations in the router
@@ -33,12 +34,14 @@ class InterfaceTest(unittest.TestCase):
         self.interface_pipeline_v3 = queue.Queue()
         self.interface_shutdown_v2 = threading.Event()
         self.interface_shutdown_v3 = threading.Event()
+        self.lsdb_v2 = area.Area.lsdb_startup(conf.ROUTER_ID, conf.VERSION_IPV4)
+        self.lsdb_v3 = area.Area.lsdb_startup(conf.ROUTER_ID, conf.VERSION_IPV6)
         self.interface_ospfv2 = interface.Interface(
             conf.ROUTER_ID, self.interface_identifier, self.ipv4_address, '', self.network_mask, [], self.area_id,
-            self.interface_pipeline_v2, self.interface_shutdown_v2, conf.VERSION_IPV4, None, False)
+            self.interface_pipeline_v2, self.interface_shutdown_v2, conf.VERSION_IPV4, self.lsdb_v2, False)
         self.interface_ospfv3 = interface.Interface(
             conf.ROUTER_ID, self.interface_identifier, '', self.ipv6_address, '', self.link_prefixes, self.area_id,
-            self.interface_pipeline_v3, self.interface_shutdown_v3, conf.VERSION_IPV6, None, False)
+            self.interface_pipeline_v3, self.interface_shutdown_v3, conf.VERSION_IPV6, self.lsdb_v3, False)
 
     #  #  #  #  #  #
     #  Main methods  #

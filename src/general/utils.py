@@ -141,7 +141,7 @@ class Utils:
         try:
             int(ip_address)
             return False
-        except ValueError:
+        except (ValueError, TypeError):
             try:
                 ipaddress.IPv4Address(ip_address)
                 return True
@@ -154,7 +154,7 @@ class Utils:
         try:
             int(ip_address)
             return False
-        except ValueError:
+        except (ValueError, TypeError):
             try:
                 ipaddress.IPv6Address(ip_address)
                 return True

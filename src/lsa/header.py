@@ -24,6 +24,8 @@ BOTH = 'Both'
 class Header:  # OSPFv2 and OSPFv3 - 20 bytes
 
     def __init__(self, ls_age, options, ls_type, link_state_id, advertising_router, ls_sequence_number, version):
+        if not utils.Utils.is_ipv4_address(link_state_id):
+            link_state_id = utils.Utils.decimal_to_ipv4(link_state_id)
         is_valid, message = self.parameter_validation(
             ls_age, options, ls_type, link_state_id, advertising_router, ls_sequence_number, version)
         if not is_valid:  # At least one of the parameters failed validation

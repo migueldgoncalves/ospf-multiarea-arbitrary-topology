@@ -249,12 +249,13 @@ class TestLsdb(unittest.TestCase):
 
         self.interface_ospfv3.link_local_lsa_list = []
         self.lsdb_ospfv3.add_lsa(self.lsa_ospfv3_4, self.interface_ospfv3)
-        self.assertEqual(3, len(self.lsdb_ospfv3.get_lsdb([self.interface_ospfv3], None)))
+        self.assertEqual(4, len(self.lsdb_ospfv3.get_lsdb([self.interface_ospfv3], None)))
         self.assertEqual(1, len(self.interface_ospfv3.link_local_lsa_list))
         ls_type = self.lsa_ospfv3_4.header.ls_type
         link_state_id = self.lsa_ospfv3_4.header.link_state_id
         advertising_router = self.lsa_ospfv3_4.header.advertising_router
-        self.assertEqual(0x2008, self.interface_ospfv3.get_link_local_lsa(ls_type, link_state_id, advertising_router))
+        self.assertEqual(8, self.interface_ospfv3.get_link_local_lsa(ls_type, link_state_id, advertising_router).
+                         header.ls_type)
 
     def populate_lsdb(self):
         self.lsdb_ospfv2.router_lsa_list.append(self.lsa_ospfv2_1)
