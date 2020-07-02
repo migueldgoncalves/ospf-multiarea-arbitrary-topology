@@ -110,6 +110,10 @@ class TestLsdb(unittest.TestCase):
         self.assertIsNone(retrieved_lsa)
         retrieved_lsa = self.lsdb_ospfv3.get_lsa(8, '0.0.0.4', '1.1.1.1', [self.interface_ospfv3])
         self.assertEqual(8, retrieved_lsa.header.ls_type)
+        retrieved_lsa = self.lsdb_ospfv3.get_lsa(1, '0.0.0.0', '2.2.2.2', [self.interface_ospfv3])
+        self.assertEqual(0x2001, retrieved_lsa.header.ls_type)
+        retrieved_lsa = self.lsdb_ospfv3.get_lsa(0x2001, '0.0.0.0', '2.2.2.2', [self.interface_ospfv3])
+        self.assertEqual(0x2001, retrieved_lsa.header.ls_type)
 
         #  Get LSDB headers
 
@@ -152,6 +156,10 @@ class TestLsdb(unittest.TestCase):
         self.assertIsNone(retrieved_header)
         retrieved_header = self.lsdb_ospfv3.get_lsa_header(8, '0.0.0.4', '1.1.1.1', [self.interface_ospfv3])
         self.assertEqual(8, retrieved_header.ls_type)
+        retrieved_header = self.lsdb_ospfv3.get_lsa_header(1, '0.0.0.0', '2.2.2.2', [self.interface_ospfv3])
+        self.assertEqual(0x2001, retrieved_header.ls_type)
+        retrieved_header = self.lsdb_ospfv3.get_lsa_header(0x2001, '0.0.0.0', '2.2.2.2', [self.interface_ospfv3])
+        self.assertEqual(0x2001, retrieved_header.ls_type)
 
     #  Successful run - Instant
     def test_delete_lsa(self):

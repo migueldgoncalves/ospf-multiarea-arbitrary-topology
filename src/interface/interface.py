@@ -1029,12 +1029,6 @@ class Interface:
             if network_lsa is not None:
                 self.flush_lsa(network_lsa, self.router_id)
 
-        #  Intra-Area-Prefix-LSA
-        if (old_state != new_state) & (self.version == conf.VERSION_IPV6):
-            intra_area_prefix_lsa = self.create_intra_area_prefix_lsa(conf.LSA_TYPE_ROUTER)
-            if new_state == conf.INTERFACE_STATE_DOWN:
-                self.flush_lsa(intra_area_prefix_lsa, self.router_id)
-
         #  Link-LSA
         if (old_state != new_state) & (self.version == conf.VERSION_IPV6):
             link_lsa = self.create_link_lsa()
@@ -1042,6 +1036,14 @@ class Interface:
                 self.install_flood_lsa(link_lsa, self.router_id)
             elif new_state == conf.INTERFACE_STATE_DOWN:
                 self.flush_lsa(link_lsa, self.router_id)
+
+        #  Intra-Area-Prefix-LSA
+        if (old_state != new_state) & (self.version == conf.VERSION_IPV6):
+            intra_area_prefix_lsa = self.create_intra_area_prefix_lsa(conf.LSA_TYPE_ROUTER)
+            if new_state == conf.INTERFACE_STATE_WAITING:
+                self.install_flood_lsa(intra_area_prefix_lsa, self.router_id)
+            if new_state == conf.INTERFACE_STATE_DOWN:
+                self.flush_lsa(intra_area_prefix_lsa, self.router_id)
 
     #  Network DR changed
     def event_network_dr_change(self, old_dr, new_dr):
@@ -1093,7 +1095,7 @@ class Interface:
                         self.flush_lsa(network_lsa, self.router_id)
 
             #  Intra-Area-Prefix LSA
-            if (self.router_id in [old_dr, new_dr]) & (old_dr != new_dr):
+            if (self.router_id in [old_dr, new_dr]) & (old_dr != new_dr) & (self.version == conf.VERSION_IPV6):
                 if old_dr == self.router_id:
                     self.flush_lsa(self.lsdb.get_lsa(
                         conf.LSA_TYPE_INTRA_AREA_PREFIX, self.ospf_identifier, self.router_id), self.router_id)
@@ -1171,7 +1173,7 @@ class Interface:
                     self.flush_lsa(network_lsa, self.router_id)
 
         #  Intra-Area-Prefix-LSA
-        if self.router_id == self.designated_router:
+        if (self.router_id == self.designated_router) & (self.version == conf.VERSION_IPV6):
             if old_state == conf.NEIGHBOR_STATE_FULL:
                 if not self.is_transit_network():
                     self.flush_lsa(self.create_intra_area_prefix_lsa(conf.LSA_TYPE_NETWORK), self.router_id)
@@ -1227,7 +1229,7 @@ class Interface:
     #  Creates and returns the link Network-LSA if interface is DR
     def create_network_lsa(self):
         if self.state == conf.INTERFACE_STATE_DR:
-            network_lsa = self.create_lsa_header(conf.LSA_TYPE_NETWORK)
+            network_lsa = self.create_lsa_header(conf.LSA_TYPE_NETWORK, 0)
             if self.version == conf.VERSION_IPV4:
                 network_mask = self.network_mask
             else:
@@ -1239,9 +1241,20 @@ class Interface:
             network_lsa.create_network_lsa_body(network_mask, conf.OPTIONS, attached_routers, self.version)
             return network_lsa
 
+    #  Creates and returns the Link-LSA for this interface
+    def create_link_lsa(self):
+        link_lsa = self.create_lsa_header(conf.LSA_TYPE_LINK, 0)
+        link_lsa.create_link_lsa_body(self.router_priority, conf.OPTIONS, self.ipv6_address)
+        #  TODO: Consider the case where there are multiple link prefixes
+        prefix_length = utils.Utils.get_ipv6_prefix_from_interface_name(self.physical_identifier)[1]
+        prefix_options = conf.OPTIONS
+        prefix = utils.Utils.get_ipv6_prefix_from_interface_name(self.physical_identifier)[0]
+        link_lsa.add_prefix_info(prefix_length, prefix_options, 0, prefix, conf.LSA_TYPE_LINK)
+        return link_lsa
+
     #  Creates and returns a Intra-Area-Prefix-LSA for this interface
     def create_intra_area_prefix_lsa(self, referenced_ls_type):
-        intra_area_prefix_lsa = self.create_lsa_header(conf.LSA_TYPE_INTRA_AREA_PREFIX)
+        intra_area_prefix_lsa = self.create_lsa_header(conf.LSA_TYPE_INTRA_AREA_PREFIX, referenced_ls_type)
         if referenced_ls_type == conf.LSA_TYPE_NETWORK:  # Assumes this router is DR
             intra_area_prefix_lsa.create_intra_area_prefix_lsa_body(
                 referenced_ls_type, self.ospf_identifier, self.router_id)
@@ -1254,7 +1267,7 @@ class Interface:
                             intra_area_prefix_lsa.add_prefix_info(prefix_info[0], prefix_info[1], self.cost,
                                                                   prefix_info[2], conf.LSA_TYPE_INTRA_AREA_PREFIX)
         elif referenced_ls_type == conf.LSA_TYPE_ROUTER:
-            intra_area_prefix_lsa.create_intra_area_prefix_lsa_body(referenced_ls_type, 0, self.router_id)
+            intra_area_prefix_lsa.create_intra_area_prefix_lsa_body(referenced_ls_type, '0.0.0.0', self.router_id)
             for query_lsa in self.get_link_lsa_list():
                 for prefix_info in query_lsa.body.prefixes:
                     intra_area_prefix_lsa.add_prefix_info(
@@ -1263,19 +1276,8 @@ class Interface:
             return None
         return intra_area_prefix_lsa
 
-    #  Creates and returns the Link-LSA for this interface
-    def create_link_lsa(self):
-        link_lsa = self.create_lsa_header(conf.LSA_TYPE_LINK)
-        link_lsa.create_link_lsa_body(self.router_priority, conf.OPTIONS, self.ipv6_address)
-        #  TODO: Consider the case where there are multiple link prefixes
-        prefix_length = utils.Utils.get_ipv6_prefix_from_interface_name(self.physical_identifier)[1]
-        prefix_options = 0
-        prefix = utils.Utils.get_ipv6_prefix_from_interface_name(self.physical_identifier)[0]
-        link_lsa.add_prefix_info(prefix_length, prefix_options, 0, prefix, conf.LSA_TYPE_LINK)
-        return link_lsa
-
     #  Returns a LSA with header created and empty body
-    def create_lsa_header(self, lsa_type):
+    def create_lsa_header(self, lsa_type, referenced_ls_type):
         new_lsa = lsa.Lsa()
         link_state_id = ''
         if self.version == conf.VERSION_IPV4:
@@ -1291,7 +1293,12 @@ class Interface:
             elif lsa_type == conf.LSA_TYPE_NETWORK:
                 link_state_id = self.ospf_identifier
             elif lsa_type == conf.LSA_TYPE_INTRA_AREA_PREFIX:
-                link_state_id = self.ospf_identifier  # Can be a random value
+                if referenced_ls_type == conf.LSA_TYPE_ROUTER:
+                    link_state_id = '0.0.0.0'
+                elif referenced_ls_type == conf.LSA_TYPE_NETWORK:
+                    link_state_id = self.ospf_identifier  # Can be a random value
+                else:
+                    raise ValueError("Invalid Referenced LS Type")
             elif lsa_type == conf.LSA_TYPE_LINK:
                 link_state_id = self.ospf_identifier
             new_lsa.create_header(conf.INITIAL_LS_AGE, 0, lsa_type, link_state_id, self.router_id,
@@ -1393,6 +1400,8 @@ class Interface:
 
     #  Atomically gets a link-local LSA from interface
     def get_link_local_lsa(self, ls_type, link_state_id, advertising_router):
+        if not utils.Utils.is_ipv4_address(link_state_id):
+            link_state_id = utils.Utils.decimal_to_ipv4(link_state_id)
         with self.lsa_lock:
             for local_lsa in self.link_local_lsa_list:
                 if local_lsa.is_lsa_identifier_equal(ls_type, link_state_id, advertising_router):
@@ -1401,6 +1410,8 @@ class Interface:
 
     #  Atomically deletes link-local LSA from interface
     def delete_link_local_lsa(self, ls_type, link_state_id, advertising_router):
+        if not utils.Utils.is_ipv4_address(link_state_id):
+            link_state_id = utils.Utils.decimal_to_ipv4(link_state_id)
         with self.lsa_lock:
             for local_lsa in self.link_local_lsa_list:
                 if local_lsa.is_lsa_identifier_equal(ls_type, link_state_id, advertising_router):

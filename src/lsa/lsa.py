@@ -237,8 +237,8 @@ class Lsa:
     #  Returns True if LSA identifier matches current LSA
     def is_lsa_identifier_equal(self, ls_type, link_state_id, advertising_router):
         lsa_identifier = self.get_lsa_identifier()
-        return (ls_type == lsa_identifier[0]) & (link_state_id == lsa_identifier[1]) & \
-               (advertising_router == lsa_identifier[2])
+        return (self.header.get_ls_type(ls_type) == self.header.get_ls_type(lsa_identifier[0])) & \
+               (link_state_id == lsa_identifier[1]) & (advertising_router == lsa_identifier[2])
 
     #  Increases LS Age field, if enough time has passed
     def increase_lsa_age(self):

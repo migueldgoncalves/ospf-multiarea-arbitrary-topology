@@ -3,6 +3,7 @@ import time
 
 import conf.conf as conf
 import lsa.lsa as lsa
+import general.utils as utils
 
 '''
 This class represents the OSPF Link State Database and contains its data and operations
@@ -42,6 +43,8 @@ class Lsdb:
 
     #  Atomically returns a LSA given its identifier, if present
     def get_lsa(self, ls_type, link_state_id, advertising_router, interfaces):
+        if not utils.Utils.is_ipv4_address(link_state_id):
+            link_state_id = utils.Utils.decimal_to_ipv4(link_state_id)
         with self.lsdb_lock:
             lsa_list = self.get_lsdb(interfaces, None)
             for query_lsa in lsa_list:
@@ -72,6 +75,8 @@ class Lsdb:
 
     #  Atomically deletes a LSA from the LSDB, if present
     def delete_lsa(self, ls_type, link_state_id, advertising_router, interfaces):
+        if not utils.Utils.is_ipv4_address(link_state_id):
+            link_state_id = utils.Utils.decimal_to_ipv4(link_state_id)
         with self.lsdb_lock:
             for query_lsa in self.router_lsa_list:
                 if query_lsa.is_lsa_identifier_equal(ls_type, link_state_id, advertising_router):
