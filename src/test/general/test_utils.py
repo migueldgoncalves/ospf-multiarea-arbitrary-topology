@@ -371,3 +371,9 @@ class UtilsTest(unittest.TestCase):
         self.assertFalse(utils.Utils.is_ip_in_network('Invalid address', INTERFACE_NAME))
         self.assertFalse(utils.Utils.is_ip_in_network(0, INTERFACE_NAME))
         self.assertFalse(utils.Utils.is_ip_in_network(None, INTERFACE_NAME))
+
+    #  Successful run - Instant
+    def test_ip_address_to_prefix(self):
+        self.assertEqual('222.222.1.0', utils.Utils.ip_address_to_prefix('222.222.1.1', 24))
+        self.assertEqual('222.222.1.0', utils.Utils.ip_address_to_prefix('222.222.1.1', '255.255.255.0'))
+        self.assertEqual('2001:db8:cafe:1::', utils.Utils.ip_address_to_prefix('2001:db8:cafe:1::1', 64))

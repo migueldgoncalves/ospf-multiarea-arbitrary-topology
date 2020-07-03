@@ -224,3 +224,13 @@ class Utils:
             return decimal_ip_address == (decimal_network_prefix >> (128 - network_prefix[1]))
         else:
             return False
+
+    #  Given IP address and prefix length, returns network prefix
+    @staticmethod
+    def ip_address_to_prefix(ip_address, prefix_length):  # For OSPFv2 netmask can replace prefix length
+        if Utils.is_ipv4_address(ip_address):
+            return str(ipaddress.IPv4Network((ip_address, prefix_length), strict=False).network_address)
+        elif Utils.is_ipv6_address(ip_address):
+            return str(ipaddress.IPv6Network((ip_address, prefix_length), strict=False).network_address)
+        else:
+            raise ValueError("Invalid IP address")

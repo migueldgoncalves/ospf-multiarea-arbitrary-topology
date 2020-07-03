@@ -136,3 +136,102 @@ class Lsdb:
             lsa_list = self.get_lsdb(interfaces, None)
             for query_lsa in lsa_list:
                 query_lsa.increase_lsa_age()
+
+    #  Returns the area directed graph as a table
+    def get_directed_graph(self, interfaces):
+        #  Graph initialization
+        directed_graph = {}  # Dictionary of dictionaries - Each dictionary contains destinations for one graph node
+        area_routers = []
+        area_transit_networks = []
+        for router_lsa in self.router_lsa_list:
+            router_id = router_lsa.header.advertising_router
+            area_routers.append(router_id)
+            directed_graph[router_id] = {}
+        for network_lsa in self.network_lsa_list:
+            if self.version == conf.VERSION_IPV4:
+                network_id = network_lsa.header.link_state_id
+            else:
+                network_id = network_lsa.header.advertising_router + "|" + network_lsa.header.link_state_id
+            area_transit_networks.append(network_id)
+            directed_graph[network_id] = {}
+
+        #  Point-to-point links
+        for router_id_1 in area_routers:
+            router_lsa_1 = self.get_lsa(conf.LSA_TYPE_ROUTER, 0, router_id_1, interfaces)
+            for router_id_2 in area_routers:
+                router_lsa_2 = self.get_lsa(conf.LSA_TYPE_ROUTER, 0, router_id_2, interfaces)
+                for link_info_1 in router_lsa_1.body.links:
+                    if self.version == conf.VERSION_IPV4:
+                        if link_info_1[2] == conf.POINT_TO_POINT_LINK:
+                            network_mask_1 = link_info_1[0]
+                            for link_info_2 in router_lsa_2.body.links:
+                                if link_info_2[2] == conf.POINT_TO_POINT_LINK:
+                                    network_mask_2 = link_info_2[0]
+                                    if network_mask_1 == network_mask_2:
+                                        directed_graph[router_id_1][router_id_2] = link_info_1[4]
+                                        directed_graph[router_id_2][router_id_1] = link_info_2[4]
+                    else:
+                        if link_info_1[0] == conf.POINT_TO_POINT_LINK:
+                            neighbor_id_1 = link_info_1[4]
+                            for link_info_2 in router_lsa_2.body.links:
+                                if link_info_2[0] == conf.POINT_TO_POINT_LINK:
+                                    neighbor_id_2 = link_info_2[4]
+                                    if (neighbor_id_1 == router_lsa_2.header.advertising_router) & (
+                                            neighbor_id_2 == router_lsa_1.header.advertising_router):
+                                        directed_graph[router_id_1][router_id_2] = link_info_1[1]
+                                        directed_graph[router_id_2][router_id_1] = link_info_2[1]
+
+        #  Transit shared links
+        for router_id in area_routers:
+            router_lsa = self.get_lsa(conf.LSA_TYPE_ROUTER, 0, router_id, interfaces)
+            for link_info in router_lsa.body.links:
+                if self.version == conf.VERSION_IPV4:
+                    if link_info[2] == conf.LINK_TO_TRANSIT_NETWORK:
+                        dr_ip_address = link_info[1]
+                        for network_lsa in self.network_lsa_list:
+                            if network_lsa.header.link_state_id == dr_ip_address:
+                                network_id = network_lsa.header.link_state_id
+                                directed_graph[router_id][network_id] = link_info[4]
+                                directed_graph[network_id][router_id] = 0  # No cost going from network to router
+                else:
+                    if link_info[0] == conf.LINK_TO_TRANSIT_NETWORK:
+                        neighbor_id = link_info[4]
+                        for network_lsa in self.network_lsa_list:
+                            if network_lsa.header.advertising_router == neighbor_id:
+                                network_id = neighbor_id + "|" + network_lsa.header.link_state_id
+                                directed_graph[router_id][network_id] = link_info[1]
+                                directed_graph[network_id][router_id] = 0
+
+        #  Address prefixes
+        prefixes = {}
+        for router_id in area_routers:
+            prefixes[router_id] = []
+        for network_id in area_transit_networks:
+            prefixes[network_id] = []
+        for router_id in area_routers:
+            router_lsa = self.get_lsa(conf.LSA_TYPE_ROUTER, 0, router_id, interfaces)
+            for link_info in router_lsa.body.links:
+                if self.version == conf.VERSION_IPV4:
+                    if link_info[2] in [conf.LINK_TO_STUB_NETWORK, conf.POINT_TO_POINT_LINK]:
+                        if link_info[1] not in prefixes[router_id]:
+                            prefixes[router_id].append(link_info[1])
+                else:
+                    if link_info[0] == conf.POINT_TO_POINT_LINK:  # No info on stub links stored in OSPFv3 router-LSAs
+                        intra_area_prefix_lsa = self.get_lsa(conf.LSA_TYPE_INTRA_AREA_PREFIX, 0, router_id, interfaces)
+                        for prefix_info in intra_area_prefix_lsa.body.prefixes:
+                            if prefix_info[3] not in prefixes[router_id]:
+                                prefixes[router_id].append(prefix_info[3])
+        for network_id in area_transit_networks:
+            if self.version == conf.VERSION_IPV4:
+                network_prefix = utils.Utils.ip_address_to_prefix(
+                    network_id.header.link_state_id, network_id.body.network_mask)
+                prefixes[network_id].append(network_prefix)
+            else:
+                dr_id = network_id.split("|")[0]
+                dr_interface_id = network_id.split("|")[1]
+                intra_area_prefix_lsa = self.get_lsa(
+                    conf.LSA_TYPE_INTRA_AREA_PREFIX, dr_interface_id, dr_id, interfaces)
+                for prefix_info in intra_area_prefix_lsa:
+                    prefixes[network_id].append(prefix_info[3])
+
+        return [directed_graph, prefixes]

@@ -272,3 +272,7 @@ class TestLsdb(unittest.TestCase):
         self.lsdb_ospfv3.network_lsa_list.append(self.lsa_ospfv3_2)
         self.lsdb_ospfv3.intra_area_prefix_lsa_list.append(self.lsa_ospfv3_3)
         self.interface_ospfv3.link_local_lsa_list.append(self.lsa_ospfv3_4)
+
+    #  Successful run - Instant
+    def test_get_directed_graph(self):
+        pass
