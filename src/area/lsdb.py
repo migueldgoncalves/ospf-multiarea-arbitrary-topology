@@ -157,9 +157,15 @@ class Lsdb:
 
         #  Point-to-point links
         for router_id_1 in area_routers:
-            router_lsa_1 = self.get_lsa(conf.LSA_TYPE_ROUTER, 0, router_id_1, interfaces)
+            if self.version == conf.VERSION_IPV4:
+                router_lsa_1 = self.get_lsa(conf.LSA_TYPE_ROUTER, router_id_1, router_id_1, interfaces)
+            else:
+                router_lsa_1 = self.get_lsa(conf.LSA_TYPE_ROUTER, 0, router_id_1, interfaces)
             for router_id_2 in area_routers:
-                router_lsa_2 = self.get_lsa(conf.LSA_TYPE_ROUTER, 0, router_id_2, interfaces)
+                if self.version == conf.VERSION_IPV4:
+                    router_lsa_2 = self.get_lsa(conf.LSA_TYPE_ROUTER, router_id_2, router_id_2, interfaces)
+                else:
+                    router_lsa_2 = self.get_lsa(conf.LSA_TYPE_ROUTER, 0, router_id_2, interfaces)
                 for link_info_1 in router_lsa_1.body.links:
                     if self.version == conf.VERSION_IPV4:
                         if link_info_1[2] == conf.POINT_TO_POINT_LINK:
@@ -183,7 +189,10 @@ class Lsdb:
 
         #  Transit shared links
         for router_id in area_routers:
-            router_lsa = self.get_lsa(conf.LSA_TYPE_ROUTER, 0, router_id, interfaces)
+            if self.version == conf.VERSION_IPV4:
+                router_lsa = self.get_lsa(conf.LSA_TYPE_ROUTER, router_id, router_id, interfaces)
+            else:
+                router_lsa = self.get_lsa(conf.LSA_TYPE_ROUTER, 0, router_id, interfaces)
             for link_info in router_lsa.body.links:
                 if self.version == conf.VERSION_IPV4:
                     if link_info[2] == conf.LINK_TO_TRANSIT_NETWORK:
@@ -209,18 +218,20 @@ class Lsdb:
         for network_id in area_transit_networks:
             prefixes[network_id] = []
         for router_id in area_routers:
-            router_lsa = self.get_lsa(conf.LSA_TYPE_ROUTER, 0, router_id, interfaces)
-            for link_info in router_lsa.body.links:
-                if self.version == conf.VERSION_IPV4:
+            if self.version == conf.VERSION_IPV4:
+                router_lsa = self.get_lsa(conf.LSA_TYPE_ROUTER, router_id, router_id, interfaces)
+            else:
+                router_lsa = self.get_lsa(conf.LSA_TYPE_ROUTER, 0, router_id, interfaces)
+            if self.version == conf.VERSION_IPV4:
+                for link_info in router_lsa.body.links:
                     if link_info[2] in [conf.LINK_TO_STUB_NETWORK, conf.POINT_TO_POINT_LINK]:
-                        if link_info[1] not in prefixes[router_id]:
-                            prefixes[router_id].append(link_info[1])
-                else:
-                    if link_info[0] == conf.POINT_TO_POINT_LINK:  # No info on stub links stored in OSPFv3 router-LSAs
-                        intra_area_prefix_lsa = self.get_lsa(conf.LSA_TYPE_INTRA_AREA_PREFIX, 0, router_id, interfaces)
-                        for prefix_info in intra_area_prefix_lsa.body.prefixes:
-                            if prefix_info[3] not in prefixes[router_id]:
-                                prefixes[router_id].append(prefix_info[3])
+                        if link_info[0] not in prefixes[router_id]:
+                            prefixes[router_id].append(link_info[0])
+            else:
+                intra_area_prefix_lsa = self.get_lsa(conf.LSA_TYPE_INTRA_AREA_PREFIX, 0, router_id, interfaces)
+                for prefix_info in intra_area_prefix_lsa.body.prefixes:
+                    if prefix_info[3] not in prefixes[router_id]:
+                        prefixes[router_id].append(prefix_info[3])
         for network_id in area_transit_networks:
             if self.version == conf.VERSION_IPV4:
                 network_prefix = utils.Utils.ip_address_to_prefix(

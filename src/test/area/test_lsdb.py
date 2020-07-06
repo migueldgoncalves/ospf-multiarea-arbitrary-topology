@@ -274,5 +274,193 @@ class TestLsdb(unittest.TestCase):
         self.interface_ospfv3.link_local_lsa_list.append(self.lsa_ospfv3_4)
 
     #  Successful run - Instant
+    #  This test is based on the GNS3 Network 1 at https://github.com/migueldgoncalves/ospf-multiarea-arbitrary-topology
     def test_get_directed_graph(self):
-        pass
+        lsdb_v2 = lsdb.Lsdb(conf.VERSION_IPV4)
+        lsdb_v3 = lsdb.Lsdb(conf.VERSION_IPV6)
+        router_id_1 = '1.1.1.1'
+        router_id_2 = '2.2.2.2'
+        router_id_3 = '3.3.3.3'
+        router_id_4 = '4.4.4.4'
+        network_mask = '255.255.255.0'
+        prefix_length = 64
+        r1_f0_0_v2 = '222.222.3.1'
+        r1_f0_1_v2 = '222.222.2.1'
+        r1_f1_0_v2 = '222.222.1.1'
+        r1_s2_0_v2 = '222.222.6.1'
+        r2_f0_0_v2 = '222.222.4.1'
+        r2_f0_1_v2 = '222.222.3.2'
+        r2_f1_0_v2 = '222.222.5.1'
+        r3_f0_0_v2 = '222.222.5.2'
+        r3_s1_0_v2 = '222.222.6.2'
+        r4_e0_v2 = '222.222.1.2'
+        r1_f0_0_v3 = '2001:db8:cafe:3::1'
+        r1_f0_1_v3 = '2001:db8:cafe:2::1'
+        r1_f1_0_v3 = '2001:db8:cafe:1::1'
+        r1_s2_0_v3 = '2001:db8:cafe:6::1'
+        r2_f0_0_v3 = '2001:db8:cafe:4::1'
+        r2_f0_1_v3 = '2001:db8:cafe:3::2'
+        r2_f1_0_v3 = '2001:db8:cafe:5::1'
+        r3_f0_0_v3 = '2001:db8:cafe:5::2'
+        r3_s1_0_v3 = '2001:db8:cafe:6::2'
+        r4_e0_v3 = '2001:db8:cafe:1::2'
+        r1_f0_0_local = 'fe80:3::1'
+        r1_f0_1_local = 'fe80:2::1'
+        r1_f1_0_local = 'fe80:1::1'
+        r1_s2_0_local = 'fe80:6::1'
+        r2_f0_0_local = 'fe80:4::1'
+        r2_f0_1_local = 'fe80:3::2'
+        r2_f1_0_local = 'fe80:5::1'
+        r3_f0_0_local = 'fe80:5::2'
+        r3_s1_0_local = 'fe80:6::2'
+        r4_e0_local = 'fe80:1::2'
+        prefix_1_v2 = '222.222.1.0'
+        prefix_2_v2 = '222.222.2.0'
+        prefix_3_v2 = '222.222.3.0'
+        prefix_4_v2 = '222.222.4.0'
+        prefix_5_v2 = '222.222.5.0'
+        prefix_6_v2 = '222.222.6.0'
+        prefix_1_v3 = '2001:db8:cafe:1::'
+        prefix_2_v3 = '2001:db8:cafe:2::'
+        prefix_3_v3 = '2001:db8:cafe:3::'
+        prefix_4_v3 = '2001:db8:cafe:4::'
+        prefix_5_v3 = '2001:db8:cafe:5::'
+        prefix_6_v3 = '2001:db8:cafe:6::'
+        r1_f0_0_id = 1
+        r1_f0_1_id = 2
+        r1_f1_0_id = 3
+        r1_s2_0_id = 4
+        r2_f0_0_id = 1
+        r2_f0_1_id = 2
+        r2_f1_0_id = 3
+        r3_f0_0_id = 1
+        r3_s1_0_id = 2
+        r4_e0_id = 1
+        router_priority = 1
+        prefix_options = 0
+        cost_broadcast_link = 10
+        cost_point_point_link = 64
+
+        router_lsa_1_v2 = lsa.Lsa()
+        router_lsa_2_v2 = lsa.Lsa()
+        router_lsa_3_v2 = lsa.Lsa()
+        router_lsa_4_v2 = lsa.Lsa()
+        for lsa_data in [[router_id_1, router_lsa_1_v2], [router_id_2, router_lsa_2_v2], [router_id_3, router_lsa_3_v2],
+                         [router_id_4, router_lsa_4_v2]]:
+            lsa_data[1].create_header(conf.INITIAL_LS_AGE, conf.OPTIONS, conf.LSA_TYPE_ROUTER, lsa_data[0], lsa_data[0],
+                                      conf.INITIAL_SEQUENCE_NUMBER, conf.VERSION_IPV4)
+            lsa_data[1].create_router_lsa_body(False, False, False, conf.OPTIONS, conf.VERSION_IPV4)
+        network_lsa_1_v2 = lsa.Lsa()
+        network_lsa_3_v2 = lsa.Lsa()
+        network_lsa_5_v2 = lsa.Lsa()
+        for lsa_data in [[router_id_4, network_lsa_1_v2, r4_e0_v2], [router_id_2, network_lsa_3_v2, r2_f0_1_v2],
+                         [router_id_3, network_lsa_5_v2, r3_f0_0_v2]]:
+            lsa_data[1].create_header(conf.INITIAL_LS_AGE, conf.OPTIONS, conf.LSA_TYPE_NETWORK, lsa_data[2],
+                                      lsa_data[0], conf.INITIAL_SEQUENCE_NUMBER, conf.VERSION_IPV4)
+            lsa_data[1].create_network_lsa_body(network_mask, 0, [], conf.VERSION_IPV4)
+
+        router_lsa_1_v3 = lsa.Lsa()
+        router_lsa_2_v3 = lsa.Lsa()
+        router_lsa_3_v3 = lsa.Lsa()
+        router_lsa_4_v3 = lsa.Lsa()
+        for lsa_data in [[router_id_1, router_lsa_1_v3], [router_id_2, router_lsa_2_v3], [router_id_3, router_lsa_3_v3],
+                         [router_id_4, router_lsa_4_v3]]:
+            lsa_data[1].create_header(conf.INITIAL_LS_AGE, conf.OPTIONS, conf.LSA_TYPE_ROUTER, 0, lsa_data[0],
+                                      conf.INITIAL_SEQUENCE_NUMBER, conf.VERSION_IPV6)
+            lsa_data[1].create_router_lsa_body(False, False, False, conf.OPTIONS, conf.VERSION_IPV6)
+        network_lsa_1_v3 = lsa.Lsa()
+        network_lsa_3_v3 = lsa.Lsa()
+        network_lsa_5_v3 = lsa.Lsa()
+        for lsa_data in [[router_id_4, network_lsa_1_v3, r4_e0_id], [router_id_2, network_lsa_3_v3, r2_f0_1_id],
+                         [router_id_3, network_lsa_5_v3, r3_f0_0_id]]:
+            lsa_data[1].create_header(conf.INITIAL_LS_AGE, conf.OPTIONS, conf.LSA_TYPE_NETWORK, lsa_data[2],
+                                      lsa_data[0], conf.INITIAL_SEQUENCE_NUMBER, conf.VERSION_IPV6)
+            lsa_data[1].create_network_lsa_body('', conf.OPTIONS, [], conf.VERSION_IPV6)
+        intra_area_prefix_lsa_r1 = lsa.Lsa()
+        intra_area_prefix_lsa_r2 = lsa.Lsa()
+        intra_area_prefix_lsa_r3 = lsa.Lsa()
+        intra_area_prefix_lsa_r4 = lsa.Lsa()
+        intra_area_prefix_lsa_n1 = lsa.Lsa()
+        intra_area_prefix_lsa_n3 = lsa.Lsa()
+        intra_area_prefix_lsa_n5 = lsa.Lsa()
+        for lsa_data in [[router_id_1, intra_area_prefix_lsa_r1, router_lsa_1_v3],
+                         [router_id_2, intra_area_prefix_lsa_r2, router_lsa_2_v3],
+                         [router_id_3, intra_area_prefix_lsa_r3, router_lsa_3_v3],
+                         [router_id_4, intra_area_prefix_lsa_r4, router_lsa_4_v3],
+                         [router_id_4, intra_area_prefix_lsa_n1, network_lsa_1_v3],
+                         [router_id_2, intra_area_prefix_lsa_n3, network_lsa_3_v3],
+                         [router_id_3, intra_area_prefix_lsa_n5, network_lsa_5_v3]]:
+            lsa_data[1].create_header(conf.INITIAL_LS_AGE, conf.OPTIONS, conf.LSA_TYPE_INTRA_AREA_PREFIX, 0,
+                                      lsa_data[0], conf.INITIAL_SEQUENCE_NUMBER, conf.VERSION_IPV6)
+            lsa_data[1].create_intra_area_prefix_lsa_body(
+                lsa_data[2].header.ls_type, lsa_data[2].header.link_state_id, lsa_data[2].header.advertising_router)
+        link_lsa_r1_1 = lsa.Lsa()
+        link_lsa_r1_2 = lsa.Lsa()
+        link_lsa_r1_3 = lsa.Lsa()
+        link_lsa_r1_6 = lsa.Lsa()
+        link_lsa_r2_3 = lsa.Lsa()
+        link_lsa_r2_4 = lsa.Lsa()
+        link_lsa_r2_5 = lsa.Lsa()
+        link_lsa_r3_5 = lsa.Lsa()
+        link_lsa_r3_6 = lsa.Lsa()
+        link_lsa_r4_1 = lsa.Lsa()
+        for lsa_data in [[router_id_1, link_lsa_r1_1, r1_f1_0_id, prefix_1_v3, r1_f1_0_local, cost_broadcast_link],
+                         [router_id_1, link_lsa_r1_2, r1_f0_1_id, prefix_2_v3, r1_f0_1_local, cost_broadcast_link],
+                         [router_id_1, link_lsa_r1_6, r1_s2_0_id, prefix_6_v3, r1_s2_0_local, cost_point_point_link],
+                         [router_id_1, link_lsa_r1_3, r1_f0_0_id, prefix_3_v3, r1_f0_0_local, cost_broadcast_link],
+                         [router_id_2, link_lsa_r2_3, r2_f0_1_id, prefix_3_v3, r2_f0_1_local, cost_broadcast_link],
+                         [router_id_2, link_lsa_r2_4, r2_f0_0_id, prefix_4_v3, r2_f0_0_local, cost_broadcast_link],
+                         [router_id_2, link_lsa_r2_5, r2_f1_0_id, prefix_5_v3, r2_f1_0_local, cost_broadcast_link],
+                         [router_id_3, link_lsa_r3_5, r3_f0_0_id, prefix_5_v3, r3_f0_0_local, cost_broadcast_link],
+                         [router_id_3, link_lsa_r3_6, r3_s1_0_id, prefix_6_v3, r3_s1_0_local, cost_point_point_link],
+                         [router_id_4, link_lsa_r4_1, r4_e0_id, prefix_1_v3, r4_e0_local, cost_broadcast_link]]:
+            lsa_data[1].create_header(conf.INITIAL_LS_AGE, conf.OPTIONS, conf.LSA_TYPE_LINK, lsa_data[2], lsa_data[0],
+                                      conf.INITIAL_SEQUENCE_NUMBER, conf.VERSION_IPV6)
+            lsa_data[1].create_link_lsa_body(router_priority, conf.OPTIONS, lsa_data[4])
+            lsa_data[1].add_prefix_info(prefix_length, 0, lsa_data[5], lsa_data[3], conf.LSA_TYPE_LINK)
+
+        #  No LSAs
+
+        self.assertEqual([{}, {}], lsdb_v2.get_directed_graph([self.interface_ospfv2]))
+        self.assertEqual([{}, {}], lsdb_v3.get_directed_graph([self.interface_ospfv3]))
+
+        #  LSAs for single router
+
+        router_lsa_1_v2.add_link_info_v2(
+            prefix_1_v2, network_mask, conf.LINK_TO_STUB_NETWORK, conf.DEFAULT_TOS, cost_broadcast_link)
+        router_lsa_1_v2.add_link_info_v2(
+            prefix_2_v2, network_mask, conf.LINK_TO_STUB_NETWORK, conf.DEFAULT_TOS, cost_broadcast_link)
+        router_lsa_1_v2.add_link_info_v2(
+            prefix_3_v2, network_mask, conf.LINK_TO_STUB_NETWORK, conf.DEFAULT_TOS, cost_broadcast_link)
+        router_lsa_1_v2.add_link_info_v2(
+            prefix_6_v2, network_mask, conf.LINK_TO_STUB_NETWORK, conf.DEFAULT_TOS, cost_point_point_link)
+        lsdb_v2.router_lsa_list.append(router_lsa_1_v2)
+        self.assertEqual([{router_id_1: {}}, {router_id_1: [prefix_1_v2, prefix_2_v2, prefix_3_v2, prefix_6_v2]}],
+                         lsdb_v2.get_directed_graph([self.interface_ospfv2]))
+
+        lsdb_v3.router_lsa_list.append(router_lsa_1_v3)
+        intra_area_prefix_lsa_r1.add_prefix_info(
+            prefix_length, prefix_options, cost_broadcast_link, prefix_1_v3, conf.LSA_TYPE_INTRA_AREA_PREFIX)
+        intra_area_prefix_lsa_r1.add_prefix_info(
+            prefix_length, prefix_options, cost_broadcast_link, prefix_2_v3, conf.LSA_TYPE_INTRA_AREA_PREFIX)
+        intra_area_prefix_lsa_r1.add_prefix_info(
+            prefix_length, prefix_options, cost_broadcast_link, prefix_3_v3, conf.LSA_TYPE_INTRA_AREA_PREFIX)
+        intra_area_prefix_lsa_r1.add_prefix_info(
+            prefix_length, prefix_options, cost_point_point_link, prefix_6_v3, conf.LSA_TYPE_INTRA_AREA_PREFIX)
+        lsdb_v3.intra_area_prefix_lsa_list.append(intra_area_prefix_lsa_r1)
+        link_lsa_r1_1.add_prefix_info(
+            prefix_length, prefix_options, cost_broadcast_link, prefix_1_v3, conf.LSA_TYPE_LINK)
+        link_lsa_r1_2.add_prefix_info(
+            prefix_length, prefix_options, cost_broadcast_link, prefix_2_v3, conf.LSA_TYPE_LINK)
+        link_lsa_r1_3.add_prefix_info(
+            prefix_length, prefix_options, cost_broadcast_link, prefix_3_v3, conf.LSA_TYPE_LINK)
+        link_lsa_r1_6.add_prefix_info(
+            prefix_length, prefix_options, cost_point_point_link, prefix_6_v3, conf.LSA_TYPE_LINK)
+        for link_lsa in [link_lsa_r1_1, link_lsa_r1_2, link_lsa_r1_3, link_lsa_r1_6]:
+            self.interface_ospfv3.link_local_lsa_list.append(link_lsa)
+        self.assertEqual([{router_id_1: {}}, {router_id_1: [prefix_1_v3, prefix_2_v3, prefix_3_v3, prefix_6_v3]}],
+                         lsdb_v3.get_directed_graph([self.interface_ospfv3]))
+
+        #  TODO: Continue
+
+
