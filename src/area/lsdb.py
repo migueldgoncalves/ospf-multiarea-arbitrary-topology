@@ -196,8 +196,8 @@ class Lsdb:
             for link_info in router_lsa.body.links:
                 if self.version == conf.VERSION_IPV4:
                     if link_info[2] == conf.LINK_TO_TRANSIT_NETWORK:
-                        dr_ip_address = link_info[1]
                         for network_lsa in self.network_lsa_list:
+                            dr_ip_address = network_lsa.header.link_state_id
                             if network_lsa.header.link_state_id == dr_ip_address:
                                 network_id = network_lsa.header.link_state_id
                                 directed_graph[router_id][network_id] = link_info[4]
@@ -234,9 +234,11 @@ class Lsdb:
                         prefixes[router_id].append(prefix_info[3])
         for network_id in area_transit_networks:
             if self.version == conf.VERSION_IPV4:
-                network_prefix = utils.Utils.ip_address_to_prefix(
-                    network_id.header.link_state_id, network_id.body.network_mask)
-                prefixes[network_id].append(network_prefix)
+                for network_lsa in self.network_lsa_list:
+                    if network_lsa.header.link_state_id == network_id:
+                        network_prefix = utils.Utils.ip_address_to_prefix(
+                            network_id, network_lsa.body.network_mask)
+                        prefixes[network_id].append(network_prefix)
             else:
                 dr_id = network_id.split("|")[0]
                 dr_interface_id = network_id.split("|")[1]

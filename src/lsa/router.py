@@ -137,3 +137,7 @@ class Router(body.Body):  # OSPFv2 - 4 bytes + 12 bytes / link; OSPFv3 - 4 bytes
             return True, ''  # No error message to return
         except (ValueError, TypeError, AttributeError):
             return False, "Invalid parameter type"
+
+    def __str__(self):
+        return str({'V-bit': self.bit_v, 'E-bit': self.bit_e, 'B-bit': self.bit_b, 'Link Number': self.link_number,
+                    'Options': self.options, 'Links': self.links, 'Version': self.version})

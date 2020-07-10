@@ -118,3 +118,8 @@ class Link(body.Body):  # 24 bytes + 4-20 bytes / prefix
             unpacked_body.add_prefix_info(prefix_length, prefix_options, prefix)
 
         return unpacked_body
+
+    def __str__(self):
+        return str({'Router Priority': self.router_priority, 'Options': self.options,
+                    'Link-local Address': self.link_local_address, 'Prefix Number': self.prefix_number,
+                    'Prefixes': self.prefixes})

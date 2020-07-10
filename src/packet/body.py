@@ -11,3 +11,7 @@ class Body(ABC):
     @abstractmethod
     def unpack_packet_body(body_bytes, version):
         pass
+
+    @abstractmethod
+    def __str__(self):
+        pass

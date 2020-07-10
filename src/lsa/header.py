@@ -226,3 +226,9 @@ class Header:  # OSPFv2 and OSPFv3 - 20 bytes
             return 0
         else:
             return ls_sequence_number + 1
+
+    def __str__(self):
+        return str({'Version': self.ospf_version, 'LS Age': self.ls_age, 'Options': self.options,
+                    'LS Type': self.ls_type, 'Link State ID': self.link_state_id,
+                    'Advertising Router': self.advertising_router, 'LS Sequence Number': self.ls_sequence_number,
+                    'LS Checksum': self.ls_checksum, 'Length': self.length})

@@ -135,3 +135,9 @@ class Header:  # OSPFv2 - 24 bytes; OSPFv3 - 16 bytes
             return OSPFV3_FORMAT_STRING
         else:
             raise ValueError("Invalid OSPF version")
+
+    def __str__(self):
+        return str({'Version': self.version, 'Packet Type': self.packet_type, 'Length': self.length,
+                    'Router ID': self.router_id, 'Area ID': self.area_id, 'Checksum': self.checksum,
+                    'Authentication Type': self.auth_type, 'Authentication': self.authentication,
+                    'Instance ID': self.instance_id})

@@ -31,3 +31,9 @@ class LSAcknowledgement(body.Body):  # OSPFv2 and OSPFv3 - 20 bytes / LSA header
             new_lsa = lsa.Lsa.unpack_header(body_bytes[i*20:(i+1)*20], version)
             new_packet.lsa_headers.append(new_lsa)
         return new_packet
+
+    def __str__(self):
+        lsa_headers = []
+        for lsa_header in self.lsa_headers:
+            lsa_headers.append(str(lsa_header))
+        return str({'LSA Headers': lsa_headers, 'Version': self.version})

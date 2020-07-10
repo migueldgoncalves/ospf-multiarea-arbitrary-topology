@@ -47,3 +47,6 @@ class LSRequest(body.Body):  # OSPFv2 and OSPFv3 - 12 bytes / LSA identifier
             advertising_router = utils.Utils.decimal_to_ipv4(body_tuple[2])
             new_packet.add_lsa_info(ls_type, link_state_id, advertising_router)
         return new_packet
+
+    def __str__(self):
+        return str({'LSA Identifiers': self.lsa_identifiers, 'Version': self.version})

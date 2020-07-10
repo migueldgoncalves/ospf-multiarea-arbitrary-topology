@@ -255,3 +255,6 @@ class Packet:
         else:
             correct_checksum = False
         return correct_checksum  # Checksum of packet with valid checksum will always be 0
+
+    def __str__(self):
+        return 'Header: ' + self.header.__str__() + ' Body: ' + self.body.__str__()

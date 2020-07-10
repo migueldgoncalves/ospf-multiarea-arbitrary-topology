@@ -1056,6 +1056,36 @@ class InterfaceTest(unittest.TestCase):
         self.assertEqual('222.222.0.1', self.interface_ospfv2.get_flooding_ip_address())
         self.assertEqual('fe80::1', self.interface_ospfv3.get_flooding_ip_address())
 
+    #  Successful run - Instant
+    def test_get_ospf_multicast_destination_address(self):
+        self.assertEqual(conf.ALL_DR_IPV4, self.interface_ospfv2.get_ospf_multicast_destination_address())
+        self.assertEqual(conf.ALL_DR_IPV6, self.interface_ospfv3.get_ospf_multicast_destination_address())
+        self.interface_ospfv2.backup_designated_router = self.interface_ospfv2.ipv4_address
+        self.interface_ospfv3.backup_designated_router = self.interface_ospfv3.router_id
+        self.assertEqual(conf.ALL_OSPF_ROUTERS_IPV4, self.interface_ospfv2.get_ospf_multicast_destination_address())
+        self.assertEqual(conf.ALL_OSPF_ROUTERS_IPV6, self.interface_ospfv3.get_ospf_multicast_destination_address())
+        self.interface_ospfv2.backup_designated_router = conf.DEFAULT_DESIGNATED_ROUTER
+        self.interface_ospfv3.backup_designated_router = conf.DEFAULT_DESIGNATED_ROUTER
+        self.interface_ospfv2.designated_router = self.interface_ospfv2.ipv4_address
+        self.interface_ospfv3.designated_router = self.interface_ospfv3.router_id
+        self.assertEqual(conf.ALL_OSPF_ROUTERS_IPV4, self.interface_ospfv2.get_ospf_multicast_destination_address())
+        self.assertEqual(conf.ALL_OSPF_ROUTERS_IPV6, self.interface_ospfv3.get_ospf_multicast_destination_address())
+
+    #  Successful run - Instant
+    def test_is_dr_bdr(self):
+        self.assertFalse(self.interface_ospfv2.is_dr_bdr())
+        self.assertFalse(self.interface_ospfv3.is_dr_bdr())
+        self.interface_ospfv2.backup_designated_router = self.interface_ospfv2.ipv4_address
+        self.interface_ospfv3.backup_designated_router = self.interface_ospfv3.router_id
+        self.assertTrue(self.interface_ospfv2.is_dr_bdr())
+        self.assertTrue(self.interface_ospfv3.is_dr_bdr())
+        self.interface_ospfv2.backup_designated_router = conf.DEFAULT_DESIGNATED_ROUTER
+        self.interface_ospfv3.backup_designated_router = conf.DEFAULT_DESIGNATED_ROUTER
+        self.interface_ospfv2.designated_router = self.interface_ospfv2.ipv4_address
+        self.interface_ospfv3.designated_router = self.interface_ospfv3.router_id
+        self.assertTrue(self.interface_ospfv2.is_dr_bdr())
+        self.assertTrue(self.interface_ospfv3.is_dr_bdr())
+
     #  #  #  #  #  #  #  #  #  #  #  #
     #  Link-local LSA list methods  #
     #  #  #  #  #  #  #  #  #  #  #  #

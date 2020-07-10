@@ -11,3 +11,7 @@ class Body(ABC):
     @abstractmethod
     def unpack_lsa_body(body_bytes, version):
         pass
+
+    @abstractmethod
+    def __str__(self):
+        pass

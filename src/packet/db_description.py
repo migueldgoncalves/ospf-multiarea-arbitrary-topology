@@ -117,3 +117,11 @@ class DBDescription(body.Body):  # OSPFv2 - 8 bytes + 20 bytes / LSA Header; OSP
             return True, ''  # No error message to return
         except (ValueError, TypeError, AttributeError):
             return False, "Invalid parameter type"
+
+    def __str__(self):
+        lsa_headers = []
+        for lsa_header in self.lsa_headers:
+            lsa_headers.append(str(lsa_header))
+        return str({'Interface MTU': self.interface_mtu, 'Options': self.options, 'I-bit': self.i_bit,
+                    'M-bit': self.m_bit, 'MS-bit': self.ms_bit, 'DD Sequence Number': self.dd_sequence_number,
+                    'LSA Headers': lsa_headers, 'Version': self.version})

@@ -133,3 +133,8 @@ class IntraAreaPrefix(body.Body):  # 12 bytes + 4-20 bytes / prefix
     #  Gets Referenced LS Type from broader LS Type value (in OSPFv3) or returns itself (OSPFv2)
     def get_referenced_ls_type(self):
         return self.referenced_ls_type & int(math.pow(2, 13) - 1)  # Actual LS Type value is in last 13 bits in OSPFv3
+
+    def __str__(self):
+        return str({'Prefix Number': self.prefix_number, 'Referenced LS Type': self.referenced_ls_type,
+                    'Referenced Link State ID': self.referenced_link_state_id,
+                    'Referenced Advertising Router': self.referenced_advertising_router, 'Prefixes': self.prefixes})

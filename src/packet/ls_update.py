@@ -42,3 +42,9 @@ class LSUpdate(body.Body):  # OSPFv2 and OSPFv3 - 4 bytes + 20+ bytes / LSA
             new_packet.add_lsa(new_lsa)
             body_bytes = body_bytes[ls_length:]
         return new_packet
+
+    def __str__(self):
+        lsa_list = []
+        for lsa_object in self.lsa_list:
+            lsa_list.append(str(lsa_object))
+        return str({'LSA Number': self.lsa_number, 'LSA List': lsa_list, 'Version': self.version})

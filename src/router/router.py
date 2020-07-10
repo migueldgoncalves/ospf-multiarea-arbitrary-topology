@@ -187,13 +187,13 @@ class Router:
                             ls_update_packet.create_ls_update_packet_body(self.ospf_version)
                             ls_update_packet.add_lsa(lsa_instance)
                             packet_bytes = ls_update_packet.pack_packet()
-                            sending_socket = sock.Socket()
+                            sending_socket = j.socket
                             if self.ospf_version == conf.VERSION_IPV4:
                                 sending_socket.send_ipv4(
-                                    packet_bytes, destination_address, j.physical_identifier, False)
+                                    packet_bytes, destination_address, j.physical_identifier, self.localhost)
                             elif self.ospf_version == conf.VERSION_IPV6:
                                 sending_socket.send_ipv6(
-                                    packet_bytes, destination_address, j.physical_identifier, False)
+                                    packet_bytes, destination_address, j.physical_identifier, self.localhost)
                             current_interface.flooded_pipeline.put(True)
                             time.sleep(0.1)
                             current_interface.update_ls_retransmission_lists(lsa_identifier, destination_address)

@@ -6,6 +6,7 @@ import router.router as router
 import conf.conf as conf
 import area.area as area
 import general.utils as utils
+import packet.packet as packet
 
 '''
 This class tests integration between 2 router processes running inside the VM
@@ -146,7 +147,7 @@ class IntegrationTest(unittest.TestCase):
         self.assertEqual(conf.INTERFACE_STATE_WAITING, interface_object_1.state)
         self.assertEqual(conf.INTERFACE_STATE_WAITING, interface_object_2.state)
 
-        time.sleep(10)
+        time.sleep(12)
         self.assertEqual(1, len(interface_object_1.neighbors))
         self.assertEqual(1, len(interface_object_2.neighbors))
         self.assertEqual(conf.NEIGHBOR_STATE_2_WAY, interface_object_1.neighbors['2.2.2.2'].neighbor_state)
@@ -236,6 +237,8 @@ class IntegrationTest(unittest.TestCase):
 
     #  Virtual hub to connect every router in the test network
     class Hub:
+        packet_log = True  # Set to True if printing of packets content is desired
+
         def __init__(self, shutdown_event, entry_pipelines, exit_pipelines):
             self.shutdown_event = shutdown_event
             self.entry_pipelines = entry_pipelines
@@ -247,6 +250,9 @@ class IntegrationTest(unittest.TestCase):
                     pipeline = self.exit_pipelines[i]
                     if not pipeline.empty():
                         data_array = pipeline.get().copy()
+                        if self.packet_log:
+                            print("Source:", data_array[1], "Destination:", data_array[2],
+                                  packet.Packet.unpack_packet(data_array[0]))
                         for j in self.entry_pipelines:
                             if j != i:  # Interface is not the sending one
                                 self.entry_pipelines[j].put(data_array)

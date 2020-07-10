@@ -54,3 +54,7 @@ class Network(body.Body):  # OSPFv2 and OSPFv3 - 4 bytes + 4 bytes / link
             return Network(first_field, 0, attached_routers, conf.VERSION_IPV4)
         else:
             return Network(0, first_field, attached_routers, conf.VERSION_IPV6)
+
+    def __str__(self):
+        return str({'Network Mask': self.network_mask, 'Options': self.options,
+                    'Attached Routers': self.attached_routers, 'Version': self.version})

@@ -169,3 +169,10 @@ class Hello(body.Body):  # OSPFv2 and OSPFv3 - 20 bytes + 4 bytes / neighbor
             return True, ''  # No error message to return
         except (ValueError, TypeError):
             return False, "Invalid parameter type"
+
+    def __str__(self):
+        return str({'Network Mask': self.network_mask, 'Hello Interval': self.hello_interval, 'Options': self.options,
+                    'Router Priority': self.router_priority, 'Router Dead Interval': self.router_dead_interval,
+                    'Designated Router': self.designated_router,
+                    'Backup Designated Router': self.backup_designated_router, 'Neighbors': self.neighbors,
+                    'Interface ID': self.interface_id, 'Version': self.version})

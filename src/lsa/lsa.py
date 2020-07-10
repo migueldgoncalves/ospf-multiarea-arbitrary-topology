@@ -115,19 +115,19 @@ class Lsa:
 
     #  Deletes all link information produced by provided interface in Router-LSA
     def delete_interface_link_info(self, interface_ip, subnet_ip, interface_id):
-        self.body.delete_interface_link_info(self, interface_ip, subnet_ip, interface_id)
+        self.body.delete_interface_link_info(interface_ip, subnet_ip, interface_id)
         self.set_lsa_length()
         self.set_lsa_checksum()
 
     #  Deletes data for one link from the OSPFv2 LSA body
     def delete_link_info_v2(self, link_id, link_data, link_type, tos_number, metric):
-        self.body.delete_link_info_v2(self, link_id, link_data, link_type, tos_number, metric)
+        self.body.delete_link_info_v2(link_id, link_data, link_type, tos_number, metric)
         self.set_lsa_length()
         self.set_lsa_checksum()
 
     #  Deletes data for one link from the OSPFv3 LSA body
     def delete_link_info_v3(self, link_type, metric, interface_id, neighbor_interface_id, neighbor_router_id):
-        self.body.delete_link_info_v3(self, link_type, metric, interface_id, neighbor_interface_id, neighbor_router_id)
+        self.body.delete_link_info_v3(link_type, metric, interface_id, neighbor_interface_id, neighbor_router_id)
         self.set_lsa_length()
         self.set_lsa_checksum()
 
@@ -176,9 +176,9 @@ class Lsa:
 
     def has_prefix_info(self, prefix_length, prefix_options, metric, prefix, lsa_type):
         if lsa_type == conf.LSA_TYPE_INTRA_AREA_PREFIX:
-            return self.body.has_prefix_info(self, prefix_length, prefix_options, metric, prefix)
+            return self.body.has_prefix_info(prefix_length, prefix_options, metric, prefix)
         else:
-            return self.body.has_prefix_info(self, prefix_length, prefix_options, prefix)
+            return self.body.has_prefix_info(prefix_length, prefix_options, prefix)
 
     #  Deletes data for one prefix from the Intra-Area-Prefix-LSA and Link-LSA body
     def delete_prefix_info(self, prefix_length, prefix_options, metric, prefix, lsa_type):
@@ -286,6 +286,7 @@ class Lsa:
                                conf.LSA_TYPE_SUMMARY_TYPE_4, conf.LSA_TYPE_AS_EXTERNAL, conf.LSA_TYPE_OPAQUE_LINK_LOCAL,
                                conf.LSA_TYPE_OPAQUE_AREA, conf.LSA_TYPE_OPAQUE_AS]
         elif version == conf.VERSION_IPV6:
+            #  TODO: Consider case where LS Type is unknown - Still valid as long as flooding scope is valid
             s1_s2_bits = header.Header.get_s1_s2_bits(ls_type)
             ls_type = header.Header.get_ls_type(ls_type)
             return (ls_type in [conf.LSA_TYPE_ROUTER, conf.LSA_TYPE_NETWORK, conf.LSA_TYPE_INTER_AREA_PREFIX,
@@ -299,3 +300,6 @@ class Lsa:
     @staticmethod
     def get_next_ls_sequence_number(ls_sequence_number):
         return header.Header.get_next_ls_sequence_number(ls_sequence_number)
+
+    def __str__(self):
+        return 'Header: ' + self.header.__str__() + ' Body: ' + self.body.__str__()
