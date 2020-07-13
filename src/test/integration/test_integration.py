@@ -1,6 +1,7 @@
 import unittest
 import threading
 import time
+import copy
 
 import router.router as router
 import conf.conf as conf
@@ -13,10 +14,10 @@ This class tests integration between 2 router processes running inside the VM
 '''
 
 
-#  Full successful run - 80 s
+#  Full successful run - 226 s
 class IntegrationTest(unittest.TestCase):
 
-    #  Successful run - 80 s
+    #  Successful run - 100 s
     def test_one_router(self):
         self.one_router(conf.VERSION_IPV4)
         self.one_router(conf.VERSION_IPV6)
@@ -29,14 +30,17 @@ class IntegrationTest(unittest.TestCase):
         router_1 = network[0][0]
         interface_object = router_1.interfaces[interfaces[0][0]][area.INTERFACE_OBJECT]
 
+        time.sleep(0.1)
         self.assertEqual(router_ids[0], router_1.router_id)
         self.assertEqual(1, len(router_1.interfaces))
         if version == conf.VERSION_IPV4:
             ip_address = utils.Utils.get_ipv4_address_from_interface_name(interfaces[0][0])
             self.assertEqual(ip_address, interface_object.ipv4_address)
-        else:
+        elif version == conf.VERSION_IPV6:
             ip_address = utils.Utils.get_ipv6_link_local_address_from_interface_name(interfaces[0][0])
             self.assertEqual(ip_address, interface_object.ipv6_address)
+        else:
+            raise ValueError("Invalid OSPF version")
         self.assertEqual(conf.INTERFACE_STATE_WAITING, interface_object.state)
         self.assertEqual(0, len(interface_object.neighbors))
         if version == conf.VERSION_IPV4:
@@ -70,7 +74,7 @@ class IntegrationTest(unittest.TestCase):
             self.assertEqual(1, link_lsa.body.prefix_number)
             self.assertEqual(1, len(link_lsa.body.prefixes))
             prefix_data = utils.Utils.get_ipv6_prefix_from_interface_name(interfaces[0][0])
-            self.assertEqual([prefix_data[1], conf.OPTIONS, prefix_data[0]], link_lsa.body.prefixes[0])
+            self.assertEqual([prefix_data[1], conf.PREFIX_OPTIONS, prefix_data[0]], link_lsa.body.prefixes[0])
             intra_area_prefix_lsa = interface_object.lsdb.get_lsa(
                 conf.LSA_TYPE_INTRA_AREA_PREFIX, 0, router_ids[0], [interface_object])
             self.assertIsNotNone(intra_area_prefix_lsa)
@@ -79,10 +83,10 @@ class IntegrationTest(unittest.TestCase):
             self.assertEqual('0.0.0.0', intra_area_prefix_lsa.body.referenced_link_state_id)
             self.assertEqual(router_ids[0], intra_area_prefix_lsa.body.referenced_advertising_router)
             self.assertEqual(1, len(intra_area_prefix_lsa.body.prefixes))
-            self.assertEqual([prefix_data[1], conf.OPTIONS, interface_object.cost, prefix_data[0]],
+            self.assertEqual([prefix_data[1], conf.PREFIX_OPTIONS, interface_object.cost, prefix_data[0]],
                              intra_area_prefix_lsa.body.prefixes[0])
 
-        time.sleep(40)
+        time.sleep(50)
         self.assertEqual(conf.INTERFACE_STATE_DR, interface_object.state)
         if version == conf.VERSION_IPV4:
             self.assertEqual(ip_address, interface_object.designated_router)
@@ -108,7 +112,7 @@ class IntegrationTest(unittest.TestCase):
 
         self.shutdown_network(network)
 
-    #  Successful run - ?
+    #  Successful run - 126 s
     def test_two_routers(self):
         self.two_routers(conf.VERSION_IPV4)
         self.two_routers(conf.VERSION_IPV6)
@@ -123,7 +127,9 @@ class IntegrationTest(unittest.TestCase):
         router_2 = routers[1]
         interface_object_1 = router_1.interfaces[interfaces[0][0]][area.INTERFACE_OBJECT]
         interface_object_2 = router_2.interfaces[interfaces[1][0]][area.INTERFACE_OBJECT]
+        interface_array = [interface_object_1, interface_object_2]
 
+        time.sleep(0.1)
         self.assertEqual(4, len(network))
         self.assertEqual(2, len(routers))
         self.assertEqual('1.1.1.1', router_1.router_id)
@@ -137,13 +143,15 @@ class IntegrationTest(unittest.TestCase):
             self.assertEqual(ip_address_2, interface_object_2.ipv4_address)
             self.assertEqual(1, len(interface_object_1.lsdb.get_lsdb([interface_object_1], None)))
             self.assertEqual(1, len(interface_object_2.lsdb.get_lsdb([interface_object_2], None)))
-        else:
+        elif version == conf.VERSION_IPV6:
             ip_address_1 = utils.Utils.get_ipv6_link_local_address_from_interface_name('ens38')
             ip_address_2 = utils.Utils.get_ipv6_link_local_address_from_interface_name('ens39')
             self.assertEqual(ip_address_1, interface_object_1.ipv6_address)
             self.assertEqual(ip_address_2, interface_object_2.ipv6_address)
             self.assertEqual(3, len(interface_object_1.lsdb.get_lsdb([interface_object_1], None)))
             self.assertEqual(3, len(interface_object_2.lsdb.get_lsdb([interface_object_2], None)))
+        else:
+            raise ValueError("Invalid OSPF version")
         self.assertEqual(conf.INTERFACE_STATE_WAITING, interface_object_1.state)
         self.assertEqual(conf.INTERFACE_STATE_WAITING, interface_object_2.state)
 
@@ -160,24 +168,59 @@ class IntegrationTest(unittest.TestCase):
         self.assertEqual(1, len(interface_object_2.neighbors))
         self.assertEqual(conf.NEIGHBOR_STATE_FULL, interface_object_1.neighbors['2.2.2.2'].neighbor_state)
         self.assertEqual(conf.NEIGHBOR_STATE_FULL, interface_object_2.neighbors['1.1.1.1'].neighbor_state)
-        for interface_obj in [interface_object_1, interface_object_2]:
+        for interface_obj in interface_array:
             if version == conf.VERSION_IPV4:
                 self.assertEqual(3, len(interface_obj.lsdb.get_lsdb([interface_obj], None)))
                 self.assertEqual(2, len(interface_obj.lsdb.router_lsa_list))
                 self.assertEqual(1, len(interface_obj.lsdb.network_lsa_list))
-                for i in range(len(router_ids)):
-                    self.assertEqual(router_ids[i], interface_obj.lsdb.router_lsa_list[0].header.advertising_router)
-                    self.assertEqual(router_ids[i-1], interface_obj.lsdb.router_lsa_list[1].header.advertising_router)
-                self.assertEqual(1, len(interface_obj.lsdb.router_lsa_list[0].body.links))
-                self.assertEqual(1, len(interface_obj.lsdb.router_lsa_list[1].body.links))
-                for i in interface_obj.lsdb.router_lsa_list:
-                    self.assertEqual(
-                        [interface_object_2.ipv4_address, interface_obj.ipv4_address, conf.LINK_TO_TRANSIT_NETWORK,
-                         conf.DEFAULT_TOS, conf.INTERFACE_COST], i.body.links[0])
-                self.assertEqual(router_ids[1], interface_obj.lsdb.network_lsa_list[0].header.advertising_router)
-                self.assertTrue(all(
-                    item in interface_obj.lsdb.network_lsa_list[0].body.attached_routers for item in router_ids))
-            #  TODO: IPv6
+            else:
+                self.assertEqual(6, len(interface_obj.lsdb.get_lsdb([interface_obj], None)))
+                self.assertEqual(2, len(interface_obj.lsdb.router_lsa_list))
+                self.assertEqual(1, len(interface_obj.lsdb.network_lsa_list))
+                self.assertEqual(1, len(interface_obj.lsdb.intra_area_prefix_lsa_list))
+                self.assertEqual(2, len(interface_obj.link_local_lsa_list))
+                remaining_router_ids = copy.deepcopy(router_ids)
+                for link_lsa in interface_obj.link_local_lsa_list:
+                    for interface_obj_2 in interface_array:
+                        if link_lsa.header.advertising_router == interface_obj_2.router_id:
+                            link_local_address = utils.Utils.get_ipv6_link_local_address_from_interface_name(
+                                interface_obj_2.physical_identifier)
+                            self.assertEqual(link_local_address, link_lsa.body.link_local_address)
+                            self.assertEqual(1, link_lsa.body.prefix_number)
+                            self.assertEqual(1, len(link_lsa.body.prefixes))
+                            prefix_data = utils.Utils.get_ipv6_prefix_from_interface_name(
+                                interface_obj_2.physical_identifier)
+                            self.assertEqual([prefix_data[1], conf.PREFIX_OPTIONS, prefix_data[0]],
+                                             link_lsa.body.prefixes[0])
+                            remaining_router_ids.remove(interface_obj_2.router_id)
+                if len(remaining_router_ids) > 0:
+                    self.fail("Router does not have all Link-LSAs in the network")
+                intra_area_prefix_lsa = interface_obj.lsdb.intra_area_prefix_lsa_list[0]
+                self.assertEqual(interface_object_2.router_id, intra_area_prefix_lsa.header.advertising_router)
+                self.assertEqual(1, intra_area_prefix_lsa.body.prefix_number)
+                self.assertEqual(1, len(intra_area_prefix_lsa.body.prefixes))
+                prefix_data = utils.Utils.get_ipv6_prefix_from_interface_name(interface_obj.physical_identifier)
+                self.assertEqual([prefix_data[1], conf.PREFIX_OPTIONS, conf.INTERFACE_COST, prefix_data[0]],
+                                 intra_area_prefix_lsa.body.prefixes[0])
+            remaining_router_ids = copy.deepcopy(router_ids)
+            for router_lsa in interface_obj.lsdb.router_lsa_list:
+                for interface_obj_2 in interface_array:
+                    if router_lsa.header.advertising_router == interface_obj_2.router_id:
+                        self.assertEqual(1, len(router_lsa.body.links))
+                        if version == conf.VERSION_IPV4:
+                            self.assertEqual([interface_object_2.ipv4_address, interface_obj_2.ipv4_address,
+                                              conf.LINK_TO_TRANSIT_NETWORK, conf.DEFAULT_TOS, conf.INTERFACE_COST],
+                                             router_lsa.body.links[0])
+                        else:
+                            self.assertEqual([conf.LINK_TO_TRANSIT_NETWORK, conf.INTERFACE_COST,
+                                              interface_obj_2.ospf_identifier, interface_object_2.ospf_identifier,
+                                              interface_object_2.router_id], router_lsa.body.links[0])
+                        remaining_router_ids.remove(interface_obj_2.router_id)
+            if len(remaining_router_ids) > 0:
+                self.fail("Router does not have all Router-LSAs in the network")
+            network_lsa = interface_obj.lsdb.network_lsa_list[0]
+            self.assertEqual(interface_object_2.router_id, network_lsa.header.advertising_router)
+            self.assertTrue(all(item in network_lsa.body.attached_routers for item in router_ids))
 
         self.shutdown_network(network)
 

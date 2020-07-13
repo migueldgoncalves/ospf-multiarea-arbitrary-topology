@@ -49,6 +49,13 @@ class Main(cmd.Cmd):
         print("OSPFv3")
         self.router_v3.show_neighbor_data()
 
+    def do_show_lsdb(self, arg):
+        'Prints LSDB content: SHOW_LSDB'
+        print("OSPFv2")
+        self.router_v2.show_lsdb_content()
+        print("OSPFv3")
+        self.router_v3.show_lsdb_content()
+
     def do_shutdown_interface(self, arg):
         'Performs shutdown of specified interface: SHUTDOWN_INTERFACE ens33'
         self.router_v2.shutdown_interface(arg)

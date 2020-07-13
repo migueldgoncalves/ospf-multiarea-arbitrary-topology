@@ -244,7 +244,7 @@ class Lsdb:
                 dr_interface_id = network_id.split("|")[1]
                 intra_area_prefix_lsa = self.get_lsa(
                     conf.LSA_TYPE_INTRA_AREA_PREFIX, dr_interface_id, dr_id, interfaces)
-                for prefix_info in intra_area_prefix_lsa:
+                for prefix_info in intra_area_prefix_lsa.body.prefixes:
                     prefixes[network_id].append(prefix_info[3])
 
         return [directed_graph, prefixes]

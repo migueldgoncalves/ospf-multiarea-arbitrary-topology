@@ -162,16 +162,6 @@ class Router:
                                 current_interface.flooded_pipeline.put(False)
                                 time.sleep(0.1)
                                 continue  # LSA will not be flooded
-                            #  LSA came from DR or BDR of current interface
-                            if (i == j.physical_identifier) & (sending_neighbor_id in [
-                                    current_interface.designated_router, current_interface.backup_designated_router]):
-                                current_interface.flooded_pipeline.put(False)
-                                time.sleep(0.1)
-                                continue
-                            if (i == j.physical_identifier) & (current_interface.state == conf.INTERFACE_STATE_BACKUP):
-                                current_interface.flooded_pipeline.put(False)
-                                time.sleep(0.1)
-                                continue
 
                             #  Flood the LSA through the interface
                             lsa_instance.increase_lsa_age()  # Increases LS Age by 1 s
@@ -269,6 +259,15 @@ class Router:
                 else:
                     print(n + "\t\t" + neighbor_state + "\t\t" + dead_time + "\t\t" + str(neighbor_interface_id) +
                           "\t\t" + i)
+
+    #  Prints LSDB content
+    def show_lsdb_content(self):
+        for a in self.areas:
+            query_area = self.areas[a]
+            for i in self.areas[a].interfaces:
+                query_interface = query_area.interfaces[i][area.INTERFACE_OBJECT]
+                for query_lsa in query_interface.lsdb.get_lsdb([query_interface], None):
+                    print(query_lsa)
 
     #  Performs shutdown of specified interface
     def shutdown_interface(self, physical_identifier):

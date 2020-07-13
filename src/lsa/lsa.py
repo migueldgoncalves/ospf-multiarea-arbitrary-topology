@@ -169,23 +169,29 @@ class Lsa:
     def add_prefix_info(self, prefix_length, prefix_options, metric, prefix, lsa_type):
         if lsa_type == conf.LSA_TYPE_INTRA_AREA_PREFIX:
             self.body.add_prefix_info(prefix_length, prefix_options, metric, prefix)
-        else:  # Link-LSA
+        elif lsa_type == conf.LSA_TYPE_LINK:
             self.body.add_prefix_info(prefix_length, prefix_options, prefix)
+        else:
+            raise ValueError("LSA Type must be Intra-Area-Prefix or Link for this method")
         self.set_lsa_length()
         self.set_lsa_checksum()
 
     def has_prefix_info(self, prefix_length, prefix_options, metric, prefix, lsa_type):
         if lsa_type == conf.LSA_TYPE_INTRA_AREA_PREFIX:
             return self.body.has_prefix_info(prefix_length, prefix_options, metric, prefix)
-        else:
+        elif lsa_type == conf.LSA_TYPE_LINK:
             return self.body.has_prefix_info(prefix_length, prefix_options, prefix)
+        else:
+            raise ValueError("LSA Type must be Intra-Area-Prefix or Link for this method")
 
     #  Deletes data for one prefix from the Intra-Area-Prefix-LSA and Link-LSA body
     def delete_prefix_info(self, prefix_length, prefix_options, metric, prefix, lsa_type):
         if lsa_type == conf.LSA_TYPE_INTRA_AREA_PREFIX:
             self.body.delete_prefix_info(prefix_length, prefix_options, metric, prefix)
-        else:
+        elif lsa_type == conf.LSA_TYPE_LINK:
             self.body.delete_prefix_info(prefix_length, prefix_options, prefix)
+        else:
+            raise ValueError("LSA Type must be Intra-Area-Prefix or Link for this method")
         self.set_lsa_length()
         self.set_lsa_checksum()
 
