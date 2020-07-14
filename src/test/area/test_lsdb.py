@@ -348,37 +348,37 @@ class TestLsdb(unittest.TestCase):
         router_lsa_2_v2 = lsa.Lsa()
         router_lsa_3_v2 = lsa.Lsa()
         router_lsa_4_v2 = lsa.Lsa()
-        for lsa_data in [[router_id_1, router_lsa_1_v2], [router_id_2, router_lsa_2_v2], [router_id_3, router_lsa_3_v2],
-                         [router_id_4, router_lsa_4_v2]]:
-            lsa_data[1].create_header(conf.INITIAL_LS_AGE, conf.OPTIONS, conf.LSA_TYPE_ROUTER, lsa_data[0], lsa_data[0],
-                                      conf.INITIAL_SEQUENCE_NUMBER, conf.VERSION_IPV4)
-            lsa_data[1].create_router_lsa_body(False, False, False, conf.OPTIONS, conf.VERSION_IPV4)
+        for data in [[router_id_1, router_lsa_1_v2], [router_id_2, router_lsa_2_v2], [router_id_3, router_lsa_3_v2],
+                     [router_id_4, router_lsa_4_v2]]:
+            data[1].create_header(conf.INITIAL_LS_AGE, conf.OPTIONS, conf.LSA_TYPE_ROUTER, data[0], data[0],
+                                  conf.INITIAL_SEQUENCE_NUMBER, conf.VERSION_IPV4)
+            data[1].create_router_lsa_body(False, False, False, conf.OPTIONS, conf.VERSION_IPV4)
         network_lsa_1_v2 = lsa.Lsa()
         network_lsa_3_v2 = lsa.Lsa()
         network_lsa_5_v2 = lsa.Lsa()
-        for lsa_data in [[router_id_4, network_lsa_1_v2, r4_e0_v2], [router_id_2, network_lsa_3_v2, r2_f0_1_v2],
-                         [router_id_3, network_lsa_5_v2, r3_f0_0_v2]]:
-            lsa_data[1].create_header(conf.INITIAL_LS_AGE, conf.OPTIONS, conf.LSA_TYPE_NETWORK, lsa_data[2],
-                                      lsa_data[0], conf.INITIAL_SEQUENCE_NUMBER, conf.VERSION_IPV4)
-            lsa_data[1].create_network_lsa_body(network_mask, 0, [], conf.VERSION_IPV4)
+        for data in [[router_id_4, network_lsa_1_v2, r4_e0_v2], [router_id_2, network_lsa_3_v2, r2_f0_1_v2],
+                     [router_id_3, network_lsa_5_v2, r3_f0_0_v2]]:
+            data[1].create_header(conf.INITIAL_LS_AGE, conf.OPTIONS, conf.LSA_TYPE_NETWORK, data[2], data[0],
+                                  conf.INITIAL_SEQUENCE_NUMBER, conf.VERSION_IPV4)
+            data[1].create_network_lsa_body(network_mask, 0, [], conf.VERSION_IPV4)
 
         router_lsa_1_v3 = lsa.Lsa()
         router_lsa_2_v3 = lsa.Lsa()
         router_lsa_3_v3 = lsa.Lsa()
         router_lsa_4_v3 = lsa.Lsa()
-        for lsa_data in [[router_id_1, router_lsa_1_v3], [router_id_2, router_lsa_2_v3], [router_id_3, router_lsa_3_v3],
-                         [router_id_4, router_lsa_4_v3]]:
-            lsa_data[1].create_header(conf.INITIAL_LS_AGE, conf.OPTIONS, conf.LSA_TYPE_ROUTER, 0, lsa_data[0],
-                                      conf.INITIAL_SEQUENCE_NUMBER, conf.VERSION_IPV6)
-            lsa_data[1].create_router_lsa_body(False, False, False, conf.OPTIONS, conf.VERSION_IPV6)
+        for data in [[router_id_1, router_lsa_1_v3], [router_id_2, router_lsa_2_v3], [router_id_3, router_lsa_3_v3],
+                     [router_id_4, router_lsa_4_v3]]:
+            data[1].create_header(conf.INITIAL_LS_AGE, conf.OPTIONS, conf.LSA_TYPE_ROUTER, 0, data[0],
+                                  conf.INITIAL_SEQUENCE_NUMBER, conf.VERSION_IPV6)
+            data[1].create_router_lsa_body(False, False, False, conf.OPTIONS, conf.VERSION_IPV6)
         network_lsa_1_v3 = lsa.Lsa()
         network_lsa_3_v3 = lsa.Lsa()
         network_lsa_5_v3 = lsa.Lsa()
-        for lsa_data in [[router_id_4, network_lsa_1_v3, r4_e0_id], [router_id_2, network_lsa_3_v3, r2_f0_1_id],
-                         [router_id_3, network_lsa_5_v3, r3_f0_0_id]]:
-            lsa_data[1].create_header(conf.INITIAL_LS_AGE, conf.OPTIONS, conf.LSA_TYPE_NETWORK, lsa_data[2],
-                                      lsa_data[0], conf.INITIAL_SEQUENCE_NUMBER, conf.VERSION_IPV6)
-            lsa_data[1].create_network_lsa_body('', conf.OPTIONS, [], conf.VERSION_IPV6)
+        for data in [[router_id_4, network_lsa_1_v3, r4_e0_id], [router_id_2, network_lsa_3_v3, r2_f0_1_id],
+                     [router_id_3, network_lsa_5_v3, r3_f0_0_id]]:
+            data[1].create_header(conf.INITIAL_LS_AGE, conf.OPTIONS, conf.LSA_TYPE_NETWORK, data[2], data[0],
+                                  conf.INITIAL_SEQUENCE_NUMBER, conf.VERSION_IPV6)
+            data[1].create_network_lsa_body('', conf.OPTIONS, [], conf.VERSION_IPV6)
         intra_area_prefix_lsa_r1 = lsa.Lsa()
         intra_area_prefix_lsa_r2 = lsa.Lsa()
         intra_area_prefix_lsa_r3 = lsa.Lsa()
@@ -386,17 +386,17 @@ class TestLsdb(unittest.TestCase):
         intra_area_prefix_lsa_n1 = lsa.Lsa()
         intra_area_prefix_lsa_n3 = lsa.Lsa()
         intra_area_prefix_lsa_n5 = lsa.Lsa()
-        for lsa_data in [[router_id_1, intra_area_prefix_lsa_r1, router_lsa_1_v3],
-                         [router_id_2, intra_area_prefix_lsa_r2, router_lsa_2_v3],
-                         [router_id_3, intra_area_prefix_lsa_r3, router_lsa_3_v3],
-                         [router_id_4, intra_area_prefix_lsa_r4, router_lsa_4_v3],
-                         [router_id_4, intra_area_prefix_lsa_n1, network_lsa_1_v3],
-                         [router_id_2, intra_area_prefix_lsa_n3, network_lsa_3_v3],
-                         [router_id_3, intra_area_prefix_lsa_n5, network_lsa_5_v3]]:
-            lsa_data[1].create_header(conf.INITIAL_LS_AGE, conf.OPTIONS, conf.LSA_TYPE_INTRA_AREA_PREFIX, 0,
-                                      lsa_data[0], conf.INITIAL_SEQUENCE_NUMBER, conf.VERSION_IPV6)
-            lsa_data[1].create_intra_area_prefix_lsa_body(
-                lsa_data[2].header.ls_type, lsa_data[2].header.link_state_id, lsa_data[2].header.advertising_router)
+        for data in [[router_id_1, intra_area_prefix_lsa_r1, router_lsa_1_v3, 0],
+                     [router_id_2, intra_area_prefix_lsa_r2, router_lsa_2_v3, 0],
+                     [router_id_3, intra_area_prefix_lsa_r3, router_lsa_3_v3, 0],
+                     [router_id_4, intra_area_prefix_lsa_r4, router_lsa_4_v3, 0],
+                     [router_id_4, intra_area_prefix_lsa_n1, network_lsa_1_v3, r4_e0_id],
+                     [router_id_2, intra_area_prefix_lsa_n3, network_lsa_3_v3, r2_f0_1_id],
+                     [router_id_3, intra_area_prefix_lsa_n5, network_lsa_5_v3, r3_f0_0_id]]:
+            data[1].create_header(conf.INITIAL_LS_AGE, conf.OPTIONS, conf.LSA_TYPE_INTRA_AREA_PREFIX, data[3], data[0],
+                                  conf.INITIAL_SEQUENCE_NUMBER, conf.VERSION_IPV6)
+            data[1].create_intra_area_prefix_lsa_body(
+                data[2].header.ls_type, data[2].header.link_state_id, data[2].header.advertising_router)
         link_lsa_r1_1 = lsa.Lsa()
         link_lsa_r1_2 = lsa.Lsa()
         link_lsa_r1_3 = lsa.Lsa()
@@ -407,20 +407,20 @@ class TestLsdb(unittest.TestCase):
         link_lsa_r3_5 = lsa.Lsa()
         link_lsa_r3_6 = lsa.Lsa()
         link_lsa_r4_1 = lsa.Lsa()
-        for lsa_data in [[router_id_1, link_lsa_r1_1, r1_f1_0_id, prefix_1_v3, r1_f1_0_local, cost_broadcast_link],
-                         [router_id_1, link_lsa_r1_2, r1_f0_1_id, prefix_2_v3, r1_f0_1_local, cost_broadcast_link],
-                         [router_id_1, link_lsa_r1_6, r1_s2_0_id, prefix_6_v3, r1_s2_0_local, cost_point_point_link],
-                         [router_id_1, link_lsa_r1_3, r1_f0_0_id, prefix_3_v3, r1_f0_0_local, cost_broadcast_link],
-                         [router_id_2, link_lsa_r2_3, r2_f0_1_id, prefix_3_v3, r2_f0_1_local, cost_broadcast_link],
-                         [router_id_2, link_lsa_r2_4, r2_f0_0_id, prefix_4_v3, r2_f0_0_local, cost_broadcast_link],
-                         [router_id_2, link_lsa_r2_5, r2_f1_0_id, prefix_5_v3, r2_f1_0_local, cost_broadcast_link],
-                         [router_id_3, link_lsa_r3_5, r3_f0_0_id, prefix_5_v3, r3_f0_0_local, cost_broadcast_link],
-                         [router_id_3, link_lsa_r3_6, r3_s1_0_id, prefix_6_v3, r3_s1_0_local, cost_point_point_link],
-                         [router_id_4, link_lsa_r4_1, r4_e0_id, prefix_1_v3, r4_e0_local, cost_broadcast_link]]:
-            lsa_data[1].create_header(conf.INITIAL_LS_AGE, conf.OPTIONS, conf.LSA_TYPE_LINK, lsa_data[2], lsa_data[0],
-                                      conf.INITIAL_SEQUENCE_NUMBER, conf.VERSION_IPV6)
-            lsa_data[1].create_link_lsa_body(router_priority, conf.OPTIONS, lsa_data[4])
-            lsa_data[1].add_prefix_info(prefix_length, 0, lsa_data[5], lsa_data[3], conf.LSA_TYPE_LINK)
+        for data in [[router_id_1, link_lsa_r1_1, r1_f1_0_id, prefix_1_v3, r1_f1_0_local, cost_broadcast_link],
+                     [router_id_1, link_lsa_r1_2, r1_f0_1_id, prefix_2_v3, r1_f0_1_local, cost_broadcast_link],
+                     [router_id_1, link_lsa_r1_6, r1_s2_0_id, prefix_6_v3, r1_s2_0_local, cost_point_point_link],
+                     [router_id_1, link_lsa_r1_3, r1_f0_0_id, prefix_3_v3, r1_f0_0_local, cost_broadcast_link],
+                     [router_id_2, link_lsa_r2_3, r2_f0_1_id, prefix_3_v3, r2_f0_1_local, cost_broadcast_link],
+                     [router_id_2, link_lsa_r2_4, r2_f0_0_id, prefix_4_v3, r2_f0_0_local, cost_broadcast_link],
+                     [router_id_2, link_lsa_r2_5, r2_f1_0_id, prefix_5_v3, r2_f1_0_local, cost_broadcast_link],
+                     [router_id_3, link_lsa_r3_5, r3_f0_0_id, prefix_5_v3, r3_f0_0_local, cost_broadcast_link],
+                     [router_id_3, link_lsa_r3_6, r3_s1_0_id, prefix_6_v3, r3_s1_0_local, cost_point_point_link],
+                     [router_id_4, link_lsa_r4_1, r4_e0_id, prefix_1_v3, r4_e0_local, cost_broadcast_link]]:
+            data[1].create_header(conf.INITIAL_LS_AGE, conf.OPTIONS, conf.LSA_TYPE_LINK, data[2], data[0],
+                                  conf.INITIAL_SEQUENCE_NUMBER, conf.VERSION_IPV6)
+            data[1].create_link_lsa_body(router_priority, conf.OPTIONS, data[4])
+            data[1].add_prefix_info(prefix_length, 0, data[5], data[3], conf.LSA_TYPE_LINK)
 
         #  No LSAs
 
@@ -429,44 +429,46 @@ class TestLsdb(unittest.TestCase):
 
         #  LSAs for single router (1.1.1.1)
 
-        for link_info in [[prefix_1_v2, cost_broadcast_link], [prefix_2_v2, cost_broadcast_link],
-                          [prefix_3_v2, cost_broadcast_link], [prefix_6_v2, cost_point_point_link]]:
+        for data in [[prefix_1_v2, cost_broadcast_link], [prefix_2_v2, cost_broadcast_link],
+                     [prefix_3_v2, cost_broadcast_link], [prefix_6_v2, cost_point_point_link]]:
             router_lsa_1_v2.add_link_info_v2(
-                link_info[0], network_mask, conf.LINK_TO_STUB_NETWORK, conf.DEFAULT_TOS, link_info[1])
+                data[0], network_mask, conf.LINK_TO_STUB_NETWORK, conf.DEFAULT_TOS, data[1])
         lsdb_v2.router_lsa_list.append(router_lsa_1_v2)
         self.assertEqual([{router_id_1: {}}, {router_id_1: [prefix_1_v2, prefix_2_v2, prefix_3_v2, prefix_6_v2]}],
                          lsdb_v2.get_directed_graph([self.interface_ospfv2]))
 
         lsdb_v3.router_lsa_list.append(router_lsa_1_v3)
-        for prefix_data in [[prefix_1_v3, cost_broadcast_link], [prefix_2_v3, cost_broadcast_link],
-                            [prefix_3_v3, cost_broadcast_link], [prefix_6_v3, cost_point_point_link]]:
+        for data in [[prefix_1_v3, cost_broadcast_link], [prefix_2_v3, cost_broadcast_link],
+                     [prefix_3_v3, cost_broadcast_link], [prefix_6_v3, cost_point_point_link]]:
             intra_area_prefix_lsa_r1.add_prefix_info(
-                prefix_length, prefix_options, prefix_data[1], prefix_data[0], conf.LSA_TYPE_INTRA_AREA_PREFIX)
+                prefix_length, prefix_options, data[1], data[0], conf.LSA_TYPE_INTRA_AREA_PREFIX)
         lsdb_v3.intra_area_prefix_lsa_list.append(intra_area_prefix_lsa_r1)
-        for prefix_data in [[prefix_1_v3, cost_broadcast_link, link_lsa_r1_1],
-                            [prefix_2_v3, cost_broadcast_link, link_lsa_r1_2],
-                            [prefix_3_v3, cost_broadcast_link, link_lsa_r1_3],
-                            [prefix_6_v3, cost_point_point_link, link_lsa_r1_6]]:
-            prefix_data[2].add_prefix_info(
-                prefix_length, prefix_options, prefix_data[1], prefix_data[0], conf.LSA_TYPE_LINK)
-            self.interface_ospfv3.link_local_lsa_list.append(prefix_data[2])
+        for data in [[prefix_1_v3, cost_broadcast_link, link_lsa_r1_1],
+                     [prefix_2_v3, cost_broadcast_link, link_lsa_r1_2],
+                     [prefix_3_v3, cost_broadcast_link, link_lsa_r1_3],
+                     [prefix_6_v3, cost_point_point_link, link_lsa_r1_6]]:
+            data[2].add_prefix_info(prefix_length, prefix_options, data[1], data[0], conf.LSA_TYPE_LINK)
+            self.interface_ospfv3.link_local_lsa_list.append(data[2])
         self.assertEqual([{router_id_1: {}}, {router_id_1: [prefix_1_v3, prefix_2_v3, prefix_3_v3, prefix_6_v3]}],
                          lsdb_v3.get_directed_graph([self.interface_ospfv3]))
+
+        lsdb_v2.clean_lsdb([self.interface_ospfv2])
+        lsdb_v3.clean_lsdb([self.interface_ospfv3])
 
         #  LSAs for 2 connected routers (1.1.1.1 and 2.2.2.2)
 
         router_lsa_1_v2.body.links = []
-        for link_info in [[prefix_1_v2, cost_broadcast_link, conf.LINK_TO_STUB_NETWORK],
-                          [prefix_2_v2, cost_broadcast_link, conf.LINK_TO_STUB_NETWORK],
-                          [prefix_3_v2, cost_broadcast_link, conf.LINK_TO_TRANSIT_NETWORK],
-                          [prefix_6_v2, cost_point_point_link, conf.LINK_TO_STUB_NETWORK]]:
-            router_lsa_1_v2.add_link_info_v2(link_info[0], network_mask, link_info[2], conf.DEFAULT_TOS, link_info[1])
-        lsdb_v2.router_lsa_list.append(router_lsa_1_v2)
-        for link_info in [[prefix_3_v2, cost_broadcast_link, conf.LINK_TO_TRANSIT_NETWORK],
-                          [prefix_4_v2, cost_broadcast_link, conf.LINK_TO_STUB_NETWORK],
-                          [prefix_5_v2, cost_broadcast_link, conf.LINK_TO_STUB_NETWORK]]:
-            router_lsa_2_v2.add_link_info_v2(link_info[0], network_mask, link_info[2], conf.DEFAULT_TOS, link_info[1])
-        lsdb_v2.router_lsa_list.append(router_lsa_2_v2)
+        for data in [[prefix_1_v2, network_mask, cost_broadcast_link, conf.LINK_TO_STUB_NETWORK, router_lsa_1_v2],
+                     [prefix_2_v2, network_mask, cost_broadcast_link, conf.LINK_TO_STUB_NETWORK, router_lsa_1_v2],
+                     [r2_f0_1_v2, r1_f0_0_v2, cost_broadcast_link, conf.LINK_TO_TRANSIT_NETWORK, router_lsa_1_v2],
+                     [prefix_6_v2, network_mask, cost_point_point_link, conf.LINK_TO_STUB_NETWORK, router_lsa_1_v2],
+                     [r2_f0_1_v2, r2_f0_1_v2, cost_broadcast_link, conf.LINK_TO_TRANSIT_NETWORK, router_lsa_2_v2],
+                     [prefix_4_v2, network_mask, cost_broadcast_link, conf.LINK_TO_STUB_NETWORK, router_lsa_2_v2],
+                     [prefix_5_v2, network_mask, cost_broadcast_link, conf.LINK_TO_STUB_NETWORK, router_lsa_2_v2]]:
+            router_lsa = data[4]
+            router_lsa.add_link_info_v2(data[0], data[1], data[3], conf.DEFAULT_TOS, data[2])
+        for router_lsa in [router_lsa_1_v2, router_lsa_2_v2]:
+            lsdb_v2.router_lsa_list.append(router_lsa)
         network_lsa_3_v2.body.attached_routers = [router_id_1, router_id_2]
         lsdb_v2.network_lsa_list.append(network_lsa_3_v2)
         self.assertEqual(
@@ -475,41 +477,143 @@ class TestLsdb(unittest.TestCase):
              {router_id_1: [prefix_1_v2, prefix_2_v2, prefix_6_v2], r2_f0_1_v2: [prefix_3_v2],
               router_id_2: [prefix_4_v2, prefix_5_v2]}], lsdb_v2.get_directed_graph([self.interface_ospfv2]))
 
-        router_lsa_1_v3.add_link_info_v3(
-            conf.LINK_TO_TRANSIT_NETWORK, cost_broadcast_link, r1_f0_0_id, r2_f0_1_id, router_id_2)
-        lsdb_v3.router_lsa_list.append(router_lsa_1_v3)
-        router_lsa_2_v3.add_link_info_v3(
-            conf.LINK_TO_TRANSIT_NETWORK, cost_broadcast_link, r2_f0_1_id, r2_f0_1_id, router_id_2)
-        lsdb_v3.router_lsa_list.append(router_lsa_2_v3)
+        for data in [[r1_f0_0_id, router_lsa_1_v3], [r2_f0_1_id, router_lsa_2_v3]]:
+            data[1].add_link_info_v3(
+                conf.LINK_TO_TRANSIT_NETWORK, cost_broadcast_link, data[0], r2_f0_1_id, router_id_2)
+            lsdb_v3.router_lsa_list.append(data[1])
         network_lsa_3_v3.body.attached_routers = [router_id_1, router_id_2]
         lsdb_v3.network_lsa_list.append(network_lsa_3_v3)
         intra_area_prefix_lsa_r1.body.prefixes = []
-        for prefix_data in [[prefix_1_v3, cost_broadcast_link, intra_area_prefix_lsa_r1],
-                            [prefix_2_v3, cost_broadcast_link, intra_area_prefix_lsa_r1],
-                            [prefix_6_v3, cost_point_point_link, intra_area_prefix_lsa_r1],
-                            [prefix_4_v3, cost_broadcast_link, intra_area_prefix_lsa_r2],
-                            [prefix_5_v3, cost_broadcast_link, intra_area_prefix_lsa_r2],
-                            [prefix_3_v3, cost_broadcast_link, intra_area_prefix_lsa_n3]]:
-            prefix_data[2].add_prefix_info(
-                prefix_length, prefix_options, prefix_data[1], prefix_data[0], conf.LSA_TYPE_INTRA_AREA_PREFIX)
+        for data in [[prefix_1_v3, cost_broadcast_link, intra_area_prefix_lsa_r1],
+                     [prefix_2_v3, cost_broadcast_link, intra_area_prefix_lsa_r1],
+                     [prefix_6_v3, cost_point_point_link, intra_area_prefix_lsa_r1],
+                     [prefix_4_v3, cost_broadcast_link, intra_area_prefix_lsa_r2],
+                     [prefix_5_v3, cost_broadcast_link, intra_area_prefix_lsa_r2],
+                     [prefix_3_v3, cost_broadcast_link, intra_area_prefix_lsa_n3]]:
+            data[2].add_prefix_info(prefix_length, prefix_options, data[1], data[0], conf.LSA_TYPE_INTRA_AREA_PREFIX)
         lsdb_v3.intra_area_prefix_lsa_list.append(intra_area_prefix_lsa_r1)
         lsdb_v3.intra_area_prefix_lsa_list.append(intra_area_prefix_lsa_r2)
         lsdb_v3.intra_area_prefix_lsa_list.append(intra_area_prefix_lsa_n3)
-        for prefix_data in [[prefix_1_v3, cost_broadcast_link, link_lsa_r1_1],
-                            [prefix_2_v3, cost_broadcast_link, link_lsa_r1_2],
-                            [prefix_3_v3, cost_broadcast_link, link_lsa_r1_3],
-                            [prefix_6_v3, cost_point_point_link, link_lsa_r1_6],
-                            [prefix_4_v3, cost_broadcast_link, link_lsa_r2_4],
-                            [prefix_5_v3, cost_broadcast_link, link_lsa_r2_5]]:
-            prefix_data[2].add_prefix_info(
-                prefix_length, prefix_options, prefix_data[1], prefix_data[0], conf.LSA_TYPE_LINK)
-            self.interface_ospfv3.link_local_lsa_list.append(prefix_data[2])
+        for data in [[prefix_1_v3, cost_broadcast_link, link_lsa_r1_1],
+                     [prefix_2_v3, cost_broadcast_link, link_lsa_r1_2],
+                     [prefix_3_v3, cost_broadcast_link, link_lsa_r1_3],
+                     [prefix_6_v3, cost_point_point_link, link_lsa_r1_6],
+                     [prefix_4_v3, cost_broadcast_link, link_lsa_r2_4],
+                     [prefix_5_v3, cost_broadcast_link, link_lsa_r2_5]]:
+            data[2].add_prefix_info(prefix_length, prefix_options, data[1], data[0], conf.LSA_TYPE_LINK)
+            self.interface_ospfv3.link_local_lsa_list.append(data[2])
         self.assertEqual(
-            [{router_id_1: {network_3_id_v3: cost_broadcast_link}, network_3_id_v3: {router_id_1: 0, router_id_2: 0},
-              router_id_2: {network_3_id_v3: cost_broadcast_link}},
-             {router_id_1: [prefix_1_v3, prefix_2_v3, prefix_6_v3], network_3_id_v3: [prefix_3_v3],
-              router_id_2: [prefix_4_v3, prefix_5_v3]}], lsdb_v3.get_directed_graph([self.interface_ospfv3]))
+            [{router_id_1: {network_3_id_v3: cost_broadcast_link}, router_id_2: {network_3_id_v3: cost_broadcast_link},
+              network_3_id_v3: {router_id_1: 0, router_id_2: 0}},
+             {router_id_1: [prefix_1_v3, prefix_2_v3, prefix_6_v3], router_id_2: [prefix_4_v3, prefix_5_v3],
+              network_3_id_v3: [prefix_3_v3]}], lsdb_v3.get_directed_graph([self.interface_ospfv3]))
 
-        #  TODO: Continue
+        lsdb_v2.clean_lsdb([self.interface_ospfv2])
+        lsdb_v3.clean_lsdb([self.interface_ospfv3])
 
+        #  LSAs for full network
 
+        for router_lsa in [router_lsa_1_v2, router_lsa_2_v2]:
+            router_lsa.body.links = []
+        for data in [[r4_e0_v2, r1_f1_0_v2, cost_broadcast_link, conf.LINK_TO_TRANSIT_NETWORK, router_lsa_1_v2],
+                     [prefix_2_v2, network_mask, cost_broadcast_link, conf.LINK_TO_STUB_NETWORK, router_lsa_1_v2],
+                     [r2_f0_1_v2, r1_f0_0_v2, cost_broadcast_link, conf.LINK_TO_TRANSIT_NETWORK, router_lsa_1_v2],
+                     [prefix_6_v2, network_mask, cost_point_point_link, conf.LINK_TO_STUB_NETWORK, router_lsa_1_v2],
+                     [router_id_3, r1_s2_0_v2, cost_point_point_link, conf.POINT_TO_POINT_LINK, router_lsa_1_v2],
+                     [r2_f0_1_v2, r2_f0_1_v2, cost_broadcast_link, conf.LINK_TO_TRANSIT_NETWORK, router_lsa_2_v2],
+                     [prefix_4_v2, network_mask, cost_broadcast_link, conf.LINK_TO_STUB_NETWORK, router_lsa_2_v2],
+                     [r3_f0_0_v2, r2_f1_0_v2, cost_broadcast_link, conf.LINK_TO_TRANSIT_NETWORK, router_lsa_2_v2],
+                     [r3_f0_0_v2, r3_f0_0_v2, cost_broadcast_link, conf.LINK_TO_TRANSIT_NETWORK, router_lsa_3_v2],
+                     [prefix_6_v2, network_mask, cost_point_point_link, conf.LINK_TO_STUB_NETWORK, router_lsa_3_v2],
+                     [router_id_1, r3_s1_0_v2, cost_point_point_link, conf.POINT_TO_POINT_LINK, router_lsa_3_v2],
+                     [r4_e0_v2, r4_e0_v2, cost_broadcast_link, conf.LINK_TO_TRANSIT_NETWORK, router_lsa_4_v2]]:
+            router_lsa = data[4]
+            router_lsa.add_link_info_v2(data[0], data[1], data[3], conf.DEFAULT_TOS, data[2])
+        for router_lsa in [router_lsa_1_v2, router_lsa_2_v2, router_lsa_3_v2, router_lsa_4_v2]:
+            lsdb_v2.router_lsa_list.append(router_lsa)
+        for data in [[network_lsa_1_v2, [router_id_1, router_id_4]],
+                     [network_lsa_3_v2, [router_id_1, router_id_2]],
+                     [network_lsa_5_v2, [router_id_2, router_id_3]]]:
+            network_lsa = data[0]
+            network_lsa.body.attached_routers = data[1]
+            lsdb_v2.network_lsa_list.append(network_lsa)
+        self.assertEqual(
+            [{router_id_1: {router_id_3: cost_point_point_link, r4_e0_v2: cost_broadcast_link,
+                            r2_f0_1_v2: cost_broadcast_link},
+              router_id_2: {r2_f0_1_v2: cost_broadcast_link, r3_f0_0_v2: cost_broadcast_link},
+              router_id_3: {router_id_1: cost_point_point_link, r3_f0_0_v2: cost_broadcast_link},
+              router_id_4: {r4_e0_v2: cost_broadcast_link}, r4_e0_v2: {router_id_1: 0, router_id_4: 0},
+              r2_f0_1_v2: {router_id_1: 0, router_id_2: 0}, r3_f0_0_v2: {router_id_2: 0, router_id_3: 0}},
+             {router_id_1: [prefix_2_v2, prefix_6_v2], router_id_2: [prefix_4_v2], router_id_3: [prefix_6_v2],
+              router_id_4: [], r4_e0_v2: [prefix_1_v2], r2_f0_1_v2: [prefix_3_v2],
+              r3_f0_0_v2: [prefix_5_v2]}], lsdb_v2.get_directed_graph([self.interface_ospfv2]))
+
+        for router_lsa in [router_lsa_1_v3, router_lsa_2_v3]:
+            router_lsa.body.links = []
+        for data in [[router_lsa_1_v3, conf.LINK_TO_TRANSIT_NETWORK, cost_broadcast_link, r1_f1_0_id, r4_e0_id,
+                      router_id_4],
+                     [router_lsa_1_v3, conf.POINT_TO_POINT_LINK, cost_point_point_link, r1_s2_0_id, r3_s1_0_id,
+                      router_id_3],
+                     [router_lsa_1_v3, conf.LINK_TO_TRANSIT_NETWORK, cost_broadcast_link, r1_f0_0_id, r2_f0_1_id,
+                      router_id_2],
+                     [router_lsa_2_v3, conf.LINK_TO_TRANSIT_NETWORK, cost_broadcast_link, r2_f0_1_id, r2_f0_1_id,
+                      router_id_2],
+                     [router_lsa_2_v3, conf.LINK_TO_TRANSIT_NETWORK, cost_broadcast_link, r2_f1_0_id, r3_f0_0_id,
+                      router_id_3],
+                     [router_lsa_3_v3, conf.POINT_TO_POINT_LINK, cost_point_point_link, r3_s1_0_id, r1_s2_0_id,
+                      router_id_1],
+                     [router_lsa_3_v3, conf.LINK_TO_TRANSIT_NETWORK, cost_broadcast_link, r3_f0_0_id, r3_f0_0_id,
+                      router_id_3],
+                     [router_lsa_4_v3, conf.LINK_TO_TRANSIT_NETWORK, cost_broadcast_link, r4_e0_id, r4_e0_id,
+                      router_id_4]]:
+            data[0].add_link_info_v3(data[1], data[2], data[3], data[4], data[5])
+        for router_lsa in [router_lsa_1_v3, router_lsa_2_v3, router_lsa_3_v3, router_lsa_4_v3]:
+            lsdb_v3.router_lsa_list.append(router_lsa)
+        for data in [[network_lsa_1_v3, [router_id_1, router_id_4]], [network_lsa_3_v3, [router_id_1, router_id_2]],
+                     [network_lsa_5_v3, [router_id_2, router_id_3]]]:
+            data[0].body.attached_routers = data[1]
+        for network_lsa in [network_lsa_1_v3, network_lsa_3_v3, network_lsa_5_v3]:
+            lsdb_v3.network_lsa_list.append(network_lsa)
+        for intra_area_prefix_lsa in [intra_area_prefix_lsa_r1, intra_area_prefix_lsa_r2, intra_area_prefix_lsa_r3,
+                                      intra_area_prefix_lsa_r4, intra_area_prefix_lsa_n1, intra_area_prefix_lsa_n3,
+                                      intra_area_prefix_lsa_n5]:
+            intra_area_prefix_lsa.body.prefixes = []
+        for data in [[intra_area_prefix_lsa_r1, prefix_2_v3, cost_broadcast_link],
+                     [intra_area_prefix_lsa_r1, prefix_6_v3, cost_point_point_link],
+                     [intra_area_prefix_lsa_r2, prefix_4_v3, cost_broadcast_link],
+                     [intra_area_prefix_lsa_r3, prefix_6_v3, cost_broadcast_link],
+                     [intra_area_prefix_lsa_n1, prefix_1_v3, cost_broadcast_link],
+                     [intra_area_prefix_lsa_n3, prefix_3_v3, cost_broadcast_link],
+                     [intra_area_prefix_lsa_n5, prefix_5_v3, cost_broadcast_link]]:
+            data[0].add_prefix_info(prefix_length, 0, data[2], data[1], conf.LSA_TYPE_INTRA_AREA_PREFIX)
+        #  No Intra-Area-Prefix-LSA is added for Router 4 as it has no point-to-point or stub links
+        for intra_area_prefix_lsa in [intra_area_prefix_lsa_r1, intra_area_prefix_lsa_r2, intra_area_prefix_lsa_r3,
+                                      intra_area_prefix_lsa_n1, intra_area_prefix_lsa_n3, intra_area_prefix_lsa_n5]:
+            lsdb_v3.intra_area_prefix_lsa_list.append(intra_area_prefix_lsa)
+        for link_lsa in [link_lsa_r1_1, link_lsa_r1_2, link_lsa_r1_3, link_lsa_r1_6, link_lsa_r2_3, link_lsa_r3_6,
+                         link_lsa_r4_1]:
+            link_lsa.body.prefixes = []
+        for data in [[link_lsa_r1_1, prefix_1_v3],
+                     [link_lsa_r1_2, prefix_2_v3],
+                     [link_lsa_r1_3, prefix_3_v3],
+                     [link_lsa_r1_6, prefix_6_v3],
+                     [link_lsa_r2_3, prefix_3_v3],
+                     [link_lsa_r3_6, prefix_6_v3],
+                     [link_lsa_r4_1, prefix_1_v3]]:
+            data[0].add_prefix_info(prefix_length, 0, 0, data[1], conf.LSA_TYPE_LINK)
+        for link_lsa in [link_lsa_r1_1, link_lsa_r1_2, link_lsa_r1_3, link_lsa_r1_6, link_lsa_r2_3, link_lsa_r3_6,
+                         link_lsa_r4_1]:  # Point of view of Router 1
+            self.interface_ospfv3.link_local_lsa_list.append(link_lsa)
+        self.assertEqual(
+            [{router_id_1: {router_id_3: cost_point_point_link, network_1_id_v3: cost_broadcast_link,
+                            network_3_id_v3: cost_broadcast_link},
+              router_id_2: {network_3_id_v3: cost_broadcast_link, network_5_id_v3: cost_broadcast_link},
+              router_id_3: {router_id_1: cost_point_point_link, network_5_id_v3: cost_broadcast_link},
+              router_id_4: {network_1_id_v3: cost_broadcast_link}, network_1_id_v3: {router_id_1: 0, router_id_4: 0},
+              network_3_id_v3: {router_id_1: 0, router_id_2: 0}, network_5_id_v3: {router_id_2: 0, router_id_3: 0}},
+             {router_id_1: [prefix_2_v3, prefix_6_v3], router_id_2: [prefix_4_v3], router_id_3: [prefix_6_v3],
+              router_id_4: [], network_1_id_v3: [prefix_1_v3], network_3_id_v3: [prefix_3_v3],
+              network_5_id_v3: [prefix_5_v3]}], lsdb_v3.get_directed_graph([self.interface_ospfv3]))
+
+        lsdb_v2.clean_lsdb([self.interface_ospfv2])
+        lsdb_v3.clean_lsdb([self.interface_ospfv3])

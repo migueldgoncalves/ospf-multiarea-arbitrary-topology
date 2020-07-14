@@ -44,7 +44,7 @@ class Lsdb:
     #  Atomically returns a LSA given its identifier, if present
     def get_lsa(self, ls_type, link_state_id, advertising_router, interfaces):
         if not utils.Utils.is_ipv4_address(link_state_id):
-            link_state_id = utils.Utils.decimal_to_ipv4(link_state_id)
+            link_state_id = utils.Utils.decimal_to_ipv4(int(link_state_id))
         with self.lsdb_lock:
             lsa_list = self.get_lsdb(interfaces, None)
             for query_lsa in lsa_list:
@@ -76,7 +76,7 @@ class Lsdb:
     #  Atomically deletes a LSA from the LSDB, if present
     def delete_lsa(self, ls_type, link_state_id, advertising_router, interfaces):
         if not utils.Utils.is_ipv4_address(link_state_id):
-            link_state_id = utils.Utils.decimal_to_ipv4(link_state_id)
+            link_state_id = utils.Utils.decimal_to_ipv4(int(link_state_id))
         with self.lsdb_lock:
             for query_lsa in self.router_lsa_list:
                 if query_lsa.is_lsa_identifier_equal(ls_type, link_state_id, advertising_router):
@@ -151,7 +151,8 @@ class Lsdb:
             if self.version == conf.VERSION_IPV4:
                 network_id = network_lsa.header.link_state_id
             else:
-                network_id = network_lsa.header.advertising_router + "|" + network_lsa.header.link_state_id
+                interface_id = utils.Utils.ipv4_to_decimal(network_lsa.header.link_state_id)
+                network_id = network_lsa.header.advertising_router + "|" + str(interface_id)
             area_transit_networks.append(network_id)
             directed_graph[network_id] = {}
 
@@ -162,18 +163,22 @@ class Lsdb:
             else:
                 router_lsa_1 = self.get_lsa(conf.LSA_TYPE_ROUTER, 0, router_id_1, interfaces)
             for router_id_2 in area_routers:
-                if self.version == conf.VERSION_IPV4:
+                if router_id_1 == router_id_2:
+                    continue
+                elif self.version == conf.VERSION_IPV4:
                     router_lsa_2 = self.get_lsa(conf.LSA_TYPE_ROUTER, router_id_2, router_id_2, interfaces)
-                else:
+                elif self.version == conf.VERSION_IPV6:
                     router_lsa_2 = self.get_lsa(conf.LSA_TYPE_ROUTER, 0, router_id_2, interfaces)
+                else:
+                    raise ValueError("Invalid OSPF version")
                 for link_info_1 in router_lsa_1.body.links:
                     if self.version == conf.VERSION_IPV4:
                         if link_info_1[2] == conf.POINT_TO_POINT_LINK:
-                            network_mask_1 = link_info_1[0]
+                            neighbor_router_id_1 = link_info_1[0]
                             for link_info_2 in router_lsa_2.body.links:
                                 if link_info_2[2] == conf.POINT_TO_POINT_LINK:
-                                    network_mask_2 = link_info_2[0]
-                                    if network_mask_1 == network_mask_2:
+                                    neighbor_router_id_2 = link_info_2[0]
+                                    if (neighbor_router_id_1 == router_id_2) & (neighbor_router_id_2 == router_id_1):
                                         directed_graph[router_id_1][router_id_2] = link_info_1[4]
                                         directed_graph[router_id_2][router_id_1] = link_info_2[4]
                     else:
@@ -198,7 +203,7 @@ class Lsdb:
                     if link_info[2] == conf.LINK_TO_TRANSIT_NETWORK:
                         for network_lsa in self.network_lsa_list:
                             dr_ip_address = network_lsa.header.link_state_id
-                            if network_lsa.header.link_state_id == dr_ip_address:
+                            if link_info[0] == dr_ip_address:
                                 network_id = network_lsa.header.link_state_id
                                 directed_graph[router_id][network_id] = link_info[4]
                                 directed_graph[network_id][router_id] = 0  # No cost going from network to router
@@ -207,7 +212,8 @@ class Lsdb:
                         neighbor_id = link_info[4]
                         for network_lsa in self.network_lsa_list:
                             if network_lsa.header.advertising_router == neighbor_id:
-                                network_id = neighbor_id + "|" + network_lsa.header.link_state_id
+                                network_id = neighbor_id + "|" + str(utils.Utils.ipv4_to_decimal(
+                                    network_lsa.header.link_state_id))
                                 directed_graph[router_id][network_id] = link_info[1]
                                 directed_graph[network_id][router_id] = 0
 
@@ -220,18 +226,16 @@ class Lsdb:
         for router_id in area_routers:
             if self.version == conf.VERSION_IPV4:
                 router_lsa = self.get_lsa(conf.LSA_TYPE_ROUTER, router_id, router_id, interfaces)
-            else:
-                router_lsa = self.get_lsa(conf.LSA_TYPE_ROUTER, 0, router_id, interfaces)
-            if self.version == conf.VERSION_IPV4:
                 for link_info in router_lsa.body.links:
-                    if link_info[2] in [conf.LINK_TO_STUB_NETWORK, conf.POINT_TO_POINT_LINK]:
+                    if link_info[2] in [conf.LINK_TO_STUB_NETWORK]:
                         if link_info[0] not in prefixes[router_id]:
                             prefixes[router_id].append(link_info[0])
             else:
                 intra_area_prefix_lsa = self.get_lsa(conf.LSA_TYPE_INTRA_AREA_PREFIX, 0, router_id, interfaces)
-                for prefix_info in intra_area_prefix_lsa.body.prefixes:
-                    if prefix_info[3] not in prefixes[router_id]:
-                        prefixes[router_id].append(prefix_info[3])
+                if intra_area_prefix_lsa is not None:  # Prefixes associated to point-to-point or stub links
+                    for prefix_info in intra_area_prefix_lsa.body.prefixes:
+                        if prefix_info[3] not in prefixes[router_id]:
+                            prefixes[router_id].append(prefix_info[3])
         for network_id in area_transit_networks:
             if self.version == conf.VERSION_IPV4:
                 for network_lsa in self.network_lsa_list:
