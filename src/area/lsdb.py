@@ -1,8 +1,10 @@
 import threading
 import time
+import copy
 
 import conf.conf as conf
 import lsa.lsa as lsa
+import lsa.network as network
 import general.utils as utils
 
 '''
@@ -252,3 +254,87 @@ class Lsdb:
                     prefixes[network_id].append(prefix_info[3])
 
         return [directed_graph, prefixes]
+
+    #  Returns the shortest path tree for the area by running the Dijkstra algorithm
+    def get_shortest_path_tree(self, directed_graph, prefixes, root_router_id, interfaces, routing_table):
+        root_router_lsa = self.get_lsa(conf.LSA_TYPE_ROUTER, root_router_id, root_router_id, interfaces)
+        shortest_path_tree = {root_router_id: [0, root_router_lsa, []]}
+        newest_vertex = root_router_id
+        candidate_list = {}
+        first_iteration = True
+        while (len(candidate_list) > 0) | first_iteration:
+            newest_vertex_lsa = self.get_lsa(conf.LSA_TYPE_ROUTER, newest_vertex, newest_vertex, interfaces)
+            if newest_vertex_lsa is None:
+                for network_lsa in self.network_lsa_list:
+                    if network_lsa.header.link_state_id == newest_vertex:
+                        newest_vertex_lsa = network_lsa
+            for vertex in directed_graph[newest_vertex]:
+                if vertex in shortest_path_tree:
+                    continue
+                cost = shortest_path_tree[newest_vertex][0] + directed_graph[newest_vertex][vertex]
+                next_hop = self.get_next_hop(
+                    vertex, newest_vertex, root_router_id, directed_graph, shortest_path_tree, interfaces)
+                if vertex in candidate_list:
+                    if cost > candidate_list[vertex][0]:
+                        continue  # Not the shortest path
+                    elif cost == candidate_list[vertex]:
+                        candidate_list[vertex][2].append(next_hop)
+                    else:
+                        candidate_list[newest_vertex] = [cost, newest_vertex_lsa, next_hop]
+                if vertex not in candidate_list:
+                    candidate_list[newest_vertex] = [cost, newest_vertex_lsa, next_hop]
+            if len(candidate_list) == 0:  # First stage completed
+                break
+            else:
+                min_cost = conf.MAX_VALUE_32_BITS
+                for candidate_node in candidate_list:
+                    if candidate_node[0] < min_cost:
+                        min_cost = candidate_node[0]
+                min_cost_network_node = False
+                for candidate_node in candidate_list:
+                    #  Network nodes must be chosen before router nodes if having minimal cost
+                    if (type(candidate_list[candidate_node][1].body).__name__ == network) & (
+                            candidate_list[candidate_node][0] == min_cost):
+                        shortest_path_tree[candidate_node] = candidate_list[candidate_node]
+                        candidate_list.pop(candidate_node)
+                        min_cost_network_node = True
+                        break
+                if not min_cost_network_node:
+                    for candidate_node in candidate_list:
+                        if candidate_list[candidate_node][0] == min_cost:
+                            shortest_path_tree[candidate_node] = candidate_list[candidate_node]
+                            candidate_list.pop(candidate_node)
+                            break
+
+            #  Update routing table
+            #  Proceed to stage 2
+
+    #  Returns outgoing interface and next hop IP address to reach a destination in the network from this router (root)
+    #  Parent node and destination node must be in the same link
+    def get_next_hop(self, parent_node_id, destination_node_id, root_router_id, directed_graph, shortest_path_tree,
+                     interfaces):
+        #  Root connected by point-to-point link OR destination is transit network connected to root
+        if destination_node_id in directed_graph[root_router_id]:
+            for link_info in self.get_lsa(conf.LSA_TYPE_ROUTER, root_router_id, root_router_id, interfaces).body.links:
+                link_id = link_info[0]
+                link_data = link_info[1]
+                if link_id == destination_node_id:
+                    return [link_data, '']
+        #  Root and destination in same transit link
+        elif (root_router_id in directed_graph[parent_node_id]) & (
+                destination_node_id in directed_graph[parent_node_id]):
+            for network_lsa in self.network_lsa_list:
+                if parent_node_id == network_lsa.header.link_state_id:  # Parent node is transit link
+                    for link_info in self.get_lsa(
+                            conf.LSA_TYPE_ROUTER, destination_node_id, destination_node_id, interfaces).body.links:
+                        link_id = link_info[0]
+                        link_data = link_info[1]
+                        if link_id == parent_node_id:
+                            destination_ip_address = link_data
+                            next_hop_list = copy.deepcopy(shortest_path_tree[parent_node_id][2])
+                            for next_hop in next_hop_list:
+                                next_hop[1] = destination_ip_address
+                            return next_hop_list
+        #  Root and destination in different links
+        else:
+            return shortest_path_tree[parent_node_id][2]
