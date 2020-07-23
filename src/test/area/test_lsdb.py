@@ -53,8 +53,8 @@ class TestLsdb(unittest.TestCase):
         self.lsa_ospfv3_4.create_header(38, 0, 8, '0.0.0.4', '1.1.1.1', 2147483650, conf.VERSION_IPV6)
         self.lsa_ospfv3_4.create_link_lsa_body(1, 51, 'fe80::c001:18ff:fe34:0')
 
-        self.lsdb_ospfv2 = lsdb.Lsdb(conf.VERSION_IPV4)
-        self.lsdb_ospfv3 = lsdb.Lsdb(conf.VERSION_IPV6)
+        self.lsdb_ospfv2 = lsdb.Lsdb(conf.VERSION_IPV4, conf.BACKBONE_AREA)
+        self.lsdb_ospfv3 = lsdb.Lsdb(conf.VERSION_IPV6, conf.BACKBONE_AREA)
 
     #  Successful run - Instant
     def test_constructor_test(self):
@@ -275,9 +275,11 @@ class TestLsdb(unittest.TestCase):
 
     #  Successful run - Instant
     #  This test is based on the GNS3 Network 1 at https://github.com/migueldgoncalves/ospf-multiarea-arbitrary-topology
-    def test_get_directed_graph(self):
-        lsdb_v2 = lsdb.Lsdb(conf.VERSION_IPV4)
-        lsdb_v3 = lsdb.Lsdb(conf.VERSION_IPV6)
+    def test_routing_table(self):
+        #  Network variables
+
+        lsdb_v2 = lsdb.Lsdb(conf.VERSION_IPV4, conf.BACKBONE_AREA)
+        lsdb_v3 = lsdb.Lsdb(conf.VERSION_IPV6, conf.BACKBONE_AREA)
         router_id_1 = '1.1.1.1'
         router_id_2 = '2.2.2.2'
         router_id_3 = '3.3.3.3'
@@ -339,10 +341,36 @@ class TestLsdb(unittest.TestCase):
         network_1_id_v3 = router_id_4 + "|" + str(r4_e0_id)
         network_3_id_v3 = router_id_2 + "|" + str(r2_f0_1_id)
         network_5_id_v3 = router_id_3 + "|" + str(r3_f0_0_id)
+        interface_r1_f0_0_v2 = interface.Interface(router_id_1, 'f0/0', r1_f0_0_v2, '', network_mask, [],
+                                                   conf.BACKBONE_AREA, None, None, conf.VERSION_IPV4, None, False)
+        interface_r1_f0_1_v2 = interface.Interface(router_id_1, 'f0/1', r1_f0_1_v2, '', network_mask, [],
+                                                   conf.BACKBONE_AREA, None, None, conf.VERSION_IPV4, None, False)
+        interface_r1_f1_0_v2 = interface.Interface(router_id_1, 'f1/0', r1_f1_0_v2, '', network_mask, [],
+                                                   conf.BACKBONE_AREA, None, None, conf.VERSION_IPV4, None, False)
+        interface_r1_s2_0_v2 = interface.Interface(router_id_1, 's2/0', r1_s2_0_v2, '', network_mask, [],
+                                                   conf.BACKBONE_AREA, None, None, conf.VERSION_IPV4, None, False)
+        interface_r2_f0_0_v2 = interface.Interface(router_id_2, 'f0/0', r2_f0_0_v2, '', network_mask, [],
+                                                   conf.BACKBONE_AREA, None, None, conf.VERSION_IPV4, None, False)
+        interface_r2_f0_1_v2 = interface.Interface(router_id_2, 'f0/1', r2_f0_1_v2, '', network_mask, [],
+                                                   conf.BACKBONE_AREA, None, None, conf.VERSION_IPV4, None, False)
+        interface_r2_f1_0_v2 = interface.Interface(router_id_2, 'f1/0', r2_f1_0_v2, '', network_mask, [],
+                                                   conf.BACKBONE_AREA, None, None, conf.VERSION_IPV4, None, False)
+        interface_r3_f0_0_v2 = interface.Interface(router_id_3, 'f0/0', r3_f0_0_v2, '', network_mask, [],
+                                                   conf.BACKBONE_AREA, None, None, conf.VERSION_IPV4, None, False)
+        interface_r3_s1_0_v2 = interface.Interface(router_id_3, 's1/0', r3_s1_0_v2, '', network_mask, [],
+                                                   conf.BACKBONE_AREA, None, None, conf.VERSION_IPV4, None, False)
+        interface_r4_e0_v2 = interface.Interface(router_id_4, 'e0', r4_e0_v2, '', network_mask, [], conf.BACKBONE_AREA,
+                                                 None, None, conf.VERSION_IPV4, None, False)
+        interfaces_r1_v2 = [interface_r1_f0_0_v2, interface_r1_f0_1_v2, interface_r1_f1_0_v2, interface_r1_s2_0_v2]
+        interfaces_r2_v2 = [interface_r2_f0_0_v2, interface_r2_f0_1_v2, interface_r2_f1_0_v2]
+        interfaces_r3_v2 = [interface_r3_f0_0_v2, interface_r3_s1_0_v2]
+        interfaces_r4_v2 = [interface_r4_e0_v2]
         router_priority = 1
         prefix_options = 0
         cost_broadcast_link = 10
         cost_point_point_link = 64
+
+        #  LSA creation
 
         router_lsa_1_v2 = lsa.Lsa()
         router_lsa_2_v2 = lsa.Lsa()
@@ -424,7 +452,7 @@ class TestLsdb(unittest.TestCase):
 
         #  No LSAs
 
-        self.assertEqual([{}, {}], lsdb_v2.get_directed_graph([self.interface_ospfv2]))
+        self.assertEqual([{}, {}], lsdb_v2.get_directed_graph(interfaces_r1_v2))
         self.assertEqual([{}, {}], lsdb_v3.get_directed_graph([self.interface_ospfv3]))
 
         #  LSAs for single router (1.1.1.1)
@@ -434,8 +462,26 @@ class TestLsdb(unittest.TestCase):
             router_lsa_1_v2.add_link_info_v2(
                 data[0], network_mask, conf.LINK_TO_STUB_NETWORK, conf.DEFAULT_TOS, data[1])
         lsdb_v2.router_lsa_list.append(router_lsa_1_v2)
-        self.assertEqual([{router_id_1: {}}, {router_id_1: [prefix_1_v2, prefix_2_v2, prefix_3_v2, prefix_6_v2]}],
-                         lsdb_v2.get_directed_graph([self.interface_ospfv2]))
+        directed_graph = {router_id_1: {}}
+        prefixes = {router_id_1: [prefix_1_v2, prefix_2_v2, prefix_3_v2, prefix_6_v2]}
+        self.assertEqual([directed_graph, prefixes], lsdb_v2.get_directed_graph(interfaces_r1_v2))
+        routing_table = lsdb_v2.get_shortest_path_tree(directed_graph, '1.1.1.1', prefixes, interfaces_r1_v2)
+        self.assertEqual(4, len(routing_table.entries))
+        for entry in [[routing_table.entries[0], prefix_1_v2, cost_broadcast_link, r1_f1_0_v2],
+                      [routing_table.entries[1], prefix_2_v2, cost_broadcast_link, r1_f0_1_v2],
+                      [routing_table.entries[2], prefix_3_v2, cost_broadcast_link, r1_f0_0_v2],
+                      [routing_table.entries[3], prefix_6_v2, cost_point_point_link, r1_s2_0_v2]]:
+            self.assertEqual(conf.DESTINATION_TYPE_NETWORK, entry[0].destination_type)
+            self.assertEqual(entry[1], entry[0].destination_id)
+            self.assertEqual('255.255.255.0', entry[0].address_mask)
+            self.assertEqual(0, entry[0].options)
+            self.assertEqual(conf.BACKBONE_AREA, entry[0].area)
+            self.assertEqual(1, len(entry[0].paths))
+            self.assertEqual(conf.INTRA_AREA_PATH, entry[0].paths[0].path_type)
+            self.assertEqual(entry[2], entry[0].paths[0].cost)
+            self.assertEqual(0, entry[0].paths[0].type_2_cost)
+            self.assertEqual([entry[3], ''], entry[0].paths[0].next_hop)
+            self.assertEqual('', entry[0].paths[0].advertising_router)
 
         lsdb_v3.router_lsa_list.append(router_lsa_1_v3)
         for data in [[prefix_1_v3, cost_broadcast_link], [prefix_2_v3, cost_broadcast_link],
@@ -471,11 +517,12 @@ class TestLsdb(unittest.TestCase):
             lsdb_v2.router_lsa_list.append(router_lsa)
         network_lsa_3_v2.body.attached_routers = [router_id_1, router_id_2]
         lsdb_v2.network_lsa_list.append(network_lsa_3_v2)
-        self.assertEqual(
-            [{router_id_1: {r2_f0_1_v2: cost_broadcast_link}, r2_f0_1_v2: {router_id_1: 0, router_id_2: 0},
-              router_id_2: {r2_f0_1_v2: cost_broadcast_link}},
-             {router_id_1: [prefix_1_v2, prefix_2_v2, prefix_6_v2], r2_f0_1_v2: [prefix_3_v2],
-              router_id_2: [prefix_4_v2, prefix_5_v2]}], lsdb_v2.get_directed_graph([self.interface_ospfv2]))
+        directed_graph = {router_id_1: {r2_f0_1_v2: cost_broadcast_link}, r2_f0_1_v2: {router_id_1: 0, router_id_2: 0},
+                          router_id_2: {r2_f0_1_v2: cost_broadcast_link}}
+        prefixes = {router_id_1: [prefix_1_v2, prefix_2_v2, prefix_6_v2], r2_f0_1_v2: [prefix_3_v2],
+                    router_id_2: [prefix_4_v2, prefix_5_v2]}
+        self.assertEqual([directed_graph, prefixes], lsdb_v2.get_directed_graph([self.interface_ospfv2]))
+        routing_table = lsdb_v2.get_shortest_path_tree(directed_graph, '1.1.1.1', prefixes, interfaces_r1_v2)
 
         for data in [[r1_f0_0_id, router_lsa_1_v3], [r2_f0_1_id, router_lsa_2_v3]]:
             data[1].add_link_info_v3(

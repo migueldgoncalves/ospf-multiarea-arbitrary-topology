@@ -32,7 +32,7 @@ class Area:
         self.external_routing_capable = external_routing_capable
 
         #  LSDB initialization
-        self.database = self.lsdb_startup(self.router_id, self.ospf_version)
+        self.database = self.lsdb_startup(self.router_id, self.ospf_version, self.area_id)
 
         #  Creates the interfaces that belong to this area
         self.localhost = localhost
@@ -42,8 +42,8 @@ class Area:
 
     #  Creates and populates LSDB with LSAs that should be in it on startup
     @staticmethod
-    def lsdb_startup(router_id, version):
-        database = lsdb.Lsdb(version)
+    def lsdb_startup(router_id, version, area_id):
+        database = lsdb.Lsdb(version, area_id)
         router_lsa = lsa.Lsa()
         if version == conf.VERSION_IPV4:
             link_state_id = router_id

@@ -19,6 +19,7 @@ class RoutingTable:
             if (entry.destination_type == destination_type) & (entry.destination_id == destination_id) & (
                     entry.area == area):
                 return entry
+        return None
 
     def add_entry(self, destination_type, destination_id, address_mask, options, area):
         entry = RoutingTableEntry(destination_type, destination_id, address_mask, options, area)
@@ -49,6 +50,7 @@ class RoutingTableEntry:
         for path in self.paths:
             if (path.next_hop == next_hop) & (path.advertising_router == advertising_router):
                 return path
+        return None
 
     def add_path(self, path_type, cost, type_2_cost, next_hop, advertising_router):
         warning = False
