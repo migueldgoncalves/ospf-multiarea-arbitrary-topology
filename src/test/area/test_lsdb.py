@@ -275,7 +275,7 @@ class TestLsdb(unittest.TestCase):
 
     #  Successful run - Instant
     #  This test is based on the GNS3 Network 1 at https://github.com/migueldgoncalves/ospf-multiarea-arbitrary-topology
-    def test_routing_table(self):
+    def test_get_directed_graph(self):
         #  Network variables
 
         lsdb_v2 = lsdb.Lsdb(conf.VERSION_IPV4, conf.BACKBONE_AREA)
@@ -462,26 +462,8 @@ class TestLsdb(unittest.TestCase):
             router_lsa_1_v2.add_link_info_v2(
                 data[0], network_mask, conf.LINK_TO_STUB_NETWORK, conf.DEFAULT_TOS, data[1])
         lsdb_v2.router_lsa_list.append(router_lsa_1_v2)
-        directed_graph = {router_id_1: {}}
-        prefixes = {router_id_1: [prefix_1_v2, prefix_2_v2, prefix_3_v2, prefix_6_v2]}
-        self.assertEqual([directed_graph, prefixes], lsdb_v2.get_directed_graph(interfaces_r1_v2))
-        routing_table = lsdb_v2.get_shortest_path_tree(directed_graph, '1.1.1.1', prefixes, interfaces_r1_v2)
-        self.assertEqual(4, len(routing_table.entries))
-        for entry in [[routing_table.entries[0], prefix_1_v2, cost_broadcast_link, r1_f1_0_v2],
-                      [routing_table.entries[1], prefix_2_v2, cost_broadcast_link, r1_f0_1_v2],
-                      [routing_table.entries[2], prefix_3_v2, cost_broadcast_link, r1_f0_0_v2],
-                      [routing_table.entries[3], prefix_6_v2, cost_point_point_link, r1_s2_0_v2]]:
-            self.assertEqual(conf.DESTINATION_TYPE_NETWORK, entry[0].destination_type)
-            self.assertEqual(entry[1], entry[0].destination_id)
-            self.assertEqual('255.255.255.0', entry[0].address_mask)
-            self.assertEqual(0, entry[0].options)
-            self.assertEqual(conf.BACKBONE_AREA, entry[0].area)
-            self.assertEqual(1, len(entry[0].paths))
-            self.assertEqual(conf.INTRA_AREA_PATH, entry[0].paths[0].path_type)
-            self.assertEqual(entry[2], entry[0].paths[0].cost)
-            self.assertEqual(0, entry[0].paths[0].type_2_cost)
-            self.assertEqual([entry[3], ''], entry[0].paths[0].next_hop)
-            self.assertEqual('', entry[0].paths[0].advertising_router)
+        self.assertEqual([{router_id_1: {}}, {router_id_1: [prefix_1_v2, prefix_2_v2, prefix_3_v2, prefix_6_v2]}],
+                         lsdb_v2.get_directed_graph(interfaces_r1_v2))
 
         lsdb_v3.router_lsa_list.append(router_lsa_1_v3)
         for data in [[prefix_1_v3, cost_broadcast_link], [prefix_2_v3, cost_broadcast_link],
@@ -517,12 +499,11 @@ class TestLsdb(unittest.TestCase):
             lsdb_v2.router_lsa_list.append(router_lsa)
         network_lsa_3_v2.body.attached_routers = [router_id_1, router_id_2]
         lsdb_v2.network_lsa_list.append(network_lsa_3_v2)
-        directed_graph = {router_id_1: {r2_f0_1_v2: cost_broadcast_link}, r2_f0_1_v2: {router_id_1: 0, router_id_2: 0},
-                          router_id_2: {r2_f0_1_v2: cost_broadcast_link}}
-        prefixes = {router_id_1: [prefix_1_v2, prefix_2_v2, prefix_6_v2], r2_f0_1_v2: [prefix_3_v2],
-                    router_id_2: [prefix_4_v2, prefix_5_v2]}
-        self.assertEqual([directed_graph, prefixes], lsdb_v2.get_directed_graph([self.interface_ospfv2]))
-        routing_table = lsdb_v2.get_shortest_path_tree(directed_graph, '1.1.1.1', prefixes, interfaces_r1_v2)
+        self.assertEqual(
+            [{router_id_1: {r2_f0_1_v2: cost_broadcast_link}, r2_f0_1_v2: {router_id_1: 0, router_id_2: 0},
+              router_id_2: {r2_f0_1_v2: cost_broadcast_link}}, {
+                router_id_1: [prefix_1_v2, prefix_2_v2, prefix_6_v2], r2_f0_1_v2: [prefix_3_v2],
+                router_id_2: [prefix_4_v2, prefix_5_v2]}], lsdb_v2.get_directed_graph([self.interface_ospfv2]))
 
         for data in [[r1_f0_0_id, router_lsa_1_v3], [r2_f0_1_id, router_lsa_2_v3]]:
             data[1].add_link_info_v3(
@@ -664,3 +645,124 @@ class TestLsdb(unittest.TestCase):
 
         lsdb_v2.clean_lsdb([self.interface_ospfv2])
         lsdb_v3.clean_lsdb([self.interface_ospfv3])
+
+    #  Successful run - Instant
+    def test_get_shortest_path_tree(self):
+        router_id_1 = '1.1.1.1'
+        router_id_2 = '2.2.2.2'
+        router_id_3 = '3.3.3.3'
+        router_id_4 = '4.4.4.4'
+        network_id_1 = 'network_1'
+        network_id_2 = 'network_2'
+        cost = 10
+
+        #  Single router
+        directed_graph = {router_id_1: {}}
+        self.assertEqual({router_id_1: [0, router_id_1]}, lsdb.Lsdb.get_shortest_path_tree(
+            directed_graph, router_id_1))
+
+        #  2 routers directly connected
+        directed_graph = {router_id_1: {router_id_2: cost}, router_id_2: {
+            router_id_1: cost}}
+        self.assertEqual({router_id_1: [0, router_id_1], router_id_2: [cost, router_id_1]},
+                         lsdb.Lsdb.get_shortest_path_tree(directed_graph, router_id_1))
+        self.assertEqual({router_id_2: [0, router_id_2], router_id_1: [cost, router_id_2]},
+                         lsdb.Lsdb.get_shortest_path_tree(directed_graph, router_id_2))
+
+        #  2 routers connected through transit link
+        directed_graph = {router_id_1: {network_id_1: cost}, router_id_2: {
+            network_id_1: cost}, network_id_1: {router_id_1: 0, router_id_2: 0}}
+        self.assertEqual(
+            {router_id_1: [0, router_id_1], router_id_2: [cost, network_id_1], network_id_1: [cost, router_id_1]},
+            lsdb.Lsdb.get_shortest_path_tree(directed_graph, router_id_1))
+        self.assertEqual(
+            {router_id_2: [0, router_id_2], router_id_1: [cost, network_id_1], network_id_1: [cost, router_id_2]},
+            lsdb.Lsdb.get_shortest_path_tree(directed_graph, router_id_2))
+
+        #  3 routers connected through transit link
+        directed_graph = {router_id_1: {network_id_1: cost},
+                          router_id_2: {network_id_1: cost},
+                          router_id_3: {network_id_1: cost},
+                          network_id_1: {router_id_1: 0, router_id_2: 0, router_id_3: 0}}
+        self.assertEqual(
+            {router_id_1: [0, router_id_1], router_id_2: [cost, network_id_1], router_id_3: [cost, network_id_1],
+             network_id_1: [cost, router_id_1]},
+            lsdb.Lsdb.get_shortest_path_tree(directed_graph, router_id_1))
+        self.assertEqual(
+            {router_id_1: [cost, network_id_1], router_id_2: [0, router_id_2], router_id_3: [cost, network_id_1],
+             network_id_1: [cost, router_id_2]},
+            lsdb.Lsdb.get_shortest_path_tree(directed_graph, router_id_2))
+        self.assertEqual(
+            {router_id_1: [cost, network_id_1], router_id_2: [cost, network_id_1], router_id_3: [0, router_id_3],
+             network_id_1: [cost, router_id_3]},
+            lsdb.Lsdb.get_shortest_path_tree(directed_graph, router_id_3))
+
+        #  2 networks respectively with 3 and 2 routers
+        directed_graph = {router_id_1: {network_id_1: cost, network_id_2: cost},
+                          router_id_2: {network_id_1: cost},
+                          router_id_3: {network_id_1: cost},
+                          router_id_4: {network_id_2: cost},
+                          network_id_1: {router_id_1: 0, router_id_2: 0, router_id_3: 0},
+                          network_id_2: {router_id_1: 0, router_id_4: 0}}
+        self.assertEqual(
+            {router_id_1: [0, router_id_1], router_id_2: [cost, network_id_1], router_id_3: [cost, network_id_1],
+             router_id_4: [cost, network_id_2], network_id_1: [cost, router_id_1],
+             network_id_2: [cost, router_id_1]}, lsdb.Lsdb.get_shortest_path_tree(directed_graph, router_id_1))
+        self.assertEqual(
+            {router_id_1: [cost, network_id_1], router_id_2: [0, router_id_2], router_id_3: [cost, network_id_1],
+             router_id_4: [2 * cost, network_id_2], network_id_1: [cost, router_id_2],
+             network_id_2: [2 * cost, router_id_1]}, lsdb.Lsdb.get_shortest_path_tree(directed_graph, router_id_2))
+        self.assertEqual(
+            {router_id_1: [cost, network_id_1], router_id_2: [cost, network_id_1], router_id_3: [0, router_id_3],
+             router_id_4: [2 * cost, network_id_2], network_id_1: [cost, router_id_3],
+             network_id_2: [2 * cost, router_id_1]}, lsdb.Lsdb.get_shortest_path_tree(directed_graph, router_id_3))
+        self.assertEqual(
+            {router_id_1: [cost, network_id_2], router_id_2: [2 * cost, network_id_1],
+             router_id_3: [2 * cost, network_id_1], router_id_4: [0, router_id_4],
+             network_id_1: [2 * cost, router_id_1], network_id_2: [cost, router_id_4]},
+            lsdb.Lsdb.get_shortest_path_tree(directed_graph, router_id_4))
+
+        #  Triangular network - 2 point-to-point links and 1 transit link
+        directed_graph = {router_id_1: {router_id_2: cost, router_id_3: cost},
+                          router_id_2: {router_id_1: cost, network_id_1: cost},
+                          router_id_3: {router_id_1: cost, network_id_1: cost},
+                          network_id_1: {router_id_2: 0, router_id_3: 0}}  # All costs equal
+        #  2 equal-cost paths from Router 1 to Network 1 - One is placed on the tree
+        self.assertEqual({router_id_1: [0, router_id_1], router_id_2: [cost, router_id_1],
+                          router_id_3: [cost, router_id_1], network_id_1: [2 * cost, router_id_2]},
+                         lsdb.Lsdb.get_shortest_path_tree(directed_graph, router_id_1))
+        self.assertEqual({router_id_1: [cost, router_id_2], router_id_2: [0, router_id_2],
+                          router_id_3: [cost, network_id_1], network_id_1: [cost, router_id_2]},
+                         lsdb.Lsdb.get_shortest_path_tree(directed_graph, router_id_2))
+        self.assertEqual({router_id_1: [cost, router_id_3], router_id_2: [cost, network_id_1],
+                          router_id_3: [0, router_id_3], network_id_1: [cost, router_id_3]},
+                         lsdb.Lsdb.get_shortest_path_tree(directed_graph, router_id_3))
+        directed_graph = {router_id_1: {router_id_2: cost, router_id_3: cost},
+                          router_id_2: {router_id_1: cost, network_id_1: 2 * cost},
+                          router_id_3: {router_id_1: cost, network_id_1: cost},
+                          network_id_1: {router_id_2: 0, router_id_3: 0}}
+        #  Shortest path from Router 1 to Network 1 is through Router 3
+        self.assertEqual({router_id_1: [0, router_id_1], router_id_2: [cost, router_id_1],
+                          router_id_3: [cost, router_id_1], network_id_1: [2 * cost, router_id_3]},
+                         lsdb.Lsdb.get_shortest_path_tree(directed_graph, router_id_1))
+        self.assertEqual({router_id_1: [cost, router_id_2], router_id_2: [0, router_id_2],
+                          router_id_3: [2 * cost, router_id_1],
+                          network_id_1: [2 * cost, router_id_2]},
+                         lsdb.Lsdb.get_shortest_path_tree(directed_graph, router_id_2))
+        self.assertEqual({router_id_1: [cost, router_id_3], router_id_2: [cost, network_id_1],
+                          router_id_3: [0, router_id_3], network_id_1: [cost, router_id_3]},
+                         lsdb.Lsdb.get_shortest_path_tree(directed_graph, router_id_3))
+        directed_graph = {router_id_1: {router_id_2: cost, router_id_3: cost},
+                          router_id_2: {router_id_1: cost, network_id_1: 4 * cost},
+                          router_id_3: {router_id_1: cost, network_id_1: cost},
+                          network_id_1: {router_id_2: 0, router_id_3: 0}}
+        #  Shortest path from Router 2 to Network 1 and Router 3 is no longer the direct route
+        self.assertEqual({router_id_1: [0, router_id_1], router_id_2: [cost, router_id_1],
+                          router_id_3: [cost, router_id_1], network_id_1: [2 * cost, router_id_3]},
+                         lsdb.Lsdb.get_shortest_path_tree(directed_graph, router_id_1))
+        self.assertEqual({router_id_1: [cost, router_id_2], router_id_2: [0, router_id_2],
+                          router_id_3: [2 * cost, router_id_1], network_id_1: [3 * cost, router_id_3]},
+                         lsdb.Lsdb.get_shortest_path_tree(directed_graph, router_id_2))
+        self.assertEqual({router_id_1: [cost, router_id_3], router_id_2: [cost, network_id_1],
+                          router_id_3: [0, router_id_3], network_id_1: [cost, router_id_3]},
+                         lsdb.Lsdb.get_shortest_path_tree(directed_graph, router_id_3))

@@ -257,146 +257,36 @@ class Lsdb:
         return [directed_graph, prefixes]
 
     #  Returns the shortest path tree for the area by running the Dijkstra algorithm
-    def get_shortest_path_tree(self, directed_graph, root_router_id, prefixes, interfaces):
-        #  1st step - Dijkstra algorithm
+    @staticmethod
+    def get_shortest_path_tree(directed_graph, source_router_id):
+        #  Initialization
+        shortest_path_tree = {source_router_id: [0, source_router_id]}
+        nodes_to_analyse = {}
+        for destination in directed_graph:
+            if destination != source_router_id:
+                if directed_graph[source_router_id].get(destination) is not None:
+                    cost = directed_graph[source_router_id][destination]  # Source directly connected to destination
+                else:
+                    cost = conf.MAX_VALUE_16_BITS  # Replacement for infinite cost - Infinite has no value in OSPF
+                nodes_to_analyse[destination] = [cost, source_router_id]
 
-        new_routing_table = routing_table.RoutingTable()
-        root_router_lsa = self.get_lsa(conf.LSA_TYPE_ROUTER, root_router_id, root_router_id, interfaces)
-        shortest_path_tree = {root_router_id: [0, root_router_lsa, []]}
-        newest_vertex = root_router_id  # Last vertex added to shortest path tree
-        candidate_list = {}
-        first_iteration = True
-        while (len(candidate_list) > 0) | first_iteration:
-            first_iteration = False
-            newest_vertex_lsa = self.get_lsa(conf.LSA_TYPE_ROUTER, newest_vertex, newest_vertex, interfaces)
-            if newest_vertex_lsa is None:  # Newest vertex in shortest path tree is transit network
-                for network_lsa in self.network_lsa_list:
-                    if network_lsa.header.link_state_id == newest_vertex:
-                        newest_vertex_lsa = network_lsa
-            for next_vertex in directed_graph[newest_vertex]:
-                if next_vertex in shortest_path_tree:
-                    continue
-                cost = shortest_path_tree[newest_vertex][0] + directed_graph[newest_vertex][next_vertex]
-                next_hop = self.get_next_hop(next_vertex, newest_vertex, root_router_id, directed_graph,
-                                             shortest_path_tree, prefixes, interfaces)
-                if next_vertex in candidate_list:
-                    if cost > candidate_list[next_vertex][0]:
-                        continue  # Not the shortest path
-                    elif cost == candidate_list[next_vertex]:
-                        candidate_list[next_vertex][2].append(next_hop)
-                    else:
-                        candidate_list[newest_vertex] = [cost, newest_vertex_lsa, next_hop]
-                if next_vertex not in candidate_list:
-                    candidate_list[newest_vertex] = [cost, newest_vertex_lsa, next_hop]
+        while True:
+            #  Finding closest node
+            if len(nodes_to_analyse) == 0:
+                return shortest_path_tree  # No further nodes to analyse - Shortest path tree completed
+            shortest_cost = conf.MAX_VALUE_16_BITS
+            closest_node = ''
+            for node in nodes_to_analyse:
+                if nodes_to_analyse[node][0] < shortest_cost:
+                    shortest_cost = nodes_to_analyse[node][0]
+                    closest_node = node
+            shortest_path_tree[closest_node] = nodes_to_analyse[closest_node]
+            nodes_to_analyse.pop(closest_node)
 
-            if len(candidate_list) == 0:
-                break  # First stage completed
-            else:
-                min_cost = conf.MAX_VALUE_32_BITS
-                for candidate_node in candidate_list:
-                    if candidate_node[0] < min_cost:
-                        min_cost = candidate_node[0]
-                min_cost_network_node = False
-                for candidate_node in candidate_list:
-                    #  Network nodes must be chosen before router nodes if having minimal cost
-                    if (type(candidate_list[candidate_node][1].body).__name__ == 'Network') & (
-                            candidate_list[candidate_node][0] == min_cost):
-                        shortest_path_tree[candidate_node] = candidate_list[candidate_node]
-                        candidate_list.pop(candidate_node)
-                        min_cost_network_node = True
-                        break
-                if not min_cost_network_node:
-                    for candidate_node in candidate_list:
-                        if candidate_list[candidate_node][0] == min_cost:
-                            shortest_path_tree[candidate_node] = candidate_list[candidate_node]
-                            candidate_list.pop(candidate_node)
-                            break
-
-            if type(newest_vertex_lsa.body).__name__ == 'Network':  # Vertex is a transit network
-                subnet_address = utils.Utils.ip_address_to_prefix(
-                    newest_vertex_lsa.header.link_state_id, newest_vertex_lsa.body.network_mask)
-                routing_table_entry = new_routing_table.get_entry(
-                    conf.DESTINATION_TYPE_NETWORK, subnet_address, self.area_id)
-                if routing_table_entry is not None:
-                    if shortest_path_tree[newest_vertex][0] <= routing_table_entry.paths[0].cost:
-                        new_routing_table.delete_entry(conf.DESTINATION_TYPE_NETWORK, subnet_address, self.area_id)
-                new_routing_table.add_entry(conf.DESTINATION_TYPE_NETWORK, subnet_address,
-                                            newest_vertex_lsa.body.network_mask, 0, self.area_id)
-                routing_table_entry = new_routing_table.get_entry(
-                    conf.DESTINATION_TYPE_NETWORK, subnet_address, self.area_id)
-                next_hop_list = shortest_path_tree[newest_vertex][2]
-                for next_hop in next_hop_list:
-                    routing_table_entry.add_path(
-                        conf.INTRA_AREA_PATH, shortest_path_tree[newest_vertex][0], 0, next_hop, '')
-
-        #  2nd step - Adding stub networks to the shortest path tree
-
-        for vertex in shortest_path_tree:
-            if type(shortest_path_tree[vertex][1].body).__name__ == 'Router':  # Vertex is a router
-                router_lsa = self.get_lsa(conf.LSA_TYPE_ROUTER, vertex, vertex, interfaces)
-                for link_info in router_lsa.body.links:  # Point-to-point links and stub networks
-                    if link_info[2] == conf.LINK_TO_STUB_NETWORK:
-                        cost = shortest_path_tree[vertex][0] + link_info[4]
-                        subnet_address = link_info[0]
-                        routing_table_entry = new_routing_table.get_entry(
-                            conf.DESTINATION_TYPE_NETWORK, subnet_address, self.area_id)
-                        next_hop_list = self.get_next_hop(vertex, subnet_address, root_router_id, directed_graph,
-                                                          shortest_path_tree, prefixes, interfaces)
-                        if routing_table_entry is not None:
-                            if cost > routing_table_entry.paths[0].cost:
-                                continue  # New cost is higher than already known cost
-                            elif cost == routing_table_entry.paths[0].cost:
-                                #  New next hops are added to the already known next hops
-                                for next_hop in next_hop_list:
-                                    #  Next hop contains outgoing IP address and, if any, next hop IP address
-                                    routing_table_entry.add_path(conf.INTRA_AREA_PATH, cost, 0, next_hop, '')
-                                continue
-                            else:
-                                new_routing_table.delete_entry(
-                                    conf.DESTINATION_TYPE_NETWORK, subnet_address, self.area_id)
-                        new_routing_table.add_entry(conf.DESTINATION_TYPE_NETWORK, subnet_address, link_info[1], 0,
-                                                    self.area_id)
-                        routing_table_entry = new_routing_table.get_entry(
-                            conf.DESTINATION_TYPE_NETWORK, subnet_address, self.area_id)
-                        for next_hop in next_hop_list:
-                            routing_table_entry.add_path(conf.INTRA_AREA_PATH, cost, 0, next_hop, '')
-
-        return new_routing_table
-
-    #  Returns outgoing interface and next hop IP address to reach a destination in the network from this router (root)
-    #  Parent node and destination node must be in the same link
-    def get_next_hop(self, parent_node_id, destination_node_id, root_router_id, directed_graph, shortest_path_tree,
-                     prefixes, interfaces):
-        next_hop_list = []
-        #  Root connected by point-to-point link OR destination is network connected to root
-        if (destination_node_id in directed_graph[root_router_id]) | (destination_node_id in prefixes[root_router_id]):
-            for link_info in self.get_lsa(conf.LSA_TYPE_ROUTER, root_router_id, root_router_id, interfaces).body.links:
-                link_id = link_info[0]
-                outgoing_interface = ''
-                if link_info[2] in [conf.POINT_TO_POINT_LINK, conf.LINK_TO_TRANSIT_NETWORK]:
-                    outgoing_interface = link_info[1]
-                else:  # Stub network
-                    for interface in interfaces:
-                        if utils.Utils.ip_address_to_prefix(interface.ipv4_address, interface.network_mask) == link_id:
-                            outgoing_interface = interface.ipv4_address
-                if link_id == destination_node_id:
-                    next_hop_list.append([outgoing_interface, ''])
-        #  Root and destination in same transit link
-        elif (root_router_id in directed_graph[parent_node_id]) & (
-                destination_node_id in directed_graph[parent_node_id]):
-            for network_lsa in self.network_lsa_list:
-                if parent_node_id == network_lsa.header.link_state_id:  # Parent node is transit link
-                    for link_info in self.get_lsa(
-                            conf.LSA_TYPE_ROUTER, destination_node_id, destination_node_id, interfaces).body.links:
-                        link_id = link_info[0]
-                        link_data = link_info[1]
-                        if link_id == parent_node_id:
-                            destination_ip_address = link_data
-                            for next_hop in copy.deepcopy(shortest_path_tree[parent_node_id][2]):
-                                next_hop[1] = destination_ip_address
-                                next_hop_list.append(next_hop)
-        #  Root and destination in different links
-        else:
-            for next_hop in shortest_path_tree[parent_node_id][2]:
-                next_hop_list.append(next_hop)
-        return next_hop_list
+            #  Updating labels and parent nodes
+            for destination in directed_graph[closest_node]:
+                if destination not in shortest_path_tree:
+                    potential_new_cost = shortest_path_tree[closest_node][0] + directed_graph[closest_node][destination]
+                    if potential_new_cost < nodes_to_analyse[destination][0]:
+                        nodes_to_analyse[destination][0] = potential_new_cost
+                        nodes_to_analyse[destination][1] = closest_node
