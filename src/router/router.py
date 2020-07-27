@@ -10,6 +10,7 @@ import area.area as area
 import packet.packet as packet
 import lsa.lsa as lsa
 import lsa.header as header
+import router.routing_table as routing_table
 
 '''
 This class contains the top-level OSPF data structures and operations
@@ -43,6 +44,7 @@ class Router:
             for interface_id in self.areas[area_id].interfaces:
                 self.interfaces[interface_id] = self.areas[area_id].interfaces[interface_id]
         self.max_ip_datagram = conf.MTU
+        self.routing_table = routing_table.RoutingTable()
 
         #  Implementation-specific parameters
 
@@ -190,6 +192,253 @@ class Router:
 
         #  Router signalled to shutdown
         self.shutdown_router()
+
+    #  Returns a routing table with intra-area routers given a shortest path tree and the corresponding prefixes
+    def get_intra_area_routing_table(self, shortest_path_tree_dictionary, prefixes):
+        table = routing_table.RoutingTable()
+        for area_id in self.areas:
+            #  Initialization
+
+            query_area = self.areas[area_id]
+            lsdb = query_area.database
+            shortest_path_tree = shortest_path_tree_dictionary[area_id]
+            interface_array = []
+            for interface_id in query_area.interfaces:
+                interface_array.append(query_area.interfaces[interface_id][area.INTERFACE_OBJECT])
+            prefixes_with_costs = {}
+            for node_id in prefixes:
+                prefixes_with_costs[node_id] = {}
+            next_hop_info = {}
+
+            #  Associating prefixes with nodes and costs
+
+            for node_id in prefixes:
+                for prefix in prefixes[node_id]:
+                    if self.ospf_version == conf.VERSION_IPV4:
+                        node_lsa = lsdb.get_lsa(conf.LSA_TYPE_ROUTER, node_id, node_id, interface_array)
+                        if node_lsa is not None:  # Router node
+                            for link_info in node_lsa.body.links:
+                                if (link_info[2] == conf.LINK_TO_STUB_NETWORK) & (link_info[0] == prefix):
+                                    prefix_length = utils.Utils.get_prefix_length_from_prefix(link_info[1])
+                                    options = node_lsa.header.options
+                                    table.add_entry(
+                                        conf.DESTINATION_TYPE_NETWORK, prefix, prefix_length, options, area_id)
+                                    #  Root to router + router to prefix
+                                    cost = shortest_path_tree[node_id][0] + link_info[4]
+                                    prefixes_with_costs[node_id][prefix] = [cost]
+                        else:  # Transit network node
+                            for network_lsa in lsdb.network_lsa_list:
+                                if network_lsa.header.link_state_id == node_id:
+                                    prefix_length = utils.Utils.get_prefix_length_from_prefix(
+                                        network_lsa.header.address_mask)
+                                    options = network_lsa.header.options
+                                    table.add_entry(
+                                        conf.DESTINATION_TYPE_NETWORK, prefix, prefix_length, options, area_id)
+                                    cost = shortest_path_tree[node_id][0]  # Root to network
+                                    prefixes_with_costs[node_id][prefix] = [cost]
+                    elif self.ospf_version == conf.VERSION_IPV6:
+                        node_lsa = lsdb.get_lsa(conf.LSA_TYPE_ROUTER, 0, node_id, interface_array)
+                        if node_lsa is not None:  # Router node
+                            options = node_lsa.body.options
+                            intra_area_prefix_lsa = lsdb.get_lsa(
+                                conf.LSA_TYPE_INTRA_AREA_PREFIX, 0, node_id, interface_array)
+                            for prefix_info in intra_area_prefix_lsa.body.prefixes:
+                                if prefix_info[3] == prefix:
+                                    prefix_length = prefix_info[0]
+                                    table.add_entry(
+                                        conf.DESTINATION_TYPE_NETWORK, prefix, prefix_length, options, area_id)
+                                    #  Root to router + router to prefix
+                                    cost = shortest_path_tree[node_id][0] + prefix_info[2]
+                                    prefixes_with_costs[node_id][prefix] = [cost]
+                        else:  # Transit network node
+                            router_id = node_id.split("|")[0]
+                            interface_id = node_id.split("|")[1]
+                            network_lsa = lsdb.get_lsa(conf.LSA_TYPE_NETWORK, interface_id, router_id, interface_array)
+                            options = network_lsa.header.options
+                            intra_area_prefix_lsa = lsdb.get_lsa(
+                                conf.LSA_TYPE_INTRA_AREA_PREFIX, interface_id, router_id, interface_array)
+                            for prefix_info in intra_area_prefix_lsa.body.prefixes:
+                                if prefix_info[3] == prefix:
+                                    prefix_length = prefix_info[0]
+                                    table.add_entry(
+                                        conf.DESTINATION_TYPE_NETWORK, prefix, prefix_length, options, area_id)
+                                    cost = shortest_path_tree[node_id][0]  # Root to network
+                                    prefixes_with_costs[node_id][prefix] = [cost]
+                    else:
+                        raise ValueError("Invalid OSPF version")
+
+            #  Finding the next hop information to reach nodes in the same links as the root node
+
+            root_id = ''
+            for node_id in shortest_path_tree:
+                if shortest_path_tree[node_id][1] == node_id:  # Only root node has itself as parent node
+                    root_id = node_id
+            for node_id in shortest_path_tree:
+                if (shortest_path_tree[node_id][1] == root_id) & (node_id != root_id):  # Node with root as parent node
+                    if self.ospf_version == conf.VERSION_IPV4:
+                        node_lsa = lsdb.get_lsa(conf.LSA_TYPE_ROUTER, node_id, node_id, interface_array)
+                        if node_lsa is not None:  # Node is a router - Root is connected through point-to-point link
+                            root_lsa = lsdb.get_lsa(conf.LSA_TYPE_ROUTER, root_id, root_id, interface_array)
+                            for link_info in root_lsa.body.links:
+                                if link_info[0] == node_id:
+                                    outgoing_interface_ip = link_info[1]
+                                    for query_interface in interface_array:
+                                        if outgoing_interface_ip == query_interface.ipv4_address:
+                                            outgoing_interface = query_interface.physical_identifier
+                                            next_hop_address = ''
+                                            next_hop_info[node_id] = [outgoing_interface, next_hop_address]
+                        else:  # Node is a transit network directly connected to root
+                            for network_lsa in lsdb.network_lsa_list:
+                                if node_id == network_lsa.header.link_state_id:
+                                    network_prefix = utils.Utils.ip_address_to_prefix(
+                                        network_lsa.header.link_state_id, network_lsa.body.network_mask)
+                                    for query_interface in interface_array:
+                                        interface_prefix = utils.Utils.ip_address_to_prefix(
+                                            query_interface.ipv4_address, query_interface.network_mask)
+                                        if network_prefix == interface_prefix:
+                                            outgoing_interface = query_interface.physical_identifier
+                                            next_hop_address = ''
+                                            next_hop_info[node_id] = [outgoing_interface, next_hop_address]
+                                            #  Routers in the shortest path tree having this network as parent node
+                                            for destination in shortest_path_tree:
+                                                if shortest_path_tree[destination][1] == node_id:
+                                                    destination_lsa = lsdb.get_lsa(
+                                                        conf.LSA_TYPE_ROUTER, destination, destination, interface_array)
+                                                    for link_info in destination_lsa.body.links:
+                                                        if link_info[0] == node_id:
+                                                            next_hop_address = link_info[1]
+                                                            next_hop_info[destination] = [
+                                                                outgoing_interface, next_hop_address]
+                    else:
+                        node_lsa = lsdb.get_lsa(conf.LSA_TYPE_ROUTER, 0, node_id, interface_array)
+                        root_lsa = lsdb.get_lsa(conf.LSA_TYPE_ROUTER, 0, root_id, interface_array)
+                        if node_lsa is not None:  # Node is a router - Root is connected through point-to-point link
+                            for link_info in root_lsa.body.links:
+                                if link_info[4] == node_id:
+                                    outgoing_interface_id = link_info[2]
+                                    for query_interface in interface_array:
+                                        if outgoing_interface_id == query_interface.ospf_identifier:
+                                            outgoing_interface = query_interface.physical_identifier
+                                            next_hop_address = ''
+                                            next_hop_info[node_id] = [outgoing_interface, next_hop_address]
+                        else:  # Node is a transit network directly connected to root
+                            dr_id = node_id.split("|")
+                            dr_interface_id = node_id.split("|")
+                            for link_info in root_lsa.body.links:
+                                if (link_info[4] == dr_id) & (link_info[3] == dr_interface_id):
+                                    outgoing_interface_id = link_info[2]
+                                    for query_interface in interface_array:
+                                        if outgoing_interface_id == query_interface.ospf_identifier:
+                                            outgoing_interface = query_interface.physical_identifier
+                                            next_hop_address = ''
+                                            next_hop_info[node_id] = [outgoing_interface, next_hop_address]
+                                            #  Routers in the shortest path tree having this network as parent node
+                                            for destination in shortest_path_tree:
+                                                if shortest_path_tree[destination][1] == node_id:
+                                                    destination_lsa = lsdb.get_lsa(
+                                                        conf.LSA_TYPE_ROUTER, 0, destination, interface_array)
+                                                    for destination_link_info in destination_lsa.body.links:
+                                                        if (destination_link_info[4] == dr_interface_id) & (
+                                                                destination_link_info[3] == dr_id):
+                                                            destination_interface_id = destination_link_info[2]
+                                                            destination_lsa = lsdb.get_lsa(
+                                                                conf.LSA_TYPE_LINK, destination_interface_id,
+                                                                destination)
+                                                            next_hop_address = destination_lsa.body.link_local_address
+                                                            next_hop_info[destination] = [
+                                                                outgoing_interface, next_hop_address]
+
+            #  Finding the next hop information to reach the remaining nodes
+
+            for node_id in shortest_path_tree:
+                if (node_id not in next_hop_info) & (node_id != root_id):
+                    parent_node = shortest_path_tree[node_id][1]
+                    while True:
+                        if parent_node in next_hop_info:
+                            next_hop_info[node_id] = next_hop_info[parent_node]
+                            break
+                        parent_node = shortest_path_tree[parent_node][1]
+
+            #  Associating prefixes with next hop information
+
+            for node_id in prefixes_with_costs:
+                if node_id == root_id:  # Prefixes in stub and point-to-point links connected to root router
+                    for prefix in prefixes_with_costs[root_id]:
+                        for query_interface in interface_array:
+                            if self.ospf_version == conf.VERSION_IPV4:
+                                if prefix == utils.Utils.ip_address_to_prefix(
+                                        query_interface.ipv4_address, query_interface.network_mask):
+                                    outgoing_interface = query_interface.physical_identifier
+                                    next_hop_address = ''
+                                    prefixes_with_costs[node_id][prefix].append(outgoing_interface)
+                                    prefixes_with_costs[node_id][prefix].append(next_hop_address)
+                            else:
+                                if prefix in query_interface.link_prefixes:
+                                    outgoing_interface = query_interface.physical_identifier
+                                    next_hop_address = ''
+                                    prefixes_with_costs[node_id][prefix].append(outgoing_interface)
+                                    prefixes_with_costs[node_id][prefix].append(next_hop_address)
+                else:
+                    for prefix in prefixes_with_costs[node_id]:
+                        outgoing_interface = next_hop_info[node_id][0]
+                        next_hop_address = next_hop_info[node_id][1]
+                        prefixes_with_costs[node_id][prefix].append(outgoing_interface)
+                        prefixes_with_costs[node_id][prefix].append(next_hop_address)
+
+            #  Creating the routing table
+
+            for node_id in prefixes_with_costs:
+                for prefix in prefixes_with_costs[node_id]:
+                    cost = prefixes_with_costs[node_id][prefix][0]
+                    outgoing_interface = prefixes_with_costs[node_id][prefix][1]
+                    next_hop_address = prefixes_with_costs[node_id][prefix][2]
+                    routing_table_entry = table.get_entry(conf.DESTINATION_TYPE_NETWORK, prefix, area_id)
+                    if len(routing_table_entry.paths) > 0:
+                        if cost < routing_table_entry.paths[0].cost:
+                            routing_table_entry.delete_all_paths()
+                        elif cost > routing_table_entry.paths[0].cost:
+                            continue
+                    routing_table_entry.add_path(
+                        conf.INTRA_AREA_PATH, cost, 0, outgoing_interface, next_hop_address, '')
+
+            return table
+
+        #  TODO
+        #  Find paths to reach prefixes
+
+        #  Entry information: destination_type, destination_id, prefix_length, options, area
+        #  Destination type - Always Network
+        #  Destination ID - Prefix
+        #  Address Mask -
+        #   If OSPFv2
+        #       If transit link - Network-LSA
+        #       If stub link or point-to-point link - Stub link in Router-LSA
+        #   If OSPFv3
+        #       If transit link - Intra-Area-Prefix LSA referring to Router-LSA
+        #       If stub link or point-to-point link - Intra-Area-Prefix LSA referring to Network-LSA
+        #  Options - Set to 0
+        #  Area - Obtained in the for cycle
+        #
+        #  Path information: path_type, cost, type_2_cost, outgoing_interface, next_hop_address, advertising_router
+        #  1 or 2 paths - Only 2 paths if point-to-point link with equal costs to prefix
+        #  Path Type - Always Intra-Area
+        #  Cost - Sum costs from prefix to root
+        #  Type 2 Cost - Always 0
+        #  Outgoing Interface - Discover interface that leads to shortest path to destination
+        #  Next Hop Address - Empty if destination is directly connected network
+        #  Advertising Router - Always empty
+        #  Elements: shortest path tree with parent nodes
+        #  All prefixes in the graph
+        #  Prefixes must be associated to shortest path tree elements
+        #  Also, for every node, outgoing interface and next hop IP address must be found
+        #  Next hop IP address not always applies - Will be empty
+        #  Goal: routing table with all paths
+        #  Required: prefixes to put, next hop address (can be empty), outgoing interface for every prefix in network
+        #  One entry per prefix
+        #  Entry can have more than one path
+        #  RFC suggestion: start by associating prefixes to transit nodes and routers
+        #  Then add the stub link prefixes
+        #  All of this must be done for each area the router is connected to
 
     #  Prints general protocol information
     def show_general_data(self):

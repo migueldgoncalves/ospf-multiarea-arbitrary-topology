@@ -234,3 +234,34 @@ class Utils:
             return str(ipaddress.IPv6Network((ip_address, prefix_length), strict=False).network_address)
         else:
             raise ValueError("Invalid IP address")
+
+    #  Given a prefix, returns its length
+    @staticmethod
+    def get_prefix_length_from_prefix(prefix):
+        if Utils.is_ipv4_network_mask(prefix):
+            prefix = Utils.ipv4_to_decimal(prefix)
+            prefix_length = 4 * conf.BYTE_SIZE
+        elif Utils.is_ipv6_network_mask(prefix):
+            prefix = Utils.ipv6_to_decimal(prefix)
+            prefix_length = 16 * conf.BYTE_SIZE
+        else:
+            raise ValueError("Invalid prefix")
+        host_bits = 0
+        while True:
+            if prefix & (2 ** host_bits) != 0:
+                return prefix_length - host_bits
+            host_bits += 1
+
+    #  Given a prefix length and a OSPF version, returns the prefix
+    @staticmethod
+    def get_prefix_from_prefix_length(prefix_length, version):
+        if version == conf.VERSION_IPV4:
+            bits_to_clear = 4 * conf.BYTE_SIZE - prefix_length
+            decimal_prefix = (conf.MAX_VALUE_32_BITS >> bits_to_clear) << bits_to_clear
+            return Utils.decimal_to_ipv4(decimal_prefix)
+        elif version == conf.VERSION_IPV6:
+            bits_to_clear = 16 * conf.BYTE_SIZE - prefix_length
+            decimal_prefix = (conf.MAX_VALUE_128_BITS >> bits_to_clear) << bits_to_clear
+            return Utils.decimal_to_ipv6(decimal_prefix)
+        else:
+            raise ValueError("Invalid OSPF version")

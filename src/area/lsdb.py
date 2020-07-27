@@ -1,11 +1,9 @@
 import threading
 import time
-import copy
 
 import conf.conf as conf
 import lsa.lsa as lsa
 import general.utils as utils
-import router.routing_table as routing_table
 
 '''
 This class represents the OSPF Link State Database and contains its data and operations
