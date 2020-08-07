@@ -94,7 +94,8 @@ class RoutingTableEntry:
     def parameter_validation(destination_type, destination_id, prefix_length, options, area):
         if destination_type not in [conf.DESTINATION_TYPE_ROUTER, conf.DESTINATION_TYPE_NETWORK]:
             return False, "Invalid Destination Type"
-        if (not utils.Utils.is_ipv4_address(destination_id)) | (destination_id == '0.0.0.0'):
+        if (not (utils.Utils.is_ipv4_address(destination_id) | utils.Utils.is_ipv6_address(destination_id))) | (
+                destination_id == '0.0.0.0') | (destination_id == '::'):
             return False, "Invalid Destination ID"
         if (not (0 <= prefix_length <= 4 * conf.BYTE_SIZE)) & (utils.Utils.is_ipv4_address(destination_id)):
             return False, "Invalid Network Mask"

@@ -373,11 +373,12 @@ class Router:
                                     prefixes_with_costs[node_id][prefix].append(outgoing_interface)
                                     prefixes_with_costs[node_id][prefix].append(next_hop_address)
                             else:
-                                if prefix in query_interface.link_prefixes:
-                                    outgoing_interface = query_interface.physical_identifier
-                                    next_hop_address = ''
-                                    prefixes_with_costs[node_id][prefix].append(outgoing_interface)
-                                    prefixes_with_costs[node_id][prefix].append(next_hop_address)
+                                for prefix_info in query_interface.link_prefixes:  # Includes prefix and prefix length
+                                    if prefix_info[0] == prefix:
+                                        outgoing_interface = query_interface.physical_identifier
+                                        next_hop_address = ''
+                                        prefixes_with_costs[node_id][prefix].append(outgoing_interface)
+                                        prefixes_with_costs[node_id][prefix].append(next_hop_address)
                 else:
                     for prefix in prefixes_with_costs[node_id]:
                         outgoing_interface = next_hop_info[node_id][0]

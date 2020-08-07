@@ -1,5 +1,6 @@
 import unittest
 import threading
+import time
 
 import router.routing_table as routing_table
 import router.router as router
@@ -15,7 +16,7 @@ This class tests the OSPF routing table classes and their operations
 '''
 
 
-#  Full successful run - Instant
+#  Full successful run - 1-2 s
 class TestRoutingTable(unittest.TestCase):
 
     def setUp(self):
@@ -116,35 +117,35 @@ class TestRoutingTable(unittest.TestCase):
 
         #  Implementation requires physical interface identifier for OSPFv3 to match a VM interface
         self.interface_r1_f0_0_v3 = interface.Interface(
-            self.router_id_1, 'ens33', '', self.r1_f0_0_v3, '', [self.prefix_3_v3], conf.BACKBONE_AREA, None, None,
-            conf.VERSION_IPV6, None, False)
+            self.router_id_1, 'ens33', '', self.r1_f0_0_v3, '', [[self.prefix_3_v3, self.prefix_length]],
+            conf.BACKBONE_AREA, None, None, conf.VERSION_IPV6, None, False)
         self.interface_r1_f0_1_v3 = interface.Interface(
-            self.router_id_1, 'ens33', '', self.r1_f0_1_v3, '', [self.prefix_2_v3], conf.BACKBONE_AREA, None, None,
-            conf.VERSION_IPV6, None, False)
+            self.router_id_1, 'ens33', '', self.r1_f0_1_v3, '', [[self.prefix_2_v3, self.prefix_length]],
+            conf.BACKBONE_AREA, None, None, conf.VERSION_IPV6, None, False)
         self.interface_r1_f1_0_v3 = interface.Interface(
-            self.router_id_1, 'ens33', '', self.r1_f1_0_v3, '', [self.prefix_1_v3], conf.BACKBONE_AREA, None, None,
-            conf.VERSION_IPV6, None, False)
+            self.router_id_1, 'ens33', '', self.r1_f1_0_v3, '', [[self.prefix_1_v3, self.prefix_length]],
+            conf.BACKBONE_AREA, None, None, conf.VERSION_IPV6, None, False)
         self.interface_r1_s2_0_v3 = interface.Interface(
-            self.router_id_1, 'ens33', '', self.r1_s2_0_v3, '', [self.prefix_6_v3], conf.BACKBONE_AREA, None, None,
-            conf.VERSION_IPV6, None, False)
+            self.router_id_1, 'ens33', '', self.r1_s2_0_v3, '', [[self.prefix_6_v3, self.prefix_length]],
+            conf.BACKBONE_AREA, None, None, conf.VERSION_IPV6, None, False)
         self.interface_r2_f0_0_v3 = interface.Interface(
-            self.router_id_2, 'ens33', '', self.r2_f0_0_v3, '', [self.prefix_4_v3], conf.BACKBONE_AREA, None, None,
-            conf.VERSION_IPV6, None, False)
+            self.router_id_2, 'ens33', '', self.r2_f0_0_v3, '', [[self.prefix_4_v3, self.prefix_length]],
+            conf.BACKBONE_AREA, None, None, conf.VERSION_IPV6, None, False)
         self.interface_r2_f0_1_v3 = interface.Interface(
-            self.router_id_2, 'ens33', '', self.r2_f0_1_v3, '', [self.prefix_3_v3], conf.BACKBONE_AREA, None, None,
-            conf.VERSION_IPV6, None, False)
+            self.router_id_2, 'ens33', '', self.r2_f0_1_v3, '', [[self.prefix_3_v3, self.prefix_length]],
+            conf.BACKBONE_AREA, None, None, conf.VERSION_IPV6, None, False)
         self.interface_r2_f1_0_v3 = interface.Interface(
-            self.router_id_2, 'ens33', '', self.r2_f1_0_v3, '', [self.prefix_5_v3], conf.BACKBONE_AREA, None, None,
-            conf.VERSION_IPV6, None, False)
+            self.router_id_2, 'ens33', '', self.r2_f1_0_v3, '', [[self.prefix_5_v3, self.prefix_length]],
+            conf.BACKBONE_AREA, None, None, conf.VERSION_IPV6, None, False)
         self.interface_r3_f0_0_v3 = interface.Interface(
-            self.router_id_3, 'ens33', '', self.r3_f0_0_v3, '', [self.prefix_5_v3], conf.BACKBONE_AREA, None, None,
-            conf.VERSION_IPV6, None, False)
+            self.router_id_3, 'ens33', '', self.r3_f0_0_v3, '', [[self.prefix_5_v3, self.prefix_length]],
+            conf.BACKBONE_AREA, None, None, conf.VERSION_IPV6, None, False)
         self.interface_r3_s1_0_v3 = interface.Interface(
-            self.router_id_3, 'ens33', '', self.r3_s1_0_v3, '', [self.prefix_6_v3], conf.BACKBONE_AREA, None, None,
-            conf.VERSION_IPV6, None, False)
+            self.router_id_3, 'ens33', '', self.r3_s1_0_v3, '', [[self.prefix_6_v3, self.prefix_length]],
+            conf.BACKBONE_AREA, None, None, conf.VERSION_IPV6, None, False)
         self.interface_r4_e0_v3 = interface.Interface(
-            self.router_id_4, 'ens33', '', self.r4_e0_v3, '', [self.prefix_1_v3], conf.BACKBONE_AREA, None, None,
-            conf.VERSION_IPV6, None, False)
+            self.router_id_4, 'ens33', '', self.r4_e0_v3, '', [[self.prefix_1_v3, self.prefix_length]],
+            conf.BACKBONE_AREA, None, None, conf.VERSION_IPV6, None, False)
 
         self.interfaces_r1_v2 = [self.interface_r1_f0_0_v2, self.interface_r1_f0_1_v2, self.interface_r1_f1_0_v2,
                                  self.interface_r1_s2_0_v2]
@@ -729,7 +730,7 @@ class TestRoutingTable(unittest.TestCase):
                           router_id_3: [0, router_id_3], network_id_1: [cost, router_id_3]},
                          lsdb.Lsdb.get_shortest_path_tree(directed_graph, router_id_3))
 
-    #  Successful run - Instant
+    #  Successful run - 1-2 s
     def test_get_intra_area_routing_table(self):
         #  Startup
 
@@ -743,8 +744,11 @@ class TestRoutingTable(unittest.TestCase):
         thread_v3 = threading.Thread(target=router_v3.main_loop)
         thread_v2.start()
         thread_v3.start()
-        lsdb_v2 = router_v2.areas[conf.BACKBONE_AREA].database
-        lsdb_v3 = router_v3.areas[conf.BACKBONE_AREA].database
+        time.sleep(1)
+        lsdb_v2 = lsdb.Lsdb(conf.VERSION_IPV4, conf.BACKBONE_AREA)
+        lsdb_v3 = lsdb.Lsdb(conf.VERSION_IPV6, conf.BACKBONE_AREA)
+        router_v2.areas[conf.BACKBONE_AREA].database = lsdb_v2  # Overwriting the router LSDB
+        router_v3.areas[conf.BACKBONE_AREA].database = lsdb_v3
         interface_v2 = router_v2.areas[conf.BACKBONE_AREA].interfaces['ens33'][area.INTERFACE_OBJECT]
         interface_v3 = router_v3.areas[conf.BACKBONE_AREA].interfaces['ens33'][area.INTERFACE_OBJECT]
 
@@ -759,15 +763,15 @@ class TestRoutingTable(unittest.TestCase):
             directed_graph, self.router_id_4)}
         table = router_v2.get_intra_area_routing_table(shortest_path_tree_dictionary, prefixes)
         self.assertEqual(1, len(table.entries))
-        entry = table.get_entry(conf.DESTINATION_TYPE_NETWORK, self.prefix_1_v2, conf.BACKBONE_AREA)
-        self.assertIsNotNone(entry)
-        self.assertEqual(conf.DESTINATION_TYPE_NETWORK, entry.destination_type)
-        self.assertEqual(self.prefix_1_v2, entry.destination_id)
-        self.assertEqual(utils.Utils.get_prefix_length_from_prefix(self.network_mask), entry.prefix_length)
-        self.assertEqual(conf.OPTIONS, entry.options)
-        self.assertEqual(conf.BACKBONE_AREA, entry.area)
-        self.assertEqual(1, len(entry.paths))
-        path = entry.get_path('ens33', '', '')
+        entry_1 = table.get_entry(conf.DESTINATION_TYPE_NETWORK, self.prefix_1_v2, conf.BACKBONE_AREA)
+        self.assertIsNotNone(entry_1)
+        self.assertEqual(conf.DESTINATION_TYPE_NETWORK, entry_1.destination_type)
+        self.assertEqual(self.prefix_1_v2, entry_1.destination_id)
+        self.assertEqual(utils.Utils.get_prefix_length_from_prefix(self.network_mask), entry_1.prefix_length)
+        self.assertEqual(conf.OPTIONS, entry_1.options)
+        self.assertEqual(conf.BACKBONE_AREA, entry_1.area)
+        self.assertEqual(1, len(entry_1.paths))
+        path = entry_1.get_path('ens33', '', '')
         self.assertIsNotNone(path)
         self.assertEqual(conf.INTRA_AREA_PATH, path.path_type)
         self.assertEqual(self.cost_broadcast_link, path.cost)
@@ -789,15 +793,15 @@ class TestRoutingTable(unittest.TestCase):
             directed_graph, self.router_id_4)}
         table = router_v3.get_intra_area_routing_table(shortest_path_tree_dictionary, prefixes)
         self.assertEqual(1, len(table.entries))
-        entry = table.get_entry(conf.DESTINATION_TYPE_NETWORK, self.prefix_1_v3, conf.BACKBONE_AREA)
-        self.assertIsNotNone(entry)
-        self.assertEqual(conf.DESTINATION_TYPE_NETWORK, entry.destination_type)
-        self.assertEqual(self.prefix_1_v3, entry.destination_id)
-        self.assertEqual(self.prefix_length, entry.prefix_length)
-        self.assertEqual(conf.OPTIONS, entry.options)
-        self.assertEqual(conf.BACKBONE_AREA, entry.area)
-        self.assertEqual(1, len(entry.paths))
-        path = entry.get_path('ens33', '', '')
+        entry_1 = table.get_entry(conf.DESTINATION_TYPE_NETWORK, self.prefix_1_v3, conf.BACKBONE_AREA)
+        self.assertIsNotNone(entry_1)
+        self.assertEqual(conf.DESTINATION_TYPE_NETWORK, entry_1.destination_type)
+        self.assertEqual(self.prefix_1_v3, entry_1.destination_id)
+        self.assertEqual(self.prefix_length, entry_1.prefix_length)
+        self.assertEqual(conf.OPTIONS, entry_1.options)
+        self.assertEqual(conf.BACKBONE_AREA, entry_1.area)
+        self.assertEqual(1, len(entry_1.paths))
+        path = entry_1.get_path('ens33', '', '')
         self.assertIsNotNone(path)
         self.assertEqual(conf.INTRA_AREA_PATH, path.path_type)
         self.assertEqual(self.cost_broadcast_link, path.cost)
@@ -805,6 +809,96 @@ class TestRoutingTable(unittest.TestCase):
         self.assertEqual('ens33', path.outgoing_interface)
         self.assertEqual('', path.next_hop_address)
         self.assertEqual('', path.advertising_router)
+
+        self.lsdb_v2.clean_lsdb([interface_v2])
+        self.lsdb_v3.clean_lsdb([interface_v3])
+
+        #  1 router (1.1.1.1)
+
+        router_v2.areas[conf.BACKBONE_AREA].interfaces['f0/1'] = [self.interface_r1_f0_1_v2, None, None, None]
+        router_v2.areas[conf.BACKBONE_AREA].interfaces['f0/0'] = [self.interface_r1_f0_0_v2, None, None, None]
+        router_v2.areas[conf.BACKBONE_AREA].interfaces['s2/0'] = [self.interface_r1_s2_0_v2, None, None, None]
+        self.router_lsa_1_v2.add_link_info_v2(
+            self.prefix_1_v2, self.network_mask, conf.LINK_TO_STUB_NETWORK, conf.DEFAULT_TOS, self.cost_broadcast_link)
+        self.router_lsa_1_v2.add_link_info_v2(
+            self.prefix_2_v2, self.network_mask, conf.LINK_TO_STUB_NETWORK, conf.DEFAULT_TOS, self.cost_broadcast_link)
+        self.router_lsa_1_v2.add_link_info_v2(
+            self.prefix_3_v2, self.network_mask, conf.LINK_TO_STUB_NETWORK, conf.DEFAULT_TOS, self.cost_broadcast_link)
+        self.router_lsa_1_v2.add_link_info_v2(
+            self.prefix_6_v2, self.network_mask, conf.LINK_TO_STUB_NETWORK, conf.DEFAULT_TOS, self.cost_broadcast_link)
+        lsdb_v2.router_lsa_list.append(self.router_lsa_1_v2)
+        directed_graph = {self.router_id_1: {}}
+        prefixes = {self.router_id_1: [self.prefix_1_v2, self.prefix_2_v2, self.prefix_3_v2, self.prefix_6_v2]}
+        shortest_path_tree_dictionary = {conf.BACKBONE_AREA: lsdb_v2.get_shortest_path_tree(
+            directed_graph, self.router_id_1)}
+        table = router_v2.get_intra_area_routing_table(shortest_path_tree_dictionary, prefixes)
+        self.assertEqual(4, len(table.entries))
+        entry_1 = table.get_entry(conf.DESTINATION_TYPE_NETWORK, self.prefix_1_v2, conf.BACKBONE_AREA)
+        entry_2 = table.get_entry(conf.DESTINATION_TYPE_NETWORK, self.prefix_2_v2, conf.BACKBONE_AREA)
+        entry_3 = table.get_entry(conf.DESTINATION_TYPE_NETWORK, self.prefix_3_v2, conf.BACKBONE_AREA)
+        entry_6 = table.get_entry(conf.DESTINATION_TYPE_NETWORK, self.prefix_6_v2, conf.BACKBONE_AREA)
+        for data in [[entry_1, self.prefix_1_v2, 'ens33'], [entry_2, self.prefix_2_v2, 'f0/1'],
+                     [entry_3, self.prefix_3_v2, 'f0/0'], [entry_6, self.prefix_6_v2, 's2/0']]:
+            self.assertIsNotNone(data[0])
+            self.assertEqual(conf.DESTINATION_TYPE_NETWORK, data[0].destination_type)
+            self.assertEqual(data[1], data[0].destination_id)
+            self.assertEqual(utils.Utils.get_prefix_length_from_prefix(self.network_mask), data[0].prefix_length)
+            self.assertEqual(conf.OPTIONS, data[0].options)
+            self.assertEqual(conf.BACKBONE_AREA, data[0].area)
+            self.assertEqual(1, len(data[0].paths))
+            path = data[0].get_path(data[2], '', '')
+            self.assertIsNotNone(path)
+            self.assertEqual(conf.INTRA_AREA_PATH, path.path_type)
+            self.assertEqual(self.cost_broadcast_link, path.cost)
+            self.assertEqual(0, path.type_2_cost)
+            self.assertEqual(data[2], path.outgoing_interface)
+            self.assertEqual('', path.next_hop_address)
+            self.assertEqual('', path.advertising_router)
+
+        self.interface_r1_f0_1_v3.physical_identifier = 'f0/1'
+        self.interface_r1_f0_0_v3.physical_identifier = 'f0/0'
+        self.interface_r1_s2_0_v3.physical_identifier = 's2/0'
+        router_v3.areas[conf.BACKBONE_AREA].interfaces['f0/1'] = [self.interface_r1_f0_1_v3, None, None, None]
+        router_v3.areas[conf.BACKBONE_AREA].interfaces['f0/0'] = [self.interface_r1_f0_0_v3, None, None, None]
+        router_v3.areas[conf.BACKBONE_AREA].interfaces['s2/0'] = [self.interface_r1_s2_0_v3, None, None, None]
+        lsdb_v3.router_lsa_list.append(self.router_lsa_1_v3)
+        for prefix in [self.prefix_1_v3, self.prefix_2_v3, self.prefix_3_v3, self.prefix_6_v3]:
+            self.intra_area_prefix_lsa_r1.add_prefix_info(
+                self.prefix_length, self.prefix_options, self.cost_broadcast_link, prefix,
+                conf.LSA_TYPE_INTRA_AREA_PREFIX)
+        lsdb_v3.intra_area_prefix_lsa_list.append(self.intra_area_prefix_lsa_r1)
+        for data in [[self.link_lsa_r1_1, self.prefix_1_v3], [self.link_lsa_r1_2, self.prefix_2_v3],
+                     [self.link_lsa_r1_3, self.prefix_3_v3], [self.link_lsa_r1_6, self.prefix_6_v3]]:
+            data[0].add_prefix_info(
+                self.prefix_length, self.prefix_options, self.cost_broadcast_link, data[1], conf.LSA_TYPE_LINK)
+            interface_v3.link_local_lsa_list.append(data[0])
+        directed_graph = {self.router_id_1: {}}
+        prefixes = {self.router_id_1: [self.prefix_1_v3, self.prefix_2_v3, self.prefix_3_v3, self.prefix_6_v3]}
+        shortest_path_tree_dictionary = {conf.BACKBONE_AREA: lsdb_v3.get_shortest_path_tree(
+            directed_graph, self.router_id_1)}
+        table = router_v3.get_intra_area_routing_table(shortest_path_tree_dictionary, prefixes)
+        self.assertEqual(4, len(table.entries))
+        entry_1 = table.get_entry(conf.DESTINATION_TYPE_NETWORK, self.prefix_1_v3, conf.BACKBONE_AREA)
+        entry_2 = table.get_entry(conf.DESTINATION_TYPE_NETWORK, self.prefix_2_v3, conf.BACKBONE_AREA)
+        entry_3 = table.get_entry(conf.DESTINATION_TYPE_NETWORK, self.prefix_3_v3, conf.BACKBONE_AREA)
+        entry_6 = table.get_entry(conf.DESTINATION_TYPE_NETWORK, self.prefix_6_v3, conf.BACKBONE_AREA)
+        for data in [[entry_1, self.prefix_1_v3, 'ens33'], [entry_2, self.prefix_2_v3, 'f0/1'],
+                     [entry_3, self.prefix_3_v3, 'f0/0'], [entry_6, self.prefix_6_v3, 's2/0']]:
+            self.assertIsNotNone(data[0])
+            self.assertEqual(conf.DESTINATION_TYPE_NETWORK, data[0].destination_type)
+            self.assertEqual(data[1], data[0].destination_id)
+            self.assertEqual(self.prefix_length, data[0].prefix_length)
+            self.assertEqual(conf.OPTIONS, data[0].options)
+            self.assertEqual(conf.BACKBONE_AREA, data[0].area)
+            self.assertEqual(1, len(data[0].paths))
+            path = data[0].get_path(data[2], '', '')
+            self.assertIsNotNone(path)
+            self.assertEqual(conf.INTRA_AREA_PATH, path.path_type)
+            self.assertEqual(self.cost_broadcast_link, path.cost)
+            self.assertEqual(0, path.type_2_cost)
+            self.assertEqual(data[2], path.outgoing_interface)
+            self.assertEqual('', path.next_hop_address)
+            self.assertEqual('', path.advertising_router)
 
         self.lsdb_v2.clean_lsdb([interface_v2])
         self.lsdb_v3.clean_lsdb([interface_v3])
