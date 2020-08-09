@@ -230,7 +230,7 @@ class Router:
                             for network_lsa in lsdb.network_lsa_list:
                                 if network_lsa.header.link_state_id == node_id:
                                     prefix_length = utils.Utils.get_prefix_length_from_prefix(
-                                        network_lsa.header.address_mask)
+                                        network_lsa.body.network_mask)
                                     options = network_lsa.header.options
                                     table.add_entry(
                                         conf.DESTINATION_TYPE_NETWORK, prefix, prefix_length, options, area_id)
@@ -254,7 +254,7 @@ class Router:
                             router_id = node_id.split("|")[0]
                             interface_id = node_id.split("|")[1]
                             network_lsa = lsdb.get_lsa(conf.LSA_TYPE_NETWORK, interface_id, router_id, interface_array)
-                            options = network_lsa.header.options
+                            options = network_lsa.body.options
                             intra_area_prefix_lsa = lsdb.get_lsa(
                                 conf.LSA_TYPE_INTRA_AREA_PREFIX, interface_id, router_id, interface_array)
                             for prefix_info in intra_area_prefix_lsa.body.prefixes:
@@ -322,8 +322,8 @@ class Router:
                                             next_hop_address = ''
                                             next_hop_info[node_id] = [outgoing_interface, next_hop_address]
                         else:  # Node is a transit network directly connected to root
-                            dr_id = node_id.split("|")
-                            dr_interface_id = node_id.split("|")
+                            dr_id = node_id.split("|")[0]
+                            dr_interface_id = int(node_id.split("|")[1])
                             for link_info in root_lsa.body.links:
                                 if (link_info[4] == dr_id) & (link_info[3] == dr_interface_id):
                                     outgoing_interface_id = link_info[2]
@@ -338,12 +338,12 @@ class Router:
                                                     destination_lsa = lsdb.get_lsa(
                                                         conf.LSA_TYPE_ROUTER, 0, destination, interface_array)
                                                     for destination_link_info in destination_lsa.body.links:
-                                                        if (destination_link_info[4] == dr_interface_id) & (
-                                                                destination_link_info[3] == dr_id):
+                                                        if (destination_link_info[3] == dr_interface_id) & (
+                                                                destination_link_info[4] == dr_id):
                                                             destination_interface_id = destination_link_info[2]
                                                             destination_lsa = lsdb.get_lsa(
                                                                 conf.LSA_TYPE_LINK, destination_interface_id,
-                                                                destination)
+                                                                destination, interface_array)
                                                             next_hop_address = destination_lsa.body.link_local_address
                                                             next_hop_info[destination] = [
                                                                 outgoing_interface, next_hop_address]
@@ -403,43 +403,6 @@ class Router:
                         conf.INTRA_AREA_PATH, cost, 0, outgoing_interface, next_hop_address, '')
 
             return table
-
-        #  TODO
-        #  Find paths to reach prefixes
-
-        #  Entry information: destination_type, destination_id, prefix_length, options, area
-        #  Destination type - Always Network
-        #  Destination ID - Prefix
-        #  Address Mask -
-        #   If OSPFv2
-        #       If transit link - Network-LSA
-        #       If stub link or point-to-point link - Stub link in Router-LSA
-        #   If OSPFv3
-        #       If transit link - Intra-Area-Prefix LSA referring to Router-LSA
-        #       If stub link or point-to-point link - Intra-Area-Prefix LSA referring to Network-LSA
-        #  Options - Set to 0
-        #  Area - Obtained in the for cycle
-        #
-        #  Path information: path_type, cost, type_2_cost, outgoing_interface, next_hop_address, advertising_router
-        #  1 or 2 paths - Only 2 paths if point-to-point link with equal costs to prefix
-        #  Path Type - Always Intra-Area
-        #  Cost - Sum costs from prefix to root
-        #  Type 2 Cost - Always 0
-        #  Outgoing Interface - Discover interface that leads to shortest path to destination
-        #  Next Hop Address - Empty if destination is directly connected network
-        #  Advertising Router - Always empty
-        #  Elements: shortest path tree with parent nodes
-        #  All prefixes in the graph
-        #  Prefixes must be associated to shortest path tree elements
-        #  Also, for every node, outgoing interface and next hop IP address must be found
-        #  Next hop IP address not always applies - Will be empty
-        #  Goal: routing table with all paths
-        #  Required: prefixes to put, next hop address (can be empty), outgoing interface for every prefix in network
-        #  One entry per prefix
-        #  Entry can have more than one path
-        #  RFC suggestion: start by associating prefixes to transit nodes and routers
-        #  Then add the stub link prefixes
-        #  All of this must be done for each area the router is connected to
 
     #  Prints general protocol information
     def show_general_data(self):

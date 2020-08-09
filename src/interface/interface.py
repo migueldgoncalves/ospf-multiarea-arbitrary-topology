@@ -23,7 +23,7 @@ class Interface:
     DR = 'DR'
     BDR = 'BDR'
 
-    ospf_identifier = 0
+    ospf_identifier = 1
 
     def __init__(self, router_id, physical_identifier, ipv4_address, ipv6_address, network_mask, link_prefixes, area_id,
                  pipeline, interface_shutdown, version, lsdb, localhost):
@@ -33,10 +33,9 @@ class Interface:
         self.type = conf.BROADCAST_INTERFACE  # TODO: Create point-to-point interface
         self.state = conf.INTERFACE_STATE_DOWN
         self.physical_identifier = physical_identifier  # Ex: ens33 - Interface identifier given by the OS
-        #  Just for OSPFv3 - Interface identifier given by OSPF
-        if self.ospf_identifier == 0:
+        if version == conf.VERSION_IPV6:
+            self.ospf_identifier = Interface.ospf_identifier  # Just for OSPFv3 - Interface identifier given by OSPF
             Interface.ospf_identifier += 1
-            self.ospf_identifier = Interface.ospf_identifier
         self.ipv4_address = ipv4_address  # Just for OSPFv2
         self.ipv6_address = ipv6_address  # Just for OSPFv3 - Link-local address
         self.network_mask = network_mask  # Just for OSPFv2
