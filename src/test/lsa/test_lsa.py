@@ -75,6 +75,28 @@ class TestLsa(unittest.TestCase):
         link_lsa.add_prefix_info(64, 0, 0, '2001:db8:cafe:3::', conf.LSA_TYPE_LINK)
         self.assertEqual(lsa_bytes, link_lsa.pack_lsa())
 
+        #  Summary-LSA
+        lsa_bytes_3 = b'\x00\x14\x00\x03\xde\xde\x01\x00\x04\x04\x04\x04\x80\x00\x00\x01\xae\xd3\x00 \xff\xff\xff\x00' \
+                    b'\x00\x00\x00\n\x00\x00\x00\x00'
+        lsa_bytes_4 = b'\x00\x14\x00\x04\xde\xde\x01\x00\x04\x04\x04\x04\x80\x00\x00\x01\xa0\xe0\x00 \xff\xff\xff\x00' \
+                    b'\x00\x00\x00\n\x00\x00\x00\x00'
+        summary_lsa_3 = lsa.Lsa()
+        summary_lsa_4 = lsa.Lsa()
+        summary_lsa_3.create_header(20, 0, 3, '222.222.1.0', '4.4.4.4', 2147483649, conf.VERSION_IPV4)
+        summary_lsa_4.create_header(20, 0, 4, '222.222.1.0', '4.4.4.4', 2147483649, conf.VERSION_IPV4)
+        summary_lsa_3.create_summary_lsa_body('255.255.255.0', 10)
+        summary_lsa_4.create_summary_lsa_body('255.255.255.0', 10)
+        self.assertEqual(lsa_bytes_3, summary_lsa_3.pack_lsa())
+        self.assertEqual(lsa_bytes_4, summary_lsa_4.pack_lsa())
+
+        #  Inter-Area-Prefix LSA
+        lsa_bytes = b'\x00\x14\x20\x03\x00\x00\x00\x01\x04\x04\x04\x04\x80\x00\x00\x01H\xe1\x00\x24\x00\x00\x00\n\x40' \
+                    b'\x00\x00\x00\x20\x01\x0d\xb8\xca\xfe\x00\x01'
+        inter_area_prefix_lsa = lsa.Lsa()
+        inter_area_prefix_lsa.create_header(20, 0, 3, '0.0.0.1', '4.4.4.4', 2147483649, conf.VERSION_IPV6)
+        inter_area_prefix_lsa.create_inter_area_prefix_lsa_body(10, 64, 0, '2001:db8:cafe:1::')
+        self.assertEqual(lsa_bytes, inter_area_prefix_lsa.pack_lsa())
+
     #  Successful run - Instant
     def test_unpack_lsa(self):
         #  Router-LSA - OSPFv2
@@ -186,6 +208,51 @@ class TestLsa(unittest.TestCase):
         self.assertEqual('fe80::c001:18ff:fe34:0', unpacked_lsa.body.link_local_address)
         self.assertEqual(1, unpacked_lsa.body.prefix_number)
         self.assertEqual([[64, 0, '2001:db8:cafe:3::']], unpacked_lsa.body.prefixes)
+
+        #  Summary-LSA
+        lsa_bytes_3 = b'\x00\x14\x00\x03\xde\xde\x01\x00\x04\x04\x04\x04\x80\x00\x00\x01\xae\xd3\x00 \xff\xff\xff\x00' \
+                    b'\x00\x00\x00\n\x00\x00\x00\x00'
+        lsa_bytes_4 = b'\x00\x14\x00\x04\xde\xde\x01\x00\x04\x04\x04\x04\x80\x00\x00\x01\xa0\xe0\x00 \xff\xff\xff\x00' \
+                    b'\x00\x00\x00\n\x00\x00\x00\x00'
+        unpacked_lsa_3 = lsa.Lsa.unpack_lsa(lsa_bytes_3, conf.VERSION_IPV4)
+        unpacked_lsa_4 = lsa.Lsa.unpack_lsa(lsa_bytes_4, conf.VERSION_IPV4)
+        self.assertEqual(20, unpacked_lsa_3.header.ls_age)
+        self.assertEqual(20, unpacked_lsa_4.header.ls_age)
+        self.assertEqual(3, unpacked_lsa_3.header.ls_type)
+        self.assertEqual(4, unpacked_lsa_4.header.ls_type)
+        self.assertEqual('222.222.1.0', unpacked_lsa_3.header.link_state_id)
+        self.assertEqual('222.222.1.0', unpacked_lsa_4.header.link_state_id)
+        self.assertEqual('4.4.4.4', unpacked_lsa_3.header.advertising_router)
+        self.assertEqual('4.4.4.4', unpacked_lsa_4.header.advertising_router)
+        self.assertEqual(2147483649, unpacked_lsa_3.header.ls_sequence_number)
+        self.assertEqual(2147483649, unpacked_lsa_4.header.ls_sequence_number)
+        self.assertEqual(conf.VERSION_IPV4, unpacked_lsa_3.header.ospf_version)
+        self.assertEqual(conf.VERSION_IPV4, unpacked_lsa_4.header.ospf_version)
+        self.assertEqual(44755, unpacked_lsa_3.header.ls_checksum)
+        self.assertEqual(41184, unpacked_lsa_4.header.ls_checksum)
+        self.assertEqual(32, unpacked_lsa_3.header.length)
+        self.assertEqual(32, unpacked_lsa_4.header.length)
+        self.assertEqual('255.255.255.0', unpacked_lsa_3.body.network_mask)
+        self.assertEqual('255.255.255.0', unpacked_lsa_4.body.network_mask)
+        self.assertEqual(10, unpacked_lsa_3.body.metric)
+        self.assertEqual(10, unpacked_lsa_4.body.metric)
+
+        #  Inter-Area-Prefix LSA
+        lsa_bytes = b'\x00\x14\x20\x03\x00\x00\x00\x01\x04\x04\x04\x04\x80\x00\x00\x01H\xe1\x00\x24\x00\x00\x00\n\x40' \
+                    b'\x00\x00\x00\x20\x01\x0d\xb8\xca\xfe\x00\x01'
+        unpacked_lsa = lsa.Lsa.unpack_lsa(lsa_bytes, conf.VERSION_IPV6)
+        self.assertEqual(20, unpacked_lsa.header.ls_age)
+        self.assertEqual(0x2003, unpacked_lsa.header.ls_type)
+        self.assertEqual('0.0.0.1', unpacked_lsa.header.link_state_id)
+        self.assertEqual('4.4.4.4', unpacked_lsa.header.advertising_router)
+        self.assertEqual(2147483649, unpacked_lsa.header.ls_sequence_number)
+        self.assertEqual(conf.VERSION_IPV6, unpacked_lsa.header.ospf_version)
+        self.assertEqual(18657, unpacked_lsa.header.ls_checksum)
+        self.assertEqual(36, unpacked_lsa.header.length)
+        self.assertEqual(10, unpacked_lsa.body.metric)
+        self.assertEqual(64, unpacked_lsa.body.prefix_length)
+        self.assertEqual(0, unpacked_lsa.body.prefix_options)
+        self.assertEqual('2001:db8:cafe:1::', unpacked_lsa.body.address_prefix)
 
     #  Successful run - Instant
     def test_is_lsa_checksum_valid(self):

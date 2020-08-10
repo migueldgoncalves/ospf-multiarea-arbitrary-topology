@@ -6,6 +6,8 @@ import lsa.router as router
 import lsa.network as network
 import lsa.intra_area_prefix as intra_area_prefix
 import lsa.link as link
+import lsa.summary as summary
+import lsa.inter_area_prefix as inter_area_prefix
 import conf.conf as conf
 import general.utils as utils
 
@@ -74,6 +76,11 @@ class Lsa:
             lsa.body = intra_area_prefix.IntraAreaPrefix.unpack_lsa_body(body_bytes, 0)
         elif (lsa_type == conf.LSA_TYPE_LINK) & (lsa_version == conf.VERSION_IPV6):
             lsa.body = link.Link.unpack_lsa_body(body_bytes, 0)
+        elif (lsa_type in [conf.LSA_TYPE_SUMMARY_TYPE_3, conf.LSA_TYPE_SUMMARY_TYPE_4]) & (
+                lsa_version == conf.VERSION_IPV4):
+            lsa.body = summary.Summary.unpack_lsa_body(body_bytes, 0)
+        elif (lsa_type == conf.LSA_TYPE_INTER_AREA_PREFIX) & (lsa_version == conf.VERSION_IPV6):
+            lsa.body = inter_area_prefix.InterAreaPrefix.unpack_lsa_body(body_bytes, 0)
         else:
             pass
 
@@ -192,6 +199,18 @@ class Lsa:
             self.body.delete_prefix_info(prefix_length, prefix_options, prefix)
         else:
             raise ValueError("LSA Type must be Intra-Area-Prefix or Link for this method")
+        self.set_lsa_length()
+        self.set_lsa_checksum()
+
+    #  Adds an OSPFv2 Summary-LSA body to the LSA with the provided arguments
+    def create_summary_lsa_body(self, network_mask, metric):
+        self.body = summary.Summary(network_mask, metric)
+        self.set_lsa_length()
+        self.set_lsa_checksum()
+
+    #  Adds an OSPF Inter-Area-Prefix-LSA body to the LSA with the provided arguments
+    def create_inter_area_prefix_lsa_body(self, metric, prefix_length, prefix_options, address_prefix):
+        self.body = inter_area_prefix.InterAreaPrefix(metric, prefix_length, prefix_options, address_prefix)
         self.set_lsa_length()
         self.set_lsa_checksum()
 
