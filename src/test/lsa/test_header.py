@@ -282,6 +282,28 @@ class TestHeader(unittest.TestCase):
         self.assertEqual(3, header.Header.get_s1_s2_bits(32767))
 
     #  Successful run - Instant
+    def test_get_opaque_type(self):
+        self.assertEqual(0, header.Header.get_opaque_type(0))
+        self.assertEqual(0, header.Header.get_opaque_type(16777215))
+        self.assertEqual(1, header.Header.get_opaque_type(16777216))
+        self.assertEqual(1, header.Header.get_opaque_type(33554431))
+        self.assertEqual(2, header.Header.get_opaque_type(33554432))
+        self.assertEqual(127, header.Header.get_opaque_type(2147483647))
+        self.assertEqual(128, header.Header.get_opaque_type(2147483648))
+        self.assertEqual(255, header.Header.get_opaque_type(4294967295))
+
+    #  Successful run - Instant
+    def test_get_opaque_id(self):
+        self.assertEqual(0, header.Header.get_opaque_id(0))
+        self.assertEqual(1, header.Header.get_opaque_id(1))
+        self.assertEqual(16777214, header.Header.get_opaque_id(16777214))
+        self.assertEqual(16777215, header.Header.get_opaque_id(16777215))
+        self.assertEqual(0, header.Header.get_opaque_id(16777216))
+        self.assertEqual(1, header.Header.get_opaque_id(16777217))
+        self.assertEqual(0, header.Header.get_opaque_id(2147483648))
+        self.assertEqual(16777215, header.Header.get_opaque_id(4294967295))
+
+    #  Successful run - Instant
     def test_get_ls_type(self):
         self.assertEqual(0, header.Header.get_ls_type(0))
         self.assertEqual(conf.LSA_TYPE_ROUTER, header.Header.get_ls_type(1))

@@ -129,6 +129,16 @@ class Header:  # OSPFv2 and OSPFv3 - 20 bytes
         first_3_bits = ls_type >> 13
         return first_3_bits & 0x3  # S1 and S2 bits are respectively 3rd and 2nd bits of LS Type in OSPFv3
 
+    #  Returns Opaque Type from Link State ID value in OSPFv2 Opaque-LSA header
+    @staticmethod
+    def get_opaque_type(link_state_id):
+        return link_state_id >> 24  # Opaque Type is 1st byte of Link State ID in Opaque-LSAs
+
+    #  Returns Opaque ID from Link State ID value in OSPFv2 Opaque-LSA header
+    @staticmethod
+    def get_opaque_id(link_state_id):
+        return link_state_id & conf.MAX_VALUE_24_BITS  # Opaque ID is stored in last 3 bytes of Link State ID
+
     #  Gets LS Type from broader LS Type value (in OSPFv3) or returns itself (OSPFv2)
     @staticmethod
     def get_ls_type(ls_type):

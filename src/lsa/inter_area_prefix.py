@@ -5,7 +5,7 @@ import general.utils as utils
 import conf.conf as conf
 
 '''
-This class tests the OSPF Inter-Area-Prefix-LSA body class and its operations
+This class represents the body of an OSPF Inter-Area-Prefix-LSA and contains its operations
 '''
 
 #  > - Big-endian
