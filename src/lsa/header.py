@@ -97,7 +97,8 @@ class Header:  # OSPFv2 and OSPFv3 - 20 bytes
                 return False, "Invalid options"
             if (version == conf.VERSION_IPV4) & (
                     ls_type not in [conf.LSA_TYPE_ROUTER, conf.LSA_TYPE_NETWORK, conf.LSA_TYPE_SUMMARY_TYPE_3,
-                                    conf.LSA_TYPE_SUMMARY_TYPE_4, conf.LSA_TYPE_AS_EXTERNAL]):
+                                    conf.LSA_TYPE_SUMMARY_TYPE_4, conf.LSA_TYPE_AS_EXTERNAL, conf.LSA_TYPE_OPAQUE_AS,
+                                    conf.LSA_TYPE_OPAQUE_LINK_LOCAL, conf.LSA_TYPE_OPAQUE_AREA]):
                 return False, "Invalid LS Type"
             if (version == conf.VERSION_IPV6) & ((ls_type <= 0) | (ls_type > conf.MAX_VALUE_16_BITS)):
                 return False, "Invalid LS Type"

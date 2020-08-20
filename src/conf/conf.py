@@ -46,7 +46,15 @@ LSA_TYPE_LINK = 8  # Just for OSPFv3
 LSA_TYPE_INTRA_AREA_PREFIX = 9  # Just for OSPFv3
 LSA_TYPE_OPAQUE_LINK_LOCAL = 9  # Just for OSPFv2
 LSA_TYPE_OPAQUE_AREA = 10  # Just for OSPFv2
+LSA_TYPE_EXTENSION_ABR_LSA = 10  # Just for OSPFv3
 LSA_TYPE_OPAQUE_AS = 11  # Just for OSPFv2
+LSA_TYPE_EXTENSION_PREFIX_LSA = 11 # Just for OSPFv3
+LSA_TYPE_EXTENSION_ASBR_LSA = 12  # Just for OSPFv3
+
+#  Opaque Types 1-9 are already used by other OSPF extensions
+OPAQUE_TYPE_ABR_LSA = 10
+OPAQUE_TYPE_PREFIX_LSA = 11
+OPAQUE_TYPE_ASBR_LSA = 12
 
 #  1st element in interface names tuple must match 1st element in interface areas tuple, and so on
 #  Ex: Interface "ens33" belongs to area '0.0.0.0'

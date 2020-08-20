@@ -1,6 +1,7 @@
 import unittest
 
 import lsa.extension_abr as extension_abr
+import conf.conf as conf
 
 '''
 This class tests the ABR-LSA body class of the OSPF extension and its operations
@@ -17,18 +18,30 @@ class TestExtensionAbr(unittest.TestCase):
                    b'\x00\x00\x00\x00\x04\x04\x04\x04'
 
     #  Successful run - Instant
-    def test_add_abr_info(self):
+    def test_add_abr_info_successful(self):
         lsa_body = extension_abr.ExtensionAbr()
         self.assertEqual(0, len(lsa_body.abr_list))
+        lsa_body.add_abr_info(0, '1.1.1.1')
+        self.assertEqual(1, len(lsa_body.abr_list))
+        self.assertEqual([[0, '1.1.1.1']], lsa_body.abr_list)
         lsa_body.add_abr_info(10, '1.1.1.1')
         self.assertEqual(1, len(lsa_body.abr_list))
-        self.assertEqual([[10, '1.1.1.1']], lsa_body.abr_list)
-        lsa_body.add_abr_info(20, '1.1.1.1')
-        self.assertEqual(1, len(lsa_body.abr_list))
-        self.assertEqual([[10, '1.1.1.1']], lsa_body.abr_list)
-        lsa_body.add_abr_info(30, '2.2.2.2')
+        self.assertEqual([[0, '1.1.1.1']], lsa_body.abr_list)
+        lsa_body.add_abr_info(conf.MAX_VALUE_24_BITS, '2.2.2.2')
         self.assertEqual(2, len(lsa_body.abr_list))
-        self.assertEqual([[10, '1.1.1.1'], [30, '2.2.2.2']], lsa_body.abr_list)
+        self.assertEqual([[0, '1.1.1.1'], [conf.MAX_VALUE_24_BITS, '2.2.2.2']], lsa_body.abr_list)
+
+    #  Successful run - Instant
+    def test_add_abr_info_invalid_parameters(self):
+        lsa_body = extension_abr.ExtensionAbr()
+        with self.assertRaises(ValueError):
+            lsa_body.add_abr_info(-1, '1.1.1.1')
+        with self.assertRaises(ValueError):
+            lsa_body.add_abr_info(conf.MAX_VALUE_24_BITS + 1, '1.1.1.1')
+        with self.assertRaises(ValueError):
+            lsa_body.add_abr_info(1, '')
+        with self.assertRaises(ValueError):
+            lsa_body.add_abr_info(1, '2001:db8:cafe:1::')
 
     #  Successful run - Instant
     def test_has_abr_info(self):

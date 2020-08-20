@@ -2,9 +2,23 @@ import struct
 
 import lsa.body as body
 import general.utils as utils
+import conf.conf as conf
 
 '''
 This class represents the body of an ABR-LSA of the OSPF extension and contains its operations
+
+     0         1         2         3     bytes
++---------+---------+---------+---------+
+|    0    |           Metric            |
++---------+---------+---------+---------+
+|           Neighbor Router ID          |
++---------+---------+---------+---------+
+|                  ...                  |
++---------+---------+---------+---------+
+|    0    |           Metric            |
++---------+---------+---------+---------+
+|           Neighbor Router ID          |
++---------+---------+---------+---------+
 '''
 
 #  > - Big-endian
@@ -19,6 +33,10 @@ class ExtensionAbr(body.Body):  # 8 bytes / ABR
 
     #  Adds data for one ABR to the LSA body
     def add_abr_info(self, metric, neighbor_router_id):
+        if not (0 <= metric <= conf.MAX_VALUE_24_BITS):
+            raise ValueError("Invalid Metric")
+        if not utils.Utils.is_ipv4_address(neighbor_router_id):
+            raise ValueError("Invalid Neighbor Router ID")
         abr_info = [metric, neighbor_router_id]
         if not self.has_abr_info(neighbor_router_id):
             self.abr_list.append(abr_info)

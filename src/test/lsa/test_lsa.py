@@ -3,6 +3,9 @@ import unittest
 import lsa.lsa as lsa
 import lsa.header as header
 import conf.conf as conf
+import general.utils as utils
+import general.sock as sock
+import packet.packet as packet
 
 '''
 This class tests the interface to LSA creation, storage and manipulation
@@ -12,13 +15,45 @@ This class tests the interface to LSA creation, storage and manipulation
 #  Full successful run - Instant
 class TestLsa(unittest.TestCase):
 
+    router_lsa_v2_bytes = b'\x00\x01"\x01\x01\x01\x01\x01\x01\x01\x01\x01\x80\x00\x00\x06\x0b\xb0\x00T\x00\x00\x00' \
+                          b'\x05\x03\x03\x03\x03\xde\xde\x06\x01\x01\x00\x00@\xde\xde\x06\x00\xff\xff\xff\x00\x03\x00' \
+                          b'\x00@\xde\xde\x03\x02\xde\xde\x03\x01\x02\x00\x00\n\xde\xde\x02\x00\xff\xff\xff\x00\x03' \
+                          b'\x00\x00\n\xde\xde\x01\x00\xff\xff\xff\x00\x03\x00\x00\x01'
+    router_lsa_v3_bytes = b'\x00\x01 \x01\x00\x00\x00\x00\x02\x02\x02\x02\x80\x00\x00\x07,\x80\x008\x00\x00\x003\x02' \
+                          b'\x00\x00\x01\x00\x00\x00\x06\x00\x00\x00\x04\x03\x03\x03\x03\x02\x00\x00\n\x00\x00\x00' \
+                          b'\x05\x00\x00\x00\x05\x02\x02\x02\x02'
+    network_lsa_v2_bytes = b'\x00\x01"\x02\xde\xde\x03\x02\x02\x02\x02\x02\x80\x00\x00\x01\xe0\x82\x00 \xff\xff\xff' \
+                           b'\x00\x02\x02\x02\x02\x01\x01\x01\x01'
+    network_lsa_v3_bytes = b'\x00\x01 \x02\x00\x00\x00\x05\x02\x02\x02\x02\x80\x00\x00\x02\xf6\xf7\x00 \x00\x00\x003' \
+                           b'\x02\x02\x02\x02\x01\x01\x01\x01'
+    intra_area_prefix_lsa_bytes = b'\x00\x01 \t\x00\x00\x00\x00\x02\x02\x02\x02\x80\x00\x00\x05\xa7L\x00,\x00\x01 ' \
+                                  b'\x01\x00\x00\x00\x00\x02\x02\x02\x02@\x00\x00\n \x01\r\xb8\xca\xfe\x00\x04'
+    link_lsa_bytes = b'\x00&\x00\x08\x00\x00\x00\x04\x01\x01\x01\x01\x80\x00\x00\x02\x80\xfe\x008\x01\x00\x003\xfe' \
+                     b'\x80\x00\x00\x00\x00\x00\x00\xc0\x01\x18\xff\xfe4\x00\x00\x00\x00\x00\x01@\x00\x00\x00 \x01\r' \
+                     b'\xb8\xca\xfe\x00\x03'
+    summary_lsa_3_bytes = b'\x00\x14\x00\x03\xde\xde\x01\x00\x04\x04\x04\x04\x80\x00\x00\x01\xae\xd3\x00 \xff\xff\xff' \
+                          b'\x00\x00\x00\x00\n\x00\x00\x00\x00'
+    summary_lsa_4_bytes = b'\x00\x14\x00\x04\xde\xde\x01\x00\x04\x04\x04\x04\x80\x00\x00\x01\xa0\xe0\x00 \xff\xff' \
+                          b'\xff\x00\x00\x00\x00\n\x00\x00\x00\x00'
+    inter_area_prefix_lsa_bytes = b'\x00\x14 \x03\x00\x00\x00\x01\x04\x04\x04\x04\x80\x00\x00\x01H\xe1\x00$\x00\x00' \
+                                  b'\x00\n@\x00\x00\x00 \x01\r\xb8\xca\xfe\x00\x01'
+    extension_abr_lsa_v2_bytes = b'\x00\x01\x00\x0b\x0a\x00\x00\x00\x04\x04\x04\x04\x80\x00\x00\x01*\xe0\x00$\x00' \
+                                 b'\x00\x00\n\x01\x01\x01\x01\x00\x00\x00\x14\x02\x02\x02\x02'
+    extension_abr_lsa_v3_bytes = b'\x00\n\xc0\n\x00\x00\x00\x00\x04\x04\x04\x04\x80\x00\x00\x02\xc7T\x00$\x00\x00' \
+                                 b'\x00\x1e\x03\x03\x03\x03\x00\x00\x00(\x04\x04\x04\x04'
+    extension_prefix_lsa_v2_bytes = b'\x00\n\x00\x0b\x0b\x00\x00\x00\x01\x01\x01\x01\x80\x00\x00\x01\xd3H\x00D\x00' \
+                                    b'\x00\x00\n\xff\xff\xff\x00\xde\xde\x01\x00\x00\x00\x00\x14\xff\xff\x00\x00\xde' \
+                                    b'\x01\x00\x00\x00\x00\x00\x1e\xff\x00\x00\x00\x01\x00\x00\x00\x00\x00\x00(\x00' \
+                                    b'\x00\x00\x00\x00\x00\x00\x00'
+    extension_prefix_lsa_v3_bytes = b'\x00\n\xc0\x0b\x00\x00\x00\x00\x04\x04\x04\x04\x80\x00\x00\x02Z\x06\x00h\x00' \
+                                    b'\x00\x00\x05\x00\x00\x00\n\x00\x00\x00\x00\x00\x00\x00\x14 \x00\x00\x00 \x01\r' \
+                                    b'\xb8\x00\x00\x00\x1e@\x00\x00\x00 \x01\r\xb8\xca\xfe\x00\x01\x00\x00\x00(`\x00' \
+                                    b'\x00\x00 \x01\r\xb8\xca\xfe\x00\x01\x00\x00\x00\x00\x00\x00\x002\x80\x00\x00' \
+                                    b'\x00 \x01\r\xb8\xca\xfe\x00\x01\x00\x00\x00\x00\x00\x00\x00\x00'
+
     #  Successful run - Instant
     def test_pack_lsa(self):
         #  Router-LSA - OSPFv2
-        lsa_bytes = b'\x00\x01"\x01\x01\x01\x01\x01\x01\x01\x01\x01\x80\x00\x00\x06\x0b\xb0\x00T\x00\x00\x00\x05\x03' \
-                     b'\x03\x03\x03\xde\xde\x06\x01\x01\x00\x00@\xde\xde\x06\x00\xff\xff\xff\x00\x03\x00\x00@\xde\xde' \
-                     b'\x03\x02\xde\xde\x03\x01\x02\x00\x00\n\xde\xde\x02\x00\xff\xff\xff\x00\x03\x00\x00\n\xde\xde' \
-                     b'\x01\x00\xff\xff\xff\x00\x03\x00\x00\x01'
         router_lsa = lsa.Lsa()
         router_lsa.create_header(1, 34, 1, '1.1.1.1', '1.1.1.1', 2147483654, conf.VERSION_IPV4)
         router_lsa.create_router_lsa_body(False, False, False, 0, conf.VERSION_IPV4)
@@ -27,84 +62,103 @@ class TestLsa(unittest.TestCase):
         router_lsa.add_link_info_v2('222.222.3.2', '222.222.3.1', 2, 0, 10)
         router_lsa.add_link_info_v2('222.222.2.0', '255.255.255.0', 3, 0, 10)
         router_lsa.add_link_info_v2('222.222.1.0', '255.255.255.0', 3, 0, 1)
-        self.assertEqual(lsa_bytes, router_lsa.pack_lsa())
+        self.assertEqual(TestLsa.router_lsa_v2_bytes, router_lsa.pack_lsa())
 
         #  Router-LSA - OSPFv3
-        lsa_bytes = b'\x00\x01 \x01\x00\x00\x00\x00\x02\x02\x02\x02\x80\x00\x00\x07,\x80\x008\x00\x00\x003\x02\x00' \
-                     b'\x00\x01\x00\x00\x00\x06\x00\x00\x00\x04\x03\x03\x03\x03\x02\x00\x00\n\x00\x00\x00\x05\x00\x00' \
-                     b'\x00\x05\x02\x02\x02\x02'
         router_lsa = lsa.Lsa()
         router_lsa.create_header(1, 0, 1, '0.0.0.0', '2.2.2.2', 2147483655, conf.VERSION_IPV6)
         router_lsa.create_router_lsa_body(False, False, False, 51, conf.VERSION_IPV6)
         router_lsa.add_link_info_v3(2, 1, 6, 4, '3.3.3.3')
         router_lsa.add_link_info_v3(2, 10, 5, 5, '2.2.2.2')
-        self.assertEqual(lsa_bytes, router_lsa.pack_lsa())
+        self.assertEqual(TestLsa.router_lsa_v3_bytes, router_lsa.pack_lsa())
 
         #  Network-LSA - OSPFv2
-        lsa_bytes = b'\x00\x01"\x02\xde\xde\x03\x02\x02\x02\x02\x02\x80\x00\x00\x01\xe0\x82\x00 \xff\xff\xff\x00\x02' \
-                     b'\x02\x02\x02\x01\x01\x01\x01'
         network_lsa = lsa.Lsa()
         network_lsa.create_header(1, 34, 2, '222.222.3.2', '2.2.2.2', 2147483649, conf.VERSION_IPV4)
         network_lsa.create_network_lsa_body('255.255.255.0', 0, ['2.2.2.2', '1.1.1.1'], conf.VERSION_IPV4)
-        self.assertEqual(lsa_bytes, network_lsa.pack_lsa())
+        self.assertEqual(TestLsa.network_lsa_v2_bytes, network_lsa.pack_lsa())
 
         #  Network-LSA - OSPFv3
-        lsa_bytes = b'\x00\x01 \x02\x00\x00\x00\x05\x02\x02\x02\x02\x80\x00\x00\x02\xf6\xf7\x00 \x00\x00\x003\x02' \
-                     b'\x02\x02\x02\x01\x01\x01\x01'
         network_lsa = lsa.Lsa()
         network_lsa.create_header(1, 0, 2, '0.0.0.5', '2.2.2.2', 2147483650, conf.VERSION_IPV6)
         network_lsa.create_network_lsa_body('', 51, ['2.2.2.2', '1.1.1.1'], conf.VERSION_IPV6)
-        self.assertEqual(lsa_bytes, network_lsa.pack_lsa())
+        self.assertEqual(TestLsa.network_lsa_v3_bytes, network_lsa.pack_lsa())
 
         #  Intra-Area-Prefix-LSA
-        lsa_bytes = b'\x00\x01 \t\x00\x00\x00\x00\x02\x02\x02\x02\x80\x00\x00\x05\xa7L\x00,\x00\x01 \x01\x00\x00\x00' \
-                     b'\x00\x02\x02\x02\x02@\x00\x00\n \x01\r\xb8\xca\xfe\x00\x04'
         intra_area_prefix_lsa = lsa.Lsa()
         intra_area_prefix_lsa.create_header(1, 0, 9, '0.0.0.0', '2.2.2.2', 2147483653, conf.VERSION_IPV6)
         intra_area_prefix_lsa.create_intra_area_prefix_lsa_body(1, '0.0.0.0', '2.2.2.2')
         intra_area_prefix_lsa.add_prefix_info(64, 0, 10, '2001:db8:cafe:4::', conf.LSA_TYPE_INTRA_AREA_PREFIX)
-        self.assertEqual(lsa_bytes, intra_area_prefix_lsa.pack_lsa())
+        self.assertEqual(TestLsa.intra_area_prefix_lsa_bytes, intra_area_prefix_lsa.pack_lsa())
 
         #  Link-LSA
-        lsa_bytes = b'\x00&\x00\x08\x00\x00\x00\x04\x01\x01\x01\x01\x80\x00\x00\x02\x80\xfe\x008\x01\x00\x003\xfe' \
-                     b'\x80\x00\x00\x00\x00\x00\x00\xc0\x01\x18\xff\xfe4\x00\x00\x00\x00\x00\x01@\x00\x00\x00 \x01\r' \
-                     b'\xb8\xca\xfe\x00\x03'
         link_lsa = lsa.Lsa()
         link_lsa.create_header(38, 0, 8, '0.0.0.4', '1.1.1.1', 2147483650, conf.VERSION_IPV6)
         link_lsa.create_link_lsa_body(1, 51, 'fe80::c001:18ff:fe34:0')
         link_lsa.add_prefix_info(64, 0, 0, '2001:db8:cafe:3::', conf.LSA_TYPE_LINK)
-        self.assertEqual(lsa_bytes, link_lsa.pack_lsa())
+        self.assertEqual(TestLsa.link_lsa_bytes, link_lsa.pack_lsa())
 
         #  Summary-LSA
-        lsa_bytes_3 = b'\x00\x14\x00\x03\xde\xde\x01\x00\x04\x04\x04\x04\x80\x00\x00\x01\xae\xd3\x00 \xff\xff\xff\x00' \
-                    b'\x00\x00\x00\n\x00\x00\x00\x00'
-        lsa_bytes_4 = b'\x00\x14\x00\x04\xde\xde\x01\x00\x04\x04\x04\x04\x80\x00\x00\x01\xa0\xe0\x00 \xff\xff\xff\x00' \
-                    b'\x00\x00\x00\n\x00\x00\x00\x00'
         summary_lsa_3 = lsa.Lsa()
         summary_lsa_4 = lsa.Lsa()
         summary_lsa_3.create_header(20, 0, 3, '222.222.1.0', '4.4.4.4', 2147483649, conf.VERSION_IPV4)
         summary_lsa_4.create_header(20, 0, 4, '222.222.1.0', '4.4.4.4', 2147483649, conf.VERSION_IPV4)
         summary_lsa_3.create_summary_lsa_body('255.255.255.0', 10)
         summary_lsa_4.create_summary_lsa_body('255.255.255.0', 10)
-        self.assertEqual(lsa_bytes_3, summary_lsa_3.pack_lsa())
-        self.assertEqual(lsa_bytes_4, summary_lsa_4.pack_lsa())
+        self.assertEqual(TestLsa.summary_lsa_3_bytes, summary_lsa_3.pack_lsa())
+        self.assertEqual(TestLsa.summary_lsa_4_bytes, summary_lsa_4.pack_lsa())
 
         #  Inter-Area-Prefix LSA
-        lsa_bytes = b'\x00\x14\x20\x03\x00\x00\x00\x01\x04\x04\x04\x04\x80\x00\x00\x01H\xe1\x00\x24\x00\x00\x00\n\x40' \
-                    b'\x00\x00\x00\x20\x01\x0d\xb8\xca\xfe\x00\x01'
         inter_area_prefix_lsa = lsa.Lsa()
         inter_area_prefix_lsa.create_header(20, 0, 3, '0.0.0.1', '4.4.4.4', 2147483649, conf.VERSION_IPV6)
         inter_area_prefix_lsa.create_inter_area_prefix_lsa_body(10, 64, 0, '2001:db8:cafe:1::')
-        self.assertEqual(lsa_bytes, inter_area_prefix_lsa.pack_lsa())
+        self.assertEqual(TestLsa.inter_area_prefix_lsa_bytes, inter_area_prefix_lsa.pack_lsa())
+
+        #  Extension ABR-LSA - OSPFv2
+        extension_abr_lsa = lsa.Lsa()
+        extension_abr_lsa.create_extension_header(
+            1, 0, conf.OPAQUE_TYPE_ABR_LSA, 0, '4.4.4.4', 2147483649, conf.VERSION_IPV4)
+        extension_abr_lsa.create_extension_abr_lsa_body()
+        extension_abr_lsa.add_abr_info(10, '1.1.1.1')
+        extension_abr_lsa.add_abr_info(20, '2.2.2.2')
+        self.assertEqual(TestLsa.extension_abr_lsa_v2_bytes, extension_abr_lsa.pack_lsa())
+
+        #  Extension ABR-LSA - OSPFv3
+        extension_abr_lsa = lsa.Lsa()
+        extension_abr_lsa.create_extension_header(
+            10, 0, 0, conf.LSA_TYPE_EXTENSION_ABR_LSA, '4.4.4.4', 2147483650, conf.VERSION_IPV6)
+        extension_abr_lsa.create_extension_abr_lsa_body()
+        extension_abr_lsa.add_abr_info(30, '3.3.3.3')
+        extension_abr_lsa.add_abr_info(40, '4.4.4.4')
+        self.assertEqual(TestLsa.extension_abr_lsa_v3_bytes, extension_abr_lsa.pack_lsa())
+
+        #  Extension Prefix-LSA - OSPFv2
+        extension_prefix_lsa = lsa.Lsa()
+        extension_prefix_lsa.create_extension_header(
+            10, 0, conf.OPAQUE_TYPE_PREFIX_LSA, 0, '1.1.1.1', 2147483649, conf.VERSION_IPV4)
+        extension_prefix_lsa.create_extension_prefix_lsa_body(conf.VERSION_IPV4)
+        extension_prefix_lsa.add_subnet_info(10, '255.255.255.0', '222.222.1.0')
+        extension_prefix_lsa.add_subnet_info(20, '255.255.0.0', '222.1.0.0')
+        extension_prefix_lsa.add_subnet_info(30, '255.0.0.0', '1.0.0.0')
+        extension_prefix_lsa.add_subnet_info(40, '0.0.0.0', '0.0.0.0')
+        self.assertEqual(TestLsa.extension_prefix_lsa_v2_bytes, extension_prefix_lsa.pack_lsa())
+
+        #  Extension Prefix-LSA - OSPFv3
+        extension_prefix_lsa = lsa.Lsa()
+        extension_prefix_lsa.create_extension_header(
+            10, 0, 0, conf.LSA_TYPE_EXTENSION_PREFIX_LSA, '4.4.4.4', 2147483650, conf.VERSION_IPV6)
+        extension_prefix_lsa.create_extension_prefix_lsa_body(conf.VERSION_IPV6)
+        extension_prefix_lsa.add_prefix_info_extension(10, 0, 0, '::')
+        extension_prefix_lsa.add_prefix_info_extension(20, 32, 0, '2001:db8::')
+        extension_prefix_lsa.add_prefix_info_extension(30, 64, 0, '2001:db8:cafe:1::')
+        extension_prefix_lsa.add_prefix_info_extension(40, 96, 0, '2001:db8:cafe:1::')
+        extension_prefix_lsa.add_prefix_info_extension(50, 128, 0, '2001:db8:cafe:1::')
+        self.assertEqual(TestLsa.extension_prefix_lsa_v3_bytes, extension_prefix_lsa.pack_lsa())
 
     #  Successful run - Instant
     def test_unpack_lsa(self):
         #  Router-LSA - OSPFv2
-        lsa_bytes = b'\x00\x01"\x01\x01\x01\x01\x01\x01\x01\x01\x01\x80\x00\x00\x06\x0b\xb0\x00T\x00\x00\x00\x05\x03' \
-                     b'\x03\x03\x03\xde\xde\x06\x01\x01\x00\x00@\xde\xde\x06\x00\xff\xff\xff\x00\x03\x00\x00@\xde\xde' \
-                     b'\x03\x02\xde\xde\x03\x01\x02\x00\x00\n\xde\xde\x02\x00\xff\xff\xff\x00\x03\x00\x00\n\xde\xde' \
-                     b'\x01\x00\xff\xff\xff\x00\x03\x00\x00\x01'
-        unpacked_lsa = lsa.Lsa.unpack_lsa(lsa_bytes, conf.VERSION_IPV4)
+        unpacked_lsa = lsa.Lsa.unpack_lsa(TestLsa.router_lsa_v2_bytes, conf.VERSION_IPV4)
         self.assertEqual(1, unpacked_lsa.header.ls_age)
         self.assertEqual(34, unpacked_lsa.header.options)
         self.assertEqual(1, unpacked_lsa.header.ls_type)
@@ -123,10 +177,7 @@ class TestLsa(unittest.TestCase):
                           ['222.222.1.0', '255.255.255.0', 3, 0, 1]], unpacked_lsa.body.links)
 
         #  Router-LSA - OSPFv3
-        lsa_bytes = b'\x00\x01 \x01\x00\x00\x00\x00\x02\x02\x02\x02\x80\x00\x00\x07,\x80\x008\x00\x00\x003\x02\x00' \
-                     b'\x00\x01\x00\x00\x00\x06\x00\x00\x00\x04\x03\x03\x03\x03\x02\x00\x00\n\x00\x00\x00\x05\x00\x00' \
-                     b'\x00\x05\x02\x02\x02\x02'
-        unpacked_lsa = lsa.Lsa.unpack_lsa(lsa_bytes, conf.VERSION_IPV6)
+        unpacked_lsa = lsa.Lsa.unpack_lsa(TestLsa.router_lsa_v3_bytes, conf.VERSION_IPV6)
         self.assertEqual(1, unpacked_lsa.header.ls_age)
         self.assertEqual(0x2001, unpacked_lsa.header.ls_type)
         self.assertEqual('0.0.0.0', unpacked_lsa.header.link_state_id)
@@ -142,9 +193,7 @@ class TestLsa(unittest.TestCase):
         self.assertEqual([[2, 1, 6, 4, '3.3.3.3'], [2, 10, 5, 5, '2.2.2.2']], unpacked_lsa.body.links)
 
         #  Network-LSA - OSPFv2
-        lsa_bytes = b'\x00\x01"\x02\xde\xde\x03\x02\x02\x02\x02\x02\x80\x00\x00\x01\xe0\x82\x00 \xff\xff\xff\x00\x02' \
-                     b'\x02\x02\x02\x01\x01\x01\x01'
-        unpacked_lsa = lsa.Lsa.unpack_lsa(lsa_bytes, conf.VERSION_IPV4)
+        unpacked_lsa = lsa.Lsa.unpack_lsa(TestLsa.network_lsa_v2_bytes, conf.VERSION_IPV4)
         self.assertEqual(1, unpacked_lsa.header.ls_age)
         self.assertEqual(34, unpacked_lsa.header.options)
         self.assertEqual(2, unpacked_lsa.header.ls_type)
@@ -158,9 +207,7 @@ class TestLsa(unittest.TestCase):
         self.assertEqual(['2.2.2.2', '1.1.1.1'], unpacked_lsa.body.attached_routers)
 
         #  Network-LSA - OSPFv3
-        lsa_bytes = b'\x00\x01 \x02\x00\x00\x00\x05\x02\x02\x02\x02\x80\x00\x00\x02\xf6\xf7\x00 \x00\x00\x003\x02' \
-                     b'\x02\x02\x02\x01\x01\x01\x01'
-        unpacked_lsa = lsa.Lsa.unpack_lsa(lsa_bytes, conf.VERSION_IPV6)
+        unpacked_lsa = lsa.Lsa.unpack_lsa(TestLsa.network_lsa_v3_bytes, conf.VERSION_IPV6)
         self.assertEqual(1, unpacked_lsa.header.ls_age)
         self.assertEqual(0x2002, unpacked_lsa.header.ls_type)
         self.assertEqual('0.0.0.5', unpacked_lsa.header.link_state_id)
@@ -173,9 +220,7 @@ class TestLsa(unittest.TestCase):
         self.assertEqual(['2.2.2.2', '1.1.1.1'], unpacked_lsa.body.attached_routers)
 
         #  Intra-Area-Prefix-LSA
-        lsa_bytes = b'\x00\x01 \t\x00\x00\x00\x00\x02\x02\x02\x02\x80\x00\x00\x05\xa7L\x00,\x00\x01 \x01\x00\x00\x00' \
-                     b'\x00\x02\x02\x02\x02@\x00\x00\n \x01\r\xb8\xca\xfe\x00\x04'
-        unpacked_lsa = lsa.Lsa.unpack_lsa(lsa_bytes, conf.VERSION_IPV6)
+        unpacked_lsa = lsa.Lsa.unpack_lsa(TestLsa.intra_area_prefix_lsa_bytes, conf.VERSION_IPV6)
         self.assertEqual(1, unpacked_lsa.header.ls_age)
         self.assertEqual(0x2009, unpacked_lsa.header.ls_type)
         self.assertEqual('0.0.0.0', unpacked_lsa.header.link_state_id)
@@ -191,10 +236,7 @@ class TestLsa(unittest.TestCase):
         self.assertEqual([[64, 0, 10, '2001:db8:cafe:4::']], unpacked_lsa.body.prefixes)
 
         #  Link-LSA
-        lsa_bytes = b'\x00&\x00\x08\x00\x00\x00\x04\x01\x01\x01\x01\x80\x00\x00\x02\x80\xfe\x008\x01\x00\x003\xfe' \
-                     b'\x80\x00\x00\x00\x00\x00\x00\xc0\x01\x18\xff\xfe4\x00\x00\x00\x00\x00\x01@\x00\x00\x00 \x01\r' \
-                     b'\xb8\xca\xfe\x00\x03'
-        unpacked_lsa = lsa.Lsa.unpack_lsa(lsa_bytes, conf.VERSION_IPV6)
+        unpacked_lsa = lsa.Lsa.unpack_lsa(TestLsa.link_lsa_bytes, conf.VERSION_IPV6)
         self.assertEqual(38, unpacked_lsa.header.ls_age)
         self.assertEqual(8, unpacked_lsa.header.ls_type)
         self.assertEqual('0.0.0.4', unpacked_lsa.header.link_state_id)
@@ -210,12 +252,8 @@ class TestLsa(unittest.TestCase):
         self.assertEqual([[64, 0, '2001:db8:cafe:3::']], unpacked_lsa.body.prefixes)
 
         #  Summary-LSA
-        lsa_bytes_3 = b'\x00\x14\x00\x03\xde\xde\x01\x00\x04\x04\x04\x04\x80\x00\x00\x01\xae\xd3\x00 \xff\xff\xff\x00' \
-                    b'\x00\x00\x00\n\x00\x00\x00\x00'
-        lsa_bytes_4 = b'\x00\x14\x00\x04\xde\xde\x01\x00\x04\x04\x04\x04\x80\x00\x00\x01\xa0\xe0\x00 \xff\xff\xff\x00' \
-                    b'\x00\x00\x00\n\x00\x00\x00\x00'
-        unpacked_lsa_3 = lsa.Lsa.unpack_lsa(lsa_bytes_3, conf.VERSION_IPV4)
-        unpacked_lsa_4 = lsa.Lsa.unpack_lsa(lsa_bytes_4, conf.VERSION_IPV4)
+        unpacked_lsa_3 = lsa.Lsa.unpack_lsa(TestLsa.summary_lsa_3_bytes, conf.VERSION_IPV4)
+        unpacked_lsa_4 = lsa.Lsa.unpack_lsa(TestLsa.summary_lsa_4_bytes, conf.VERSION_IPV4)
         self.assertEqual(20, unpacked_lsa_3.header.ls_age)
         self.assertEqual(20, unpacked_lsa_4.header.ls_age)
         self.assertEqual(3, unpacked_lsa_3.header.ls_type)
@@ -238,9 +276,7 @@ class TestLsa(unittest.TestCase):
         self.assertEqual(10, unpacked_lsa_4.body.metric)
 
         #  Inter-Area-Prefix LSA
-        lsa_bytes = b'\x00\x14\x20\x03\x00\x00\x00\x01\x04\x04\x04\x04\x80\x00\x00\x01H\xe1\x00\x24\x00\x00\x00\n\x40' \
-                    b'\x00\x00\x00\x20\x01\x0d\xb8\xca\xfe\x00\x01'
-        unpacked_lsa = lsa.Lsa.unpack_lsa(lsa_bytes, conf.VERSION_IPV6)
+        unpacked_lsa = lsa.Lsa.unpack_lsa(TestLsa.inter_area_prefix_lsa_bytes, conf.VERSION_IPV6)
         self.assertEqual(20, unpacked_lsa.header.ls_age)
         self.assertEqual(0x2003, unpacked_lsa.header.ls_type)
         self.assertEqual('0.0.0.1', unpacked_lsa.header.link_state_id)
@@ -253,6 +289,62 @@ class TestLsa(unittest.TestCase):
         self.assertEqual(64, unpacked_lsa.body.prefix_length)
         self.assertEqual(0, unpacked_lsa.body.prefix_options)
         self.assertEqual('2001:db8:cafe:1::', unpacked_lsa.body.address_prefix)
+
+        #  Extension ABR-LSA - OSPFv2
+        unpacked_lsa = lsa.Lsa.unpack_lsa(TestLsa.extension_abr_lsa_v2_bytes, conf.VERSION_IPV4)
+        self.assertEqual(1, unpacked_lsa.header.ls_age)
+        self.assertEqual(0, unpacked_lsa.header.options)
+        self.assertEqual(11, unpacked_lsa.header.ls_type)
+        self.assertEqual(utils.Utils.decimal_to_ipv4(conf.OPAQUE_TYPE_ABR_LSA << 3 * conf.BYTE_SIZE),
+                         unpacked_lsa.header.link_state_id)
+        self.assertEqual('4.4.4.4', unpacked_lsa.header.advertising_router)
+        self.assertEqual(2147483649, unpacked_lsa.header.ls_sequence_number)
+        self.assertEqual(conf.VERSION_IPV4, unpacked_lsa.header.ospf_version)
+        self.assertEqual(10976, unpacked_lsa.header.ls_checksum)
+        self.assertEqual(36, unpacked_lsa.header.length)
+        self.assertEqual([[10, '1.1.1.1'], [20, '2.2.2.2']], unpacked_lsa.body.abr_list)
+
+        #  Extension ABR-LSA - OSPFv3
+        unpacked_lsa = lsa.Lsa.unpack_lsa(TestLsa.extension_abr_lsa_v3_bytes, conf.VERSION_IPV6)
+        self.assertEqual(10, unpacked_lsa.header.ls_age)
+        self.assertEqual(0xc00a, unpacked_lsa.header.ls_type)
+        self.assertEqual('0.0.0.0', unpacked_lsa.header.link_state_id)
+        self.assertEqual('4.4.4.4', unpacked_lsa.header.advertising_router)
+        self.assertEqual(2147483650, unpacked_lsa.header.ls_sequence_number)
+        self.assertEqual(conf.VERSION_IPV6, unpacked_lsa.header.ospf_version)
+        self.assertEqual(51028, unpacked_lsa.header.ls_checksum)
+        self.assertEqual(36, unpacked_lsa.header.length)
+        self.assertEqual([[30, '3.3.3.3'], [40, '4.4.4.4']], unpacked_lsa.body.abr_list)
+
+        #  Extension Prefix-LSA - OSPFv2
+        unpacked_lsa = lsa.Lsa.unpack_lsa(TestLsa.extension_prefix_lsa_v2_bytes, conf.VERSION_IPV4)
+        self.assertEqual(10, unpacked_lsa.header.ls_age)
+        self.assertEqual(0, unpacked_lsa.header.options)
+        self.assertEqual(11, unpacked_lsa.header.ls_type)
+        self.assertEqual(utils.Utils.decimal_to_ipv4(conf.OPAQUE_TYPE_PREFIX_LSA << 3 * conf.BYTE_SIZE),
+                         unpacked_lsa.header.link_state_id)
+        self.assertEqual('1.1.1.1', unpacked_lsa.header.advertising_router)
+        self.assertEqual(2147483649, unpacked_lsa.header.ls_sequence_number)
+        self.assertEqual(conf.VERSION_IPV4, unpacked_lsa.header.ospf_version)
+        self.assertEqual(54088, unpacked_lsa.header.ls_checksum)
+        self.assertEqual(68, unpacked_lsa.header.length)
+        self.assertEqual([[10, '255.255.255.0', '222.222.1.0'], [20, '255.255.0.0', '222.1.0.0'],
+                          [30, '255.0.0.0', '1.0.0.0'], [40, '0.0.0.0', '0.0.0.0']], unpacked_lsa.body.subnet_list)
+
+        #  Extension Prefix-LSA - OSPFv3
+        unpacked_lsa = lsa.Lsa.unpack_lsa(TestLsa.extension_prefix_lsa_v3_bytes, conf.VERSION_IPV6)
+        self.assertEqual(10, unpacked_lsa.header.ls_age)
+        self.assertEqual(0xc00b, unpacked_lsa.header.ls_type)
+        self.assertEqual('0.0.0.0', unpacked_lsa.header.link_state_id)
+        self.assertEqual('4.4.4.4', unpacked_lsa.header.advertising_router)
+        self.assertEqual(2147483650, unpacked_lsa.header.ls_sequence_number)
+        self.assertEqual(conf.VERSION_IPV6, unpacked_lsa.header.ospf_version)
+        self.assertEqual(23046, unpacked_lsa.header.ls_checksum)
+        self.assertEqual(104, unpacked_lsa.header.length)
+        self.assertEqual(5, unpacked_lsa.body.prefix_number)
+        self.assertEqual([[10, 0, 0, '::'], [20, 32, 0, '2001:db8::'], [30, 64, 0, '2001:db8:cafe:1::'],
+                          [40, 96, 0, '2001:db8:cafe:1::'], [50, 128, 0, '2001:db8:cafe:1::']],
+                         unpacked_lsa.body.prefix_list)
 
     #  Successful run - Instant
     def test_is_lsa_checksum_valid(self):
@@ -438,15 +530,26 @@ class TestLsa(unittest.TestCase):
         self.assertFalse(lsa.Lsa.is_ls_type_valid(7, 3))
         self.assertTrue(lsa.Lsa.is_ls_type_valid(8, 3))
         self.assertTrue(lsa.Lsa.is_ls_type_valid(9, 3))
-        self.assertFalse(lsa.Lsa.is_ls_type_valid(10, 3))
-        self.assertFalse(lsa.Lsa.is_ls_type_valid(11, 3))
-        self.assertFalse(lsa.Lsa.is_ls_type_valid(12, 3))
+        self.assertTrue(lsa.Lsa.is_ls_type_valid(conf.LSA_TYPE_EXTENSION_ABR_LSA, 3))
+        self.assertTrue(lsa.Lsa.is_ls_type_valid(conf.LSA_TYPE_EXTENSION_PREFIX_LSA, 3))
+        self.assertTrue(lsa.Lsa.is_ls_type_valid(conf.LSA_TYPE_EXTENSION_ASBR_LSA, 3))
+        self.assertFalse(lsa.Lsa.is_ls_type_valid(conf.LSA_TYPE_EXTENSION_ASBR_LSA + 1, 3))
         self.assertTrue(lsa.Lsa.is_ls_type_valid((1 << 13) + 1, 3))
-        self.assertFalse(lsa.Lsa.is_ls_type_valid((1 << 13) + 10, 3))
+        self.assertFalse(lsa.Lsa.is_ls_type_valid((1 << 13) + conf.LSA_TYPE_EXTENSION_ASBR_LSA + 1, 3))
         self.assertTrue(lsa.Lsa.is_ls_type_valid((2 << 13) + 1, 3))
-        self.assertFalse(lsa.Lsa.is_ls_type_valid((2 << 13) + 10, 3))
+        self.assertFalse(lsa.Lsa.is_ls_type_valid((2 << 13) + conf.LSA_TYPE_EXTENSION_ASBR_LSA + 1, 3))
         self.assertFalse(lsa.Lsa.is_ls_type_valid((3 << 13) + 1, 3))
-        self.assertFalse(lsa.Lsa.is_ls_type_valid((3 << 13) + 10, 3))
+        self.assertFalse(lsa.Lsa.is_ls_type_valid((3 << 13) + conf.LSA_TYPE_EXTENSION_ASBR_LSA + 1, 3))
+        self.assertFalse(lsa.Lsa.is_ls_type_valid((1 << 15) + (3 << 13) + 1, 3))
+        self.assertFalse(lsa.Lsa.is_ls_type_valid((1 << 15) + (3 << 13) + conf.LSA_TYPE_EXTENSION_ASBR_LSA + 1, 3))
+
+    #  Successful run - Instant
+    def test_is_opaque_type_valid(self):
+        self.assertFalse(lsa.Lsa.is_opaque_type_valid(0))
+        self.assertTrue(lsa.Lsa.is_opaque_type_valid(conf.OPAQUE_TYPE_ABR_LSA))
+        self.assertTrue(lsa.Lsa.is_opaque_type_valid(conf.OPAQUE_TYPE_PREFIX_LSA))
+        self.assertTrue(lsa.Lsa.is_opaque_type_valid(conf.OPAQUE_TYPE_ASBR_LSA))
+        self.assertFalse(lsa.Lsa.is_opaque_type_valid(conf.OPAQUE_TYPE_ASBR_LSA + 1))
 
     #  Successful run - Instant
     def test_get_next_ls_sequence_number(self):
@@ -469,3 +572,50 @@ class TestLsa(unittest.TestCase):
         self.assertEqual(ls_sequence_number + 1, lsa.Lsa.get_next_ls_sequence_number(ls_sequence_number))
         ls_sequence_number = 0x7FFFFFFF
         self.assertEqual(0x80000001, lsa.Lsa.get_next_ls_sequence_number(ls_sequence_number))
+
+    #  Successful run - Instant
+    #  The goal of this test is to send to network all types of LSAs in order to allow their observation using Wireshark
+    def test_send_all_lsa_to_network(self):
+        sending_socket = sock.Socket()
+        interface_name = conf.INTERFACE_NAMES[0]
+
+        #  OSPFv2
+        sending_packet = packet.Packet()
+        sending_packet.create_header_v2(conf.PACKET_TYPE_LS_UPDATE, conf.ROUTER_ID, conf.BACKBONE_AREA,
+                                        conf.NULL_AUTHENTICATION, conf.DEFAULT_AUTH)
+        sending_packet.create_ls_update_packet_body(conf.VERSION_IPV4)
+        router_lsa_v2 = lsa.Lsa.unpack_lsa(TestLsa.router_lsa_v2_bytes, conf.VERSION_IPV4)
+        sending_packet.add_lsa(router_lsa_v2)
+        network_lsa_v2 = lsa.Lsa.unpack_lsa(TestLsa.network_lsa_v2_bytes, conf.VERSION_IPV4)
+        sending_packet.add_lsa(network_lsa_v2)
+        summary_lsa_3 = lsa.Lsa.unpack_lsa(TestLsa.summary_lsa_3_bytes, conf.VERSION_IPV4)
+        sending_packet.add_lsa(summary_lsa_3)
+        summary_lsa_4 = lsa.Lsa.unpack_lsa(TestLsa.summary_lsa_4_bytes, conf.VERSION_IPV4)
+        sending_packet.add_lsa(summary_lsa_4)
+        extension_abr_lsa_v2 = lsa.Lsa.unpack_lsa(TestLsa.extension_abr_lsa_v2_bytes, conf.VERSION_IPV4)
+        sending_packet.add_lsa(extension_abr_lsa_v2)
+        extension_prefix_lsa_v2 = lsa.Lsa.unpack_lsa(TestLsa.extension_prefix_lsa_v2_bytes, conf.VERSION_IPV4)
+        sending_packet.add_lsa(extension_prefix_lsa_v2)
+        sending_socket.send_ipv4(sending_packet.pack_packet(), conf.ALL_OSPF_ROUTERS_IPV4, interface_name, False)
+
+        #  OSPFv3
+        sending_packet = packet.Packet()
+        sending_packet.create_header_v3(
+            conf.PACKET_TYPE_LS_UPDATE, conf.ROUTER_ID, conf.BACKBONE_AREA, 0,
+            utils.Utils.get_ipv6_link_local_address_from_interface_name(interface_name), conf.ALL_OSPF_ROUTERS_IPV6)
+        sending_packet.create_ls_update_packet_body(conf.VERSION_IPV6)
+        router_lsa_v3 = lsa.Lsa.unpack_lsa(TestLsa.router_lsa_v3_bytes, conf.VERSION_IPV6)
+        sending_packet.add_lsa(router_lsa_v3)
+        network_lsa_v3 = lsa.Lsa.unpack_lsa(TestLsa.network_lsa_v3_bytes, conf.VERSION_IPV6)
+        sending_packet.add_lsa(network_lsa_v3)
+        intra_area_prefix_lsa = lsa.Lsa.unpack_lsa(TestLsa.intra_area_prefix_lsa_bytes, conf.VERSION_IPV6)
+        sending_packet.add_lsa(intra_area_prefix_lsa)
+        link_lsa = lsa.Lsa.unpack_lsa(TestLsa.link_lsa_bytes, conf.VERSION_IPV6)
+        sending_packet.add_lsa(link_lsa)
+        inter_area_prefix_lsa = lsa.Lsa.unpack_lsa(TestLsa.inter_area_prefix_lsa_bytes, conf.VERSION_IPV6)
+        sending_packet.add_lsa(inter_area_prefix_lsa)
+        extension_abr_lsa_v3 = lsa.Lsa.unpack_lsa(TestLsa.extension_abr_lsa_v3_bytes, conf.VERSION_IPV6)
+        sending_packet.add_lsa(extension_abr_lsa_v3)
+        extension_prefix_lsa_v3 = lsa.Lsa.unpack_lsa(TestLsa.extension_prefix_lsa_v3_bytes, conf.VERSION_IPV6)
+        sending_packet.add_lsa(extension_prefix_lsa_v3)
+        sending_socket.send_ipv6(sending_packet.pack_packet(), conf.ALL_OSPF_ROUTERS_IPV6, interface_name, False)
