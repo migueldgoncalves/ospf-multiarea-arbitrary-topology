@@ -43,7 +43,10 @@ class Neighbor:
         self.retransmission_timeout = threading.Event()
         self.inactivity_shutdown = threading.Event()
         self.retransmission_shutdown = threading.Event()
-        self.last_sent_packet = None  # Last DD Description, LS Request or LS Update sent to neighbor
+        self.last_sent_packet = None  # Last DD Description, LS Request or LS Update packet sent to neighbor
+        self.last_sent_dd_description_packet = None  # Last DD Description packet sent to neighbor
+        self.last_sent_ls_request_packet = None
+        self.last_sent_ls_update_packet = None
         self.router_id = router_id
 
         #  Sets timer that monitors neighbor last activity

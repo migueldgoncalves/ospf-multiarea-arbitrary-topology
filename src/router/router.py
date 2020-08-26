@@ -11,6 +11,7 @@ import packet.packet as packet
 import lsa.lsa as lsa
 import lsa.header as header
 import router.routing_table as routing_table
+import router.kernel_table as kernel_table
 
 '''
 This class contains the top-level OSPF data structures and operations
@@ -72,6 +73,10 @@ class Router:
             self.socket_threads[interface_id].start()
         self.router_shutdown_event = router_shutdown_event
         self.start_time = datetime.datetime.now()
+
+    #  #  #  #  #  #
+    #  Main method  #
+    #  #  #  #  #  #
 
     #  OSPF router main loop
     def main_loop(self):
@@ -190,11 +195,26 @@ class Router:
                             time.sleep(0.1)
                             current_interface.update_ls_retransmission_lists(lsa_identifier, destination_address)
 
+            #  Sets the Linux kernel default routing table if any LSDB was changed
+            if not self.localhost:
+                lsdb_modified = False
+                for area_id in self.areas:
+                    query_area = self.areas[area_id]
+                    if query_area.database.is_modified.is_set():  # LSDB was modified
+                        query_area.database.is_modified.clear()
+                        lsdb_modified = True
+                if lsdb_modified:
+                    self.set_kernel_routing_table()
+
         #  Router signalled to shutdown
         self.shutdown_router()
 
+    #  #  #  #  #  #  #  #  #  #
+    #  Routing table creation  #
+    #  #  #  #  #  #  #  #  #  #
+
     #  Returns a routing table with intra-area routers given a shortest path tree and the corresponding prefixes
-    def get_intra_area_routing_table(self, shortest_path_tree_dictionary, prefixes):
+    def get_intra_area_routing_table(self, shortest_path_tree_dictionary, prefixes_dictionary):
         table = routing_table.RoutingTable()
         for area_id in self.areas:
             #  Initialization
@@ -202,6 +222,7 @@ class Router:
             query_area = self.areas[area_id]
             lsdb = query_area.database
             shortest_path_tree = shortest_path_tree_dictionary[area_id]
+            prefixes = prefixes_dictionary[area_id]
             interface_array = []
             for interface_id in query_area.interfaces:
                 interface_array.append(query_area.interfaces[interface_id][area.INTERFACE_OBJECT])
@@ -403,6 +424,36 @@ class Router:
                         conf.INTRA_AREA_PATH, cost, 0, outgoing_interface, next_hop_address, '')
 
             return table
+
+    #  Sets the Linux kernel default routing table according to the supplied OSPF routing table
+    @staticmethod
+    def set_kernel_routing_table_from_ospf_table(ospf_routing_table):
+        kernel_table.KernelTable.delete_all_ospf_routes()
+        for entry in ospf_routing_table.entries:
+            prefix = entry.destination_id
+            prefix_length = entry.prefix_length
+            for path in entry.paths:
+                next_hop_address = path.next_hop_address
+                kernel_table.KernelTable.add_ospf_route(prefix, prefix_length, next_hop_address)
+
+    #  Sets the Linux kernel default routing table according to the LSDBs content
+    def set_kernel_routing_table(self):
+        shortest_path_tree_dictionary = {}
+        prefixes_dictionary = {}
+        for area_id in self.areas:
+            query_area = self.areas[area_id]
+            data = query_area.database.get_directed_graph(query_area.get_interfaces())
+            directed_graph = data[0]
+            prefixes = data[1]
+            shortest_path_tree = query_area.database.get_shortest_path_tree(directed_graph, self.router_id)
+            shortest_path_tree_dictionary[query_area.area_id] = shortest_path_tree
+            prefixes_dictionary[query_area.area_id] = prefixes
+        self.routing_table = self.get_intra_area_routing_table(shortest_path_tree_dictionary, prefixes_dictionary)
+        Router.set_kernel_routing_table_from_ospf_table(self.routing_table)
+
+    #  #  #  #  #  #  #  #  #  #  #  #  #
+    #  Command-line interface methods  #
+    #  #  #  #  #  #  #  #  #  #  #  #  #
 
     #  Prints general protocol information
     def show_general_data(self):

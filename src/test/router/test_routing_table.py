@@ -609,10 +609,10 @@ class TestRoutingTable(unittest.TestCase):
             self.prefix_1_v2, self.network_mask, conf.LINK_TO_STUB_NETWORK, conf.DEFAULT_TOS, self.cost_broadcast_link)
         self.lsdb_v2.router_lsa_list.append(self.router_lsa_4_v2)
         directed_graph = {self.router_id_4: {}}
-        prefixes = {self.router_id_4: [self.prefix_1_v2]}
+        prefixes_dictionary = {conf.BACKBONE_AREA: {self.router_id_4: [self.prefix_1_v2]}}
         shortest_path_tree_dictionary = {conf.BACKBONE_AREA: self.lsdb_v2.get_shortest_path_tree(
             directed_graph, self.router_id_4)}
-        table = router_v2.get_intra_area_routing_table(shortest_path_tree_dictionary, prefixes)
+        table = router_v2.get_intra_area_routing_table(shortest_path_tree_dictionary, prefixes_dictionary)
         self.assertEqual(1, len(table.entries))
         entry_1 = table.get_entry(conf.DESTINATION_TYPE_NETWORK, self.prefix_1_v2, conf.BACKBONE_AREA)
         self.assertIsNotNone(entry_1)
@@ -639,10 +639,10 @@ class TestRoutingTable(unittest.TestCase):
             self.prefix_length, self.prefix_options, self.cost_broadcast_link, self.prefix_1_v3, conf.LSA_TYPE_LINK)
         self.interface_r4_e0_v3.link_local_lsa_list.append(self.link_lsa_r4_1)
         directed_graph = {self.router_id_4: {}}
-        prefixes = {self.router_id_4: [self.prefix_1_v3]}
+        prefixes_dictionary = {conf.BACKBONE_AREA: {self.router_id_4: [self.prefix_1_v3]}}
         shortest_path_tree_dictionary = {conf.BACKBONE_AREA: self.lsdb_v3.get_shortest_path_tree(
             directed_graph, self.router_id_4)}
-        table = router_v3.get_intra_area_routing_table(shortest_path_tree_dictionary, prefixes)
+        table = router_v3.get_intra_area_routing_table(shortest_path_tree_dictionary, prefixes_dictionary)
         self.assertEqual(1, len(table.entries))
         entry_1 = table.get_entry(conf.DESTINATION_TYPE_NETWORK, self.prefix_1_v3, conf.BACKBONE_AREA)
         self.assertIsNotNone(entry_1)
@@ -687,10 +687,11 @@ class TestRoutingTable(unittest.TestCase):
             's2/0': [self.interface_r1_s2_0_v3, None, None, None]}
 
         directed_graph = {self.router_id_1: {}}
-        prefixes = {self.router_id_1: [self.prefix_1_v2, self.prefix_2_v2, self.prefix_3_v2, self.prefix_6_v2]}
+        prefixes_dictionary = {conf.BACKBONE_AREA: {self.router_id_1: [
+            self.prefix_1_v2, self.prefix_2_v2, self.prefix_3_v2, self.prefix_6_v2]}}
         shortest_path_tree_dictionary = {conf.BACKBONE_AREA: self.lsdb_v2.get_shortest_path_tree(
             directed_graph, self.router_id_1)}
-        table = router_v2.get_intra_area_routing_table(shortest_path_tree_dictionary, prefixes)
+        table = router_v2.get_intra_area_routing_table(shortest_path_tree_dictionary, prefixes_dictionary)
         self.assertEqual(4, len(table.entries))
         entry_1 = table.get_entry(conf.DESTINATION_TYPE_NETWORK, self.prefix_1_v2, conf.BACKBONE_AREA)
         entry_2 = table.get_entry(conf.DESTINATION_TYPE_NETWORK, self.prefix_2_v2, conf.BACKBONE_AREA)
@@ -717,10 +718,11 @@ class TestRoutingTable(unittest.TestCase):
             self.assertEqual('', path.advertising_router)
 
         directed_graph = {self.router_id_1: {}}
-        prefixes = {self.router_id_1: [self.prefix_1_v3, self.prefix_2_v3, self.prefix_3_v3, self.prefix_6_v3]}
+        prefixes_dictionary = {conf.BACKBONE_AREA: {self.router_id_1: [
+            self.prefix_1_v3, self.prefix_2_v3, self.prefix_3_v3, self.prefix_6_v3]}}
         shortest_path_tree_dictionary = {conf.BACKBONE_AREA: self.lsdb_v3.get_shortest_path_tree(
             directed_graph, self.router_id_1)}
-        table = router_v3.get_intra_area_routing_table(shortest_path_tree_dictionary, prefixes)
+        table = router_v3.get_intra_area_routing_table(shortest_path_tree_dictionary, prefixes_dictionary)
         self.assertEqual(4, len(table.entries))
         entry_1 = table.get_entry(conf.DESTINATION_TYPE_NETWORK, self.prefix_1_v3, conf.BACKBONE_AREA)
         entry_2 = table.get_entry(conf.DESTINATION_TYPE_NETWORK, self.prefix_2_v3, conf.BACKBONE_AREA)
@@ -756,7 +758,8 @@ class TestRoutingTable(unittest.TestCase):
         directed_graph, prefixes = self.get_directed_graph_prefixes_full_network(conf.VERSION_IPV4)
         shortest_path_tree_dictionary = {conf.BACKBONE_AREA: self.lsdb_v2.get_shortest_path_tree(
             directed_graph, self.router_id_1)}
-        table = router_v2.get_intra_area_routing_table(shortest_path_tree_dictionary, prefixes)
+        prefixes_dictionary = {conf.BACKBONE_AREA: prefixes}
+        table = router_v2.get_intra_area_routing_table(shortest_path_tree_dictionary, prefixes_dictionary)
         self.assertEqual(6, len(table.entries))
         entry_1 = table.get_entry(conf.DESTINATION_TYPE_NETWORK, self.prefix_1_v2, conf.BACKBONE_AREA)
         entry_2 = table.get_entry(conf.DESTINATION_TYPE_NETWORK, self.prefix_2_v2, conf.BACKBONE_AREA)
@@ -789,7 +792,8 @@ class TestRoutingTable(unittest.TestCase):
         directed_graph, prefixes = self.get_directed_graph_prefixes_full_network(conf.VERSION_IPV6)
         shortest_path_tree_dictionary = {conf.BACKBONE_AREA: self.lsdb_v3.get_shortest_path_tree(
             directed_graph, self.router_id_1)}
-        table = router_v3.get_intra_area_routing_table(shortest_path_tree_dictionary, prefixes)
+        prefixes_dictionary = {conf.BACKBONE_AREA: prefixes}
+        table = router_v3.get_intra_area_routing_table(shortest_path_tree_dictionary, prefixes_dictionary)
         self.assertEqual(6, len(table.entries))
         entry_1 = table.get_entry(conf.DESTINATION_TYPE_NETWORK, self.prefix_1_v3, conf.BACKBONE_AREA)
         entry_2 = table.get_entry(conf.DESTINATION_TYPE_NETWORK, self.prefix_2_v3, conf.BACKBONE_AREA)

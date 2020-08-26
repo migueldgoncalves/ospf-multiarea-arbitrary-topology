@@ -258,7 +258,7 @@ class Interface:
                             self.event_seq_number_mismatch(neighbor_router, source_ip)
                             continue
                         #  Removes acknowledged LSAs from DB Summary list
-                        for lsa_header in neighbor_router.last_sent_packet.body.lsa_headers:
+                        for lsa_header in neighbor_router.last_sent_dd_description_packet.body.lsa_headers:
                             lsa_identifier = lsa_header.get_lsa_identifier()
                             neighbor_router.delete_lsa_identifier(neighbor_router.db_summary_list, lsa_identifier)
                         m_bit = (len(neighbor_router.db_summary_list) != 0)
@@ -526,13 +526,19 @@ class Interface:
             self.socket.send_ipv6(packet_bytes, destination_address, self.physical_identifier, self.localhost)
 
         #  Every LS Request and LS Update packets must be acknowledged
-        if packet_to_send.header.packet_type in [conf.PACKET_TYPE_LS_REQUEST, conf.PACKET_TYPE_LS_UPDATE]:
+        if packet_to_send.header.packet_type == conf.PACKET_TYPE_LS_REQUEST:
             neighbor_router.last_sent_packet = packet_to_send
+            neighbor_router.last_sent_ls_request_packet = packet_to_send
+            neighbor_router.start_retransmission_timer()
+        elif packet_to_send.header.packet_type == conf.PACKET_TYPE_LS_UPDATE:
+            neighbor_router.last_sent_packet = packet_to_send
+            neighbor_router.last_sent_ls_update_packet = packet_to_send
             neighbor_router.start_retransmission_timer()
         #  Only master retransmits DB Description packets in state higher than EXSTART
         elif packet_to_send.header.packet_type == conf.PACKET_TYPE_DB_DESCRIPTION:
             if (neighbor_router.neighbor_state == conf.NEIGHBOR_STATE_EXSTART) | neighbor_router.master_slave:
                 neighbor_router.last_sent_packet = packet_to_send
+                neighbor_router.last_sent_dd_description_packet = packet_to_send
                 neighbor_router.start_retransmission_timer()
 
     #  Performs shutdown operations on the interface

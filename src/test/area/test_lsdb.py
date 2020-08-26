@@ -64,6 +64,8 @@ class TestLsdb(unittest.TestCase):
         self.assertEqual(0, len(self.lsdb_ospfv3.router_lsa_list))
         self.assertEqual(0, len(self.lsdb_ospfv3.network_lsa_list))
         self.assertEqual(0, len(self.lsdb_ospfv3.intra_area_prefix_lsa_list))
+        self.assertFalse(self.lsdb_ospfv2.is_modified.is_set())
+        self.assertFalse(self.lsdb_ospfv3.is_modified.is_set())
 
     #  Successful run - Instant
     def test_get_lsa(self):
@@ -83,6 +85,7 @@ class TestLsdb(unittest.TestCase):
         self.assertEqual(2, len(retrieved_lsdb))
         self.assertEqual(1, retrieved_lsdb[0].header.ls_type)
         self.assertEqual(2, retrieved_lsdb[1].header.ls_type)
+        self.assertFalse(self.lsdb_ospfv2.is_modified.is_set())
 
         retrieved_lsdb = self.lsdb_ospfv3.get_lsdb([self.interface_ospfv3], None)
         self.assertEqual(4, len(retrieved_lsdb))
@@ -98,6 +101,7 @@ class TestLsdb(unittest.TestCase):
         self.assertEqual(2, len(retrieved_lsdb))
         self.assertEqual(0x2002, retrieved_lsdb[0].header.ls_type)
         self.assertEqual(8, retrieved_lsdb[1].header.ls_type)
+        self.assertFalse(self.lsdb_ospfv3.is_modified.is_set())
 
         #  Get a LSA
 
@@ -105,6 +109,7 @@ class TestLsdb(unittest.TestCase):
         self.assertIsNone(retrieved_lsa)
         retrieved_lsa = self.lsdb_ospfv2.get_lsa(1, '1.1.1.1', '1.1.1.1', [self.interface_ospfv2])
         self.assertEqual(1, retrieved_lsa.header.ls_type)
+        self.assertFalse(self.lsdb_ospfv2.is_modified.is_set())
 
         retrieved_lsa = self.lsdb_ospfv3.get_lsa(8, '0.0.0.0', '0.0.0.0', [self.interface_ospfv3])
         self.assertIsNone(retrieved_lsa)
@@ -114,6 +119,7 @@ class TestLsdb(unittest.TestCase):
         self.assertEqual(0x2001, retrieved_lsa.header.ls_type)
         retrieved_lsa = self.lsdb_ospfv3.get_lsa(0x2001, '0.0.0.0', '2.2.2.2', [self.interface_ospfv3])
         self.assertEqual(0x2001, retrieved_lsa.header.ls_type)
+        self.assertFalse(self.lsdb_ospfv3.is_modified.is_set())
 
         #  Get LSDB headers
 
@@ -129,6 +135,7 @@ class TestLsdb(unittest.TestCase):
         self.assertEqual(2, len(retrieved_headers))
         self.assertEqual(1, retrieved_headers[0].ls_type)
         self.assertEqual(2, retrieved_headers[1].ls_type)
+        self.assertFalse(self.lsdb_ospfv2.is_modified.is_set())
 
         retrieved_headers = self.lsdb_ospfv3.get_lsa_headers([self.interface_ospfv3], None)
         self.assertEqual(4, len(retrieved_headers))
@@ -144,6 +151,7 @@ class TestLsdb(unittest.TestCase):
         self.assertEqual(2, len(retrieved_headers))
         self.assertEqual(0x2002, retrieved_headers[0].ls_type)
         self.assertEqual(8, retrieved_headers[1].ls_type)
+        self.assertFalse(self.lsdb_ospfv3.is_modified.is_set())
 
         #  Get a LSA header
 
@@ -151,6 +159,7 @@ class TestLsdb(unittest.TestCase):
         self.assertIsNone(retrieved_header)
         retrieved_header = self.lsdb_ospfv2.get_lsa_header(2, '222.222.3.2', '2.2.2.2', [self.interface_ospfv2])
         self.assertEqual(2, retrieved_header.ls_type)
+        self.assertFalse(self.lsdb_ospfv2.is_modified.is_set())
 
         retrieved_header = self.lsdb_ospfv3.get_lsa_header(8, '0.0.0.0', '0.0.0.0', [self.interface_ospfv3])
         self.assertIsNone(retrieved_header)
@@ -160,6 +169,7 @@ class TestLsdb(unittest.TestCase):
         self.assertEqual(0x2001, retrieved_header.ls_type)
         retrieved_header = self.lsdb_ospfv3.get_lsa_header(0x2001, '0.0.0.0', '2.2.2.2', [self.interface_ospfv3])
         self.assertEqual(0x2001, retrieved_header.ls_type)
+        self.assertFalse(self.lsdb_ospfv3.is_modified.is_set())
 
     #  Successful run - Instant
     def test_delete_lsa(self):
@@ -169,25 +179,45 @@ class TestLsdb(unittest.TestCase):
 
         self.lsdb_ospfv2.delete_lsa(1, '0.0.0.0', '0.0.0.0', [self.interface_ospfv2])
         self.assertEqual(2, len(self.lsdb_ospfv2.get_lsdb([self.interface_ospfv2], None)))
+        self.assertTrue(self.lsdb_ospfv2.is_modified.is_set())
+        self.lsdb_ospfv2.is_modified.clear()
         self.lsdb_ospfv2.delete_lsa(1, '1.1.1.1', '1.1.1.1', [self.interface_ospfv2])
         self.assertEqual(1, len(self.lsdb_ospfv2.get_lsdb([self.interface_ospfv2], None)))
         self.assertEqual(2, self.lsdb_ospfv2.get_lsdb([self.interface_ospfv2], None)[0].header.ls_type)
+        self.assertTrue(self.lsdb_ospfv2.is_modified.is_set())
+        self.lsdb_ospfv2.is_modified.clear()
         self.lsdb_ospfv2.delete_lsa(1, '1.1.1.1', '1.1.1.1', [self.interface_ospfv2])
         self.assertEqual(1, len(self.lsdb_ospfv2.get_lsdb([self.interface_ospfv2], None)))
+        self.assertTrue(self.lsdb_ospfv2.is_modified.is_set())
+        self.lsdb_ospfv2.is_modified.clear()
         self.lsdb_ospfv2.delete_lsa(2, '222.222.3.2', '2.2.2.2', [self.interface_ospfv2])
         self.assertEqual(0, len(self.lsdb_ospfv2.get_lsdb([self.interface_ospfv2], None)))
+        self.assertTrue(self.lsdb_ospfv2.is_modified.is_set())
+        self.lsdb_ospfv2.is_modified.clear()
 
         self.lsdb_ospfv3.delete_lsa(0x2001, '0.0.0.0', '0.0.0.0', [self.interface_ospfv3])
         self.assertEqual(4, len(self.lsdb_ospfv3.get_lsdb([self.interface_ospfv3], None)))
+        self.assertTrue(self.lsdb_ospfv3.is_modified.is_set())
+        self.lsdb_ospfv3.is_modified.clear()
         self.lsdb_ospfv3.delete_lsa(0x2001, '0.0.0.0', '2.2.2.2', [self.interface_ospfv3])
         self.assertEqual(3, len(self.lsdb_ospfv3.get_lsdb([self.interface_ospfv3], None)))
         self.assertEqual(0x2009, self.lsdb_ospfv3.get_lsdb([self.interface_ospfv3], None)[1].header.ls_type)
+        self.assertTrue(self.lsdb_ospfv3.is_modified.is_set())
+        self.lsdb_ospfv3.is_modified.clear()
         self.lsdb_ospfv3.delete_lsa(0x2001, '0.0.0.0', '2.2.2.2', [self.interface_ospfv3])
         self.assertEqual(3, len(self.lsdb_ospfv3.get_lsdb([self.interface_ospfv3], None)))
+        self.assertTrue(self.lsdb_ospfv3.is_modified.is_set())
+        self.lsdb_ospfv3.is_modified.clear()
         self.lsdb_ospfv3.delete_lsa(0x2002, '0.0.0.5', '2.2.2.2', [self.interface_ospfv3])
+        self.assertTrue(self.lsdb_ospfv3.is_modified.is_set())
+        self.lsdb_ospfv3.is_modified.clear()
         self.lsdb_ospfv3.delete_lsa(0x2009, '0.0.0.0', '2.2.2.2', [self.interface_ospfv3])
+        self.assertTrue(self.lsdb_ospfv3.is_modified.is_set())
+        self.lsdb_ospfv3.is_modified.clear()
         self.lsdb_ospfv3.delete_lsa(8, '0.0.0.4', '1.1.1.1', [self.interface_ospfv3])
         self.assertEqual(0, len(self.lsdb_ospfv3.get_lsdb([self.interface_ospfv3], None)))
+        self.assertTrue(self.lsdb_ospfv3.is_modified.is_set())
+        self.lsdb_ospfv3.is_modified.clear()
 
         #  Clean LSDB
 
@@ -195,8 +225,10 @@ class TestLsdb(unittest.TestCase):
 
         self.lsdb_ospfv2.clean_lsdb([self.interface_ospfv2])
         self.assertEqual(0, len(self.lsdb_ospfv2.get_lsdb([self.interface_ospfv2], None)))
+        self.assertTrue(self.lsdb_ospfv2.is_modified.is_set())
         self.lsdb_ospfv3.clean_lsdb([self.interface_ospfv3])
         self.assertEqual(0, len(self.lsdb_ospfv3.get_lsdb([self.interface_ospfv3], None)))
+        self.assertTrue(self.lsdb_ospfv3.is_modified.is_set())
 
     #  Successful run - Instant
     def test_add_lsa(self):
@@ -208,6 +240,8 @@ class TestLsdb(unittest.TestCase):
         self.assertEqual(1, self.lsdb_ospfv2.get_lsdb([self.interface_ospfv2], None)[0].header.ls_type)
         self.assertEqual(
             2147483654, self.lsdb_ospfv2.get_lsdb([self.interface_ospfv2], None)[0].header.ls_sequence_number)
+        self.assertTrue(self.lsdb_ospfv2.is_modified.is_set())
+        self.lsdb_ospfv2.is_modified.clear()
         lsa_ospfv2_3 = lsa.Lsa()
         lsa_ospfv2_3.create_header(1, 34, 1, '1.1.1.1', '1.1.1.1', 10000, conf.VERSION_IPV4)
         lsa_ospfv2_3.create_router_lsa_body(False, False, False, 0, conf.VERSION_IPV4)
@@ -215,6 +249,8 @@ class TestLsdb(unittest.TestCase):
         self.assertEqual(1, len(self.lsdb_ospfv2.get_lsdb([self.interface_ospfv2], None)))
         self.assertEqual(1, self.lsdb_ospfv2.get_lsdb([self.interface_ospfv2], None)[0].header.ls_type)
         self.assertEqual(10000, self.lsdb_ospfv2.get_lsdb([self.interface_ospfv2], None)[0].header.ls_sequence_number)
+        self.assertTrue(self.lsdb_ospfv2.is_modified.is_set())
+        self.lsdb_ospfv2.is_modified.clear()
         lsa_ospfv2_4 = lsa.Lsa()
         lsa_ospfv2_4.create_header(1, 34, 1, '4.4.4.4', '1.1.1.1', 10000, conf.VERSION_IPV4)
         lsa_ospfv2_4.create_router_lsa_body(False, False, False, 0, conf.VERSION_IPV4)
@@ -222,9 +258,13 @@ class TestLsdb(unittest.TestCase):
         self.assertEqual(2, len(self.lsdb_ospfv2.get_lsdb([self.interface_ospfv2], None)))
         self.assertEqual('1.1.1.1', self.lsdb_ospfv2.get_lsdb([self.interface_ospfv2], None)[0].header.link_state_id)
         self.assertEqual('4.4.4.4', self.lsdb_ospfv2.get_lsdb([self.interface_ospfv2], None)[1].header.link_state_id)
+        self.assertTrue(self.lsdb_ospfv2.is_modified.is_set())
+        self.lsdb_ospfv2.is_modified.clear()
         self.lsdb_ospfv2.add_lsa(self.lsa_ospfv2_2, None)
         self.assertEqual(3, len(self.lsdb_ospfv2.get_lsdb([self.interface_ospfv2], None)))
         self.assertEqual(2, self.lsdb_ospfv2.get_lsdb([self.interface_ospfv2], None)[2].header.ls_type)
+        self.assertTrue(self.lsdb_ospfv2.is_modified.is_set())
+        self.lsdb_ospfv2.is_modified.clear()
 
         #  OSPFv3 - Area scope LSAs
 
@@ -233,6 +273,8 @@ class TestLsdb(unittest.TestCase):
         self.assertEqual(0x2001, self.lsdb_ospfv3.get_lsdb([self.interface_ospfv3], None)[0].header.ls_type)
         self.assertEqual(
             2147483655, self.lsdb_ospfv3.get_lsdb([self.interface_ospfv3], None)[0].header.ls_sequence_number)
+        self.assertTrue(self.lsdb_ospfv3.is_modified.is_set())
+        self.lsdb_ospfv3.is_modified.clear()
         lsa_ospfv3_5 = lsa.Lsa()
         lsa_ospfv3_5.create_header(1, 0, 1, '0.0.0.0', '2.2.2.2', 10000, conf.VERSION_IPV6)
         lsa_ospfv3_5.create_router_lsa_body(False, False, False, 51, conf.VERSION_IPV6)
@@ -240,6 +282,8 @@ class TestLsdb(unittest.TestCase):
         self.assertEqual(1, len(self.lsdb_ospfv3.get_lsdb([self.interface_ospfv3], None)))
         self.assertEqual(0x2001, self.lsdb_ospfv3.get_lsdb([self.interface_ospfv3], None)[0].header.ls_type)
         self.assertEqual(10000, self.lsdb_ospfv3.get_lsdb([self.interface_ospfv3], None)[0].header.ls_sequence_number)
+        self.assertTrue(self.lsdb_ospfv3.is_modified.is_set())
+        self.lsdb_ospfv3.is_modified.clear()
         lsa_ospfv3_6 = lsa.Lsa()
         lsa_ospfv3_6.create_header(1, 0, 9, '5.5.5.5', '2.2.2.2', 2147483653, conf.VERSION_IPV6)
         lsa_ospfv3_6.create_intra_area_prefix_lsa_body(1, '0.0.0.0', '2.2.2.2')
@@ -247,11 +291,15 @@ class TestLsdb(unittest.TestCase):
         self.assertEqual(2, len(self.lsdb_ospfv3.get_lsdb([self.interface_ospfv3], None)))
         self.assertEqual('0.0.0.0', self.lsdb_ospfv3.get_lsdb([self.interface_ospfv3], None)[0].header.link_state_id)
         self.assertEqual('5.5.5.5', self.lsdb_ospfv3.get_lsdb([self.interface_ospfv3], None)[1].header.link_state_id)
+        self.assertTrue(self.lsdb_ospfv3.is_modified.is_set())
+        self.lsdb_ospfv3.is_modified.clear()
         self.lsdb_ospfv3.add_lsa(self.lsa_ospfv3_2, None)
         self.assertEqual(3, len(self.lsdb_ospfv3.get_lsdb([self.interface_ospfv3], None)))
         self.assertEqual(0x2001, self.lsdb_ospfv3.get_lsdb([self.interface_ospfv3], None)[0].header.ls_type)
         self.assertEqual(0x2002, self.lsdb_ospfv3.get_lsdb([self.interface_ospfv3], None)[1].header.ls_type)
         self.assertEqual(0x2009, self.lsdb_ospfv3.get_lsdb([self.interface_ospfv3], None)[2].header.ls_type)
+        self.assertTrue(self.lsdb_ospfv3.is_modified.is_set())
+        self.lsdb_ospfv3.is_modified.clear()
 
         #  OSPFv3 - Link-local scope LSAs
 
@@ -264,6 +312,8 @@ class TestLsdb(unittest.TestCase):
         advertising_router = self.lsa_ospfv3_4.header.advertising_router
         self.assertEqual(8, self.interface_ospfv3.get_link_local_lsa(ls_type, link_state_id, advertising_router).
                          header.ls_type)
+        self.assertTrue(self.lsdb_ospfv3.is_modified.is_set())
+        self.lsdb_ospfv3.is_modified.clear()
 
     def populate_lsdb(self):
         self.lsdb_ospfv2.router_lsa_list.append(self.lsa_ospfv2_1)

@@ -21,8 +21,10 @@ class Lsdb:
         self.lsdb_lock = threading.RLock()
         self.version = version
         self.area_id = area_id
+        self.is_modified = threading.Event()  # Set if LSDB was changed and change has not yet been processed
 
         self.clean_lsdb([])
+        self.is_modified.clear()
 
     #  Atomically returns full LSDB or part of it as a single list
     def get_lsdb(self, interfaces, identifiers):
@@ -82,17 +84,21 @@ class Lsdb:
             for query_lsa in self.router_lsa_list:
                 if query_lsa.is_lsa_identifier_equal(ls_type, link_state_id, advertising_router):
                     self.router_lsa_list.remove(query_lsa)
+                    self.is_modified.set()
                     return
             for query_lsa in self.network_lsa_list:
                 if query_lsa.is_lsa_identifier_equal(ls_type, link_state_id, advertising_router):
                     self.network_lsa_list.remove(query_lsa)
+                    self.is_modified.set()
                     return
             for query_lsa in self.intra_area_prefix_lsa_list:
                 if query_lsa.is_lsa_identifier_equal(ls_type, link_state_id, advertising_router):
                     self.intra_area_prefix_lsa_list.remove(query_lsa)
+                    self.is_modified.set()
                     return
             for i in interfaces:
                 i.delete_link_local_lsa(ls_type, link_state_id, advertising_router)
+            self.is_modified.set()
 
     #  Atomically adds a LSA to the adequate list according to its type
     def add_lsa(self, lsa_to_add, interface):
@@ -112,14 +118,18 @@ class Lsdb:
             #  Known LSA types without link-local scope
             if ls_type == conf.LSA_TYPE_ROUTER:
                 self.router_lsa_list.append(lsa_to_add)
+                self.is_modified.set()
             elif ls_type == conf.LSA_TYPE_NETWORK:
                 self.network_lsa_list.append(lsa_to_add)
+                self.is_modified.set()
             elif ls_type == conf.LSA_TYPE_INTRA_AREA_PREFIX:
                 self.intra_area_prefix_lsa_list.append(lsa_to_add)
+                self.is_modified.set()
             #  Link-local scope or unknown LSA types
             elif (flooding_scope == conf.LINK_LOCAL_SCOPING) | (
                     (not lsa.Lsa.is_ls_type_valid(ls_type, self.version)) & (not u_bit)):
                 interface.add_link_local_lsa(lsa_to_add)
+                self.is_modified.set()
             else:
                 pass
 
@@ -130,6 +140,7 @@ class Lsdb:
             self.intra_area_prefix_lsa_list = []
             for i in interfaces:
                 i.clean_link_local_lsa_list()
+            self.is_modified.set()
 
     #  For each LSA, increases LS Age field if enough time has passed
     def increase_lsa_age(self, interfaces):
@@ -144,18 +155,19 @@ class Lsdb:
         directed_graph = {}  # Dictionary of dictionaries - Each dictionary contains destinations for one graph node
         area_routers = []
         area_transit_networks = []
-        for router_lsa in self.router_lsa_list:
-            router_id = router_lsa.header.advertising_router
-            area_routers.append(router_id)
-            directed_graph[router_id] = {}
-        for network_lsa in self.network_lsa_list:
-            if self.version == conf.VERSION_IPV4:
-                network_id = network_lsa.header.link_state_id
-            else:
-                interface_id = utils.Utils.ipv4_to_decimal(network_lsa.header.link_state_id)
-                network_id = network_lsa.header.advertising_router + "|" + str(interface_id)
-            area_transit_networks.append(network_id)
-            directed_graph[network_id] = {}
+        with self.lsdb_lock:
+            for router_lsa in self.router_lsa_list:
+                router_id = router_lsa.header.advertising_router
+                area_routers.append(router_id)
+                directed_graph[router_id] = {}
+            for network_lsa in self.network_lsa_list:
+                if self.version == conf.VERSION_IPV4:
+                    network_id = network_lsa.header.link_state_id
+                else:
+                    interface_id = utils.Utils.ipv4_to_decimal(network_lsa.header.link_state_id)
+                    network_id = network_lsa.header.advertising_router + "|" + str(interface_id)
+                area_transit_networks.append(network_id)
+                directed_graph[network_id] = {}
 
         #  Point-to-point links
         for router_id_1 in area_routers:
@@ -272,7 +284,7 @@ class Lsdb:
             #  Finding closest node
             if len(nodes_to_analyse) == 0:
                 return shortest_path_tree  # No further nodes to analyse - Shortest path tree completed
-            shortest_cost = conf.MAX_VALUE_16_BITS
+            shortest_cost = conf.MAX_VALUE_16_BITS + 1
             closest_node = ''
             for node in nodes_to_analyse:
                 if nodes_to_analyse[node][0] < shortest_cost:
