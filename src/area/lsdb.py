@@ -22,6 +22,7 @@ class Lsdb:
         self.version = version
         self.area_id = area_id
         self.is_modified = threading.Event()  # Set if LSDB was changed and change has not yet been processed
+        self.modification_time = time.perf_counter()  # Current system time
 
         self.clean_lsdb([])
         self.is_modified.clear()
@@ -84,21 +85,21 @@ class Lsdb:
             for query_lsa in self.router_lsa_list:
                 if query_lsa.is_lsa_identifier_equal(ls_type, link_state_id, advertising_router):
                     self.router_lsa_list.remove(query_lsa)
-                    self.is_modified.set()
+                    self.lsdb_modified()
                     return
             for query_lsa in self.network_lsa_list:
                 if query_lsa.is_lsa_identifier_equal(ls_type, link_state_id, advertising_router):
                     self.network_lsa_list.remove(query_lsa)
-                    self.is_modified.set()
+                    self.lsdb_modified()
                     return
             for query_lsa in self.intra_area_prefix_lsa_list:
                 if query_lsa.is_lsa_identifier_equal(ls_type, link_state_id, advertising_router):
                     self.intra_area_prefix_lsa_list.remove(query_lsa)
-                    self.is_modified.set()
+                    self.lsdb_modified()
                     return
             for i in interfaces:
                 i.delete_link_local_lsa(ls_type, link_state_id, advertising_router)
-            self.is_modified.set()
+            self.lsdb_modified()
 
     #  Atomically adds a LSA to the adequate list according to its type
     def add_lsa(self, lsa_to_add, interface):
@@ -118,18 +119,18 @@ class Lsdb:
             #  Known LSA types without link-local scope
             if ls_type == conf.LSA_TYPE_ROUTER:
                 self.router_lsa_list.append(lsa_to_add)
-                self.is_modified.set()
+                self.lsdb_modified()
             elif ls_type == conf.LSA_TYPE_NETWORK:
                 self.network_lsa_list.append(lsa_to_add)
-                self.is_modified.set()
+                self.lsdb_modified()
             elif ls_type == conf.LSA_TYPE_INTRA_AREA_PREFIX:
                 self.intra_area_prefix_lsa_list.append(lsa_to_add)
-                self.is_modified.set()
+                self.lsdb_modified()
             #  Link-local scope or unknown LSA types
             elif (flooding_scope == conf.LINK_LOCAL_SCOPING) | (
                     (not lsa.Lsa.is_ls_type_valid(ls_type, self.version)) & (not u_bit)):
                 interface.add_link_local_lsa(lsa_to_add)
-                self.is_modified.set()
+                self.lsdb_modified()
             else:
                 pass
 
@@ -148,6 +149,21 @@ class Lsdb:
             lsa_list = self.get_lsdb(interfaces, None)
             for query_lsa in lsa_list:
                 query_lsa.increase_lsa_age()
+
+    #  Signals router main thread of new LSDB modification
+    def lsdb_modified(self):
+        self.is_modified.set()
+        self.reset_modification_time()
+
+    #  Atomically resets modification time to current time
+    def reset_modification_time(self):
+        with self.lsdb_lock:
+            self.modification_time = time.perf_counter()
+
+    #  Atomically returns value of modification time
+    def get_modification_time(self):
+        with self.lsdb_lock:
+            return self.modification_time
 
     #  Returns the area directed graph as a table
     def get_directed_graph(self, interfaces):
@@ -253,16 +269,19 @@ class Lsdb:
             if self.version == conf.VERSION_IPV4:
                 for network_lsa in self.network_lsa_list:
                     if network_lsa.header.link_state_id == network_id:
-                        network_prefix = utils.Utils.ip_address_to_prefix(
-                            network_id, network_lsa.body.network_mask)
+                        network_prefix = utils.Utils.ip_address_to_prefix(network_id, network_lsa.body.network_mask)
                         prefixes[network_id].append(network_prefix)
             else:
                 dr_id = network_id.split("|")[0]
                 dr_interface_id = network_id.split("|")[1]
-                intra_area_prefix_lsa = self.get_lsa(
-                    conf.LSA_TYPE_INTRA_AREA_PREFIX, dr_interface_id, dr_id, interfaces)
-                for prefix_info in intra_area_prefix_lsa.body.prefixes:
-                    prefixes[network_id].append(prefix_info[3])
+                intra_area_prefix_lsa = None
+                for query_lsa in self.intra_area_prefix_lsa_list:
+                    if (query_lsa.header.advertising_router == dr_id) | (
+                            query_lsa.body.referenced_link_state_id == utils.Utils.decimal_to_ipv4(dr_interface_id)):
+                        intra_area_prefix_lsa = query_lsa
+                if intra_area_prefix_lsa is not None:
+                    for prefix_info in intra_area_prefix_lsa.body.prefixes:
+                        prefixes[network_id].append(prefix_info[3])
 
         return [directed_graph, prefixes]
 
@@ -270,6 +289,7 @@ class Lsdb:
     @staticmethod
     def get_shortest_path_tree(directed_graph, source_router_id):
         #  Initialization
+        infinite = conf.MAX_VALUE_24_BITS + 1  # Replacement for infinite cost - Infinite has no value in OSPF
         shortest_path_tree = {source_router_id: [0, source_router_id]}
         nodes_to_analyse = {}
         for destination in directed_graph:
@@ -277,19 +297,21 @@ class Lsdb:
                 if directed_graph[source_router_id].get(destination) is not None:
                     cost = directed_graph[source_router_id][destination]  # Source directly connected to destination
                 else:
-                    cost = conf.MAX_VALUE_16_BITS  # Replacement for infinite cost - Infinite has no value in OSPF
+                    cost = infinite
                 nodes_to_analyse[destination] = [cost, source_router_id]
 
         while True:
             #  Finding closest node
             if len(nodes_to_analyse) == 0:
                 return shortest_path_tree  # No further nodes to analyse - Shortest path tree completed
-            shortest_cost = conf.MAX_VALUE_16_BITS + 1
+            shortest_cost = infinite
             closest_node = ''
             for node in nodes_to_analyse:
                 if nodes_to_analyse[node][0] < shortest_cost:
                     shortest_cost = nodes_to_analyse[node][0]
                     closest_node = node
+            if closest_node == '':  # All remaining nodes to analyse are in isolated network islands
+                return shortest_path_tree
             shortest_path_tree[closest_node] = nodes_to_analyse[closest_node]
             nodes_to_analyse.pop(closest_node)
 

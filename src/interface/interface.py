@@ -1084,20 +1084,6 @@ class Interface:
                         conf.LSA_TYPE_INTRA_AREA_PREFIX, self.ospf_identifier, self.router_id, [self]))
                     self.flush_lsa(existing_intra_area_prefix_lsa)
                     self.install_flood_lsa(self.create_intra_area_prefix_lsa(conf.LSA_TYPE_ROUTER), self.router_id)
-                '''elif new_dr in [self.router_id, self.ipv4_address]:
-                    if self.is_transit_network(self.designated_router):
-                        existing_intra_area_prefix_lsa = copy.deepcopy(
-                        self.lsdb.get_lsa(conf.LSA_TYPE_INTRA_AREA_PREFIX, 0, self.router_id, [self]))
-                    prefix_length = utils.Utils.get_ipv6_prefix_from_interface_name(self.physical_identifier)[1]
-                    prefix_options = 0
-                    metric = self.cost
-                    prefix = utils.Utils.get_ipv6_prefix_from_interface_name(self.physical_identifier)[0]
-                    intra_area_prefix_lsa.delete_prefix_info(
-                        prefix_length, prefix_options, metric, prefix, conf.LSA_TYPE_INTRA_AREA_PREFIX)
-                    self.generate_lsa_instance(intra_area_prefix_lsa, self.router_id)
-                    intra_area_prefix_lsa = self.create_intra_area_prefix_lsa(
-                        intra_area_prefix_lsa.body.referenced_ls_type)
-                    self.install_flood_lsa(intra_area_prefix_lsa, self.router_id)'''
 
     #  Neighbor reached/left FULL state
     def event_neighbor_full_state(self, old_state, new_state, neighbor_id):

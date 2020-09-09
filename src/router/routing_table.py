@@ -47,6 +47,13 @@ class RoutingTable:
     def delete_all_entries(self):
         self.entries = []
 
+    def __str__(self):
+        string = 'Entries: '
+        for i in range(len(self.entries)):
+            string += ' ' + str(i + 1) + ': {'
+            string += self.entries[i].__str__() + '}'
+        return string
+
 
 class RoutingTableEntry:
 
@@ -89,6 +96,15 @@ class RoutingTableEntry:
 
     def delete_all_paths(self):
         self.paths = []
+
+    def __str__(self):
+        string = 'Destination Type: ' + self.destination_type.__str__() + ' Destination ID: ' + \
+                 self.destination_id.__str__() + ' Prefix Length: ' + self.prefix_length.__str__() + ' Options: ' + \
+                 self.options.__str__() + ' Area: ' + self.area.__str__() + ' Paths: '
+        for i in range(len(self.paths)):
+            string += ' ' + str(i + 1) + ': {'
+            string += self.paths[i].__str__() + '}'
+        return string
 
     @staticmethod
     def parameter_validation(destination_type, destination_id, prefix_length, options, area):
@@ -139,3 +155,9 @@ class RoutingTablePath:
         if (not utils.Utils.is_ipv4_address(advertising_router)) & (advertising_router != ''):
             return False, "Invalid Advertising Router"
         return True, ''
+
+    def __str__(self):
+        return 'Path Type: ' + self.path_type.__str__() + ' Cost: ' + self.cost.__str__() + ' Type 2 Cost: ' + \
+               self.type_2_cost.__str__() + ' Outgoing Interface: ' + self.outgoing_interface.__str__() + \
+               ' Next Hop Address: ' + self.next_hop_address.__str__() + ' Advertising Router: ' + \
+               self.advertising_router.__str__()

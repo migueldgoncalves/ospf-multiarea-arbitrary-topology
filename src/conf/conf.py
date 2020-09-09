@@ -25,6 +25,7 @@ TRANSMISSION_DELAY = 1
 RETRANSMISSION_INTERVAL = 5
 MIN_LS_ARRIVAL = 1
 LS_ACK_TRANSMISSION_DELAY = 3  # Time acknowledgements to LS Update packets will be delayed to be grouped
+KERNEL_UPDATE_INTERVAL = 10  # Implementation-specific - Time between updates of kernel routing table
 
 VERSION_IPV4 = 2
 VERSION_IPV6 = 3

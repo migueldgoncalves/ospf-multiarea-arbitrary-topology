@@ -24,12 +24,12 @@ class Utils:
     #  Converts numbers between 0 and 4294967295 to IPv4 addresses
     @staticmethod
     def decimal_to_ipv4(decimal):
-        return str(ipaddress.IPv4Address(decimal))
+        return str(ipaddress.IPv4Address(int(decimal)))
 
     #  Converts numbers between 0 and 340282366920938463463374607431768211455 to IPv6 addresses
     @staticmethod
     def decimal_to_ipv6(decimal):
-        return str(ipaddress.IPv6Address(decimal))
+        return str(ipaddress.IPv6Address(int(decimal)))
 
     #  Calculates the OSPFv2 packet checksum - Same as IPv4 header checksum
     #  It is assumed that checksum, authentication and authentication type fields are clear

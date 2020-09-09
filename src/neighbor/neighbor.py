@@ -91,7 +91,8 @@ class Neighbor:
     def stop_retransmission_timer(self):
         if self.retransmission_thread is not None:
             self.retransmission_shutdown.set()
-            self.retransmission_thread.join()
+            if self.retransmission_thread.isAlive():
+                self.retransmission_thread.join()
 
     #  Stops timer thread so that neighbor can be deleted
     def delete_neighbor(self):

@@ -11,7 +11,7 @@ This class tests the top-level OSPF operations in the router
 '''
 
 
-#  Full successful run - 20-43 s
+#  Full successful run - 19-34 s
 class RouterTest(unittest.TestCase):
 
     def setUp(self):
@@ -26,7 +26,7 @@ class RouterTest(unittest.TestCase):
         self.thread_v2.start()
         self.thread_v3.start()
 
-    #  Successful run - 10-18 s
+    #  Successful run - 9-18 s
     def test_constructor_successful(self):
         self.assertEqual(conf.VERSION_IPV4, self.router_v2.ospf_version)
         self.assertEqual(conf.VERSION_IPV6, self.router_v3.ospf_version)
@@ -90,7 +90,7 @@ class RouterTest(unittest.TestCase):
         self.assertTrue(neighbor_v2.neighbor_state not in [conf.NEIGHBOR_STATE_DOWN, conf.NEIGHBOR_STATE_INIT])
         self.assertTrue(neighbor_v3.neighbor_state not in [conf.NEIGHBOR_STATE_DOWN, conf.NEIGHBOR_STATE_INIT])
 
-    #  Successful run - 0-10 s
+    #  Successful run - 0-1 s
     def test_constructor_invalid_parameters(self):
         with self.assertRaises(ValueError):
             router.Router(

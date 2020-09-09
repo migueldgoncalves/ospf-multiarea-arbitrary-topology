@@ -71,8 +71,7 @@ class UtilsTest(unittest.TestCase):
         self.assertEqual('0.255.255.255', utils.Utils.decimal_to_ipv4(16777215))
         self.assertEqual('1.0.0.0', utils.Utils.decimal_to_ipv4(16777216))
         self.assertEqual('255.255.255.255', utils.Utils.decimal_to_ipv4(4294967295))
-        self.assertEqual('0.0.0.0', utils.Utils.decimal_to_ipv4('0.0.0.0'))
-        self.assertEqual('255.255.255.255', utils.Utils.decimal_to_ipv4('255.255.255.255'))
+        self.assertEqual('0.0.0.1', utils.Utils.decimal_to_ipv4('1'))
 
     #  Successful run - Instant
     def test_decimal_to_ipv6_successful(self):
@@ -93,6 +92,7 @@ class UtilsTest(unittest.TestCase):
         self.assertEqual('1::', utils.Utils.decimal_to_ipv6(5192296858534827628530496329220096))
         self.assertEqual('ffff:ffff:ffff:ffff:ffff:ffff:ffff:ffff',
                          utils.Utils.decimal_to_ipv6(340282366920938463463374607431768211455))
+        self.assertEqual('::1', utils.Utils.decimal_to_ipv6('1'))
 
     #  Successful run - Instant
     def test_decimal_to_ipv4_invalid_decimal(self):

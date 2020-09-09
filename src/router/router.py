@@ -2,6 +2,7 @@ import queue
 import threading
 import datetime
 import time
+import copy
 
 import general.utils as utils
 import general.sock as sock
@@ -195,16 +196,20 @@ class Router:
                             time.sleep(0.1)
                             current_interface.update_ls_retransmission_lists(lsa_identifier, destination_address)
 
-            #  Sets the Linux kernel default routing table if any LSDB was changed
+            #  Sets the Linux kernel default routing table if any LSDB was changed and enough time has passed
             if not self.localhost:
                 lsdb_modified = False
                 for area_id in self.areas:
                     query_area = self.areas[area_id]
-                    if query_area.database.is_modified.is_set():  # LSDB was modified
-                        query_area.database.is_modified.clear()
-                        lsdb_modified = True
+                    lsdb = query_area.database
+                    if lsdb.is_modified.is_set():  # LSDB was modified
+                        if time.perf_counter() - lsdb.get_modification_time() > conf.KERNEL_UPDATE_INTERVAL:
+                            lsdb.is_modified.clear()
+                            lsdb.reset_modification_time()
+                            lsdb_modified = True
                 if lsdb_modified:
-                    self.set_kernel_routing_table()
+                    thread = threading.Thread(target=self.set_kernel_routing_table)
+                    thread.start()  # Separate thread is required due to slow execution time
 
         #  Router signalled to shutdown
         self.shutdown_router()
@@ -221,8 +226,12 @@ class Router:
 
             query_area = self.areas[area_id]
             lsdb = query_area.database
+            lsdb.lsdb_lock.acquire()
             shortest_path_tree = shortest_path_tree_dictionary[area_id]
             prefixes = prefixes_dictionary[area_id]
+            for node_id in copy.deepcopy(prefixes):
+                if node_id not in shortest_path_tree:  # Deleting prefixes associated with unreachable nodes
+                    prefixes.pop(node_id)
             interface_array = []
             for interface_id in query_area.interfaces:
                 interface_array.append(query_area.interfaces[interface_id][area.INTERFACE_OBJECT])
@@ -276,8 +285,12 @@ class Router:
                             interface_id = node_id.split("|")[1]
                             network_lsa = lsdb.get_lsa(conf.LSA_TYPE_NETWORK, interface_id, router_id, interface_array)
                             options = network_lsa.body.options
-                            intra_area_prefix_lsa = lsdb.get_lsa(
-                                conf.LSA_TYPE_INTRA_AREA_PREFIX, interface_id, router_id, interface_array)
+                            intra_area_prefix_lsa = None
+                            for query_lsa in lsdb.intra_area_prefix_lsa_list:
+                                if (query_lsa.header.advertising_router == router_id) | (
+                                        query_lsa.body.referenced_link_state_id == utils.Utils.decimal_to_ipv4(
+                                        interface_id)):
+                                    intra_area_prefix_lsa = query_lsa
                             for prefix_info in intra_area_prefix_lsa.body.prefixes:
                                 if prefix_info[3] == prefix:
                                     prefix_length = prefix_info[0]
@@ -286,6 +299,7 @@ class Router:
                                     cost = shortest_path_tree[node_id][0]  # Root to network
                                     prefixes_with_costs[node_id][prefix] = [cost]
                     else:
+                        lsdb.lsdb_lock.release()
                         raise ValueError("Invalid OSPF version")
 
             #  Finding the next hop information to reach nodes in the same links as the root node
@@ -368,6 +382,7 @@ class Router:
                                                             next_hop_address = destination_lsa.body.link_local_address
                                                             next_hop_info[destination] = [
                                                                 outgoing_interface, next_hop_address]
+            lsdb.lsdb_lock.release()
 
             #  Finding the next hop information to reach the remaining nodes
 
@@ -423,18 +438,18 @@ class Router:
                     routing_table_entry.add_path(
                         conf.INTRA_AREA_PATH, cost, 0, outgoing_interface, next_hop_address, '')
 
-            return table
+        return table
 
     #  Sets the Linux kernel default routing table according to the supplied OSPF routing table
-    @staticmethod
-    def set_kernel_routing_table_from_ospf_table(ospf_routing_table):
-        kernel_table.KernelTable.delete_all_ospf_routes()
+    def set_kernel_routing_table_from_ospf_table(self, ospf_routing_table):
+        kernel_table.KernelTable.delete_all_ospf_routes(self.ospf_version)
         for entry in ospf_routing_table.entries:
             prefix = entry.destination_id
             prefix_length = entry.prefix_length
             for path in entry.paths:
+                outgoing_interface = path.outgoing_interface
                 next_hop_address = path.next_hop_address
-                kernel_table.KernelTable.add_ospf_route(prefix, prefix_length, next_hop_address)
+                kernel_table.KernelTable.add_ospf_route(prefix, prefix_length, next_hop_address, outgoing_interface)
 
     #  Sets the Linux kernel default routing table according to the LSDBs content
     def set_kernel_routing_table(self):
@@ -442,14 +457,16 @@ class Router:
         prefixes_dictionary = {}
         for area_id in self.areas:
             query_area = self.areas[area_id]
-            data = query_area.database.get_directed_graph(query_area.get_interfaces())
-            directed_graph = data[0]
-            prefixes = data[1]
-            shortest_path_tree = query_area.database.get_shortest_path_tree(directed_graph, self.router_id)
-            shortest_path_tree_dictionary[query_area.area_id] = shortest_path_tree
-            prefixes_dictionary[query_area.area_id] = prefixes
+            with query_area.database.lsdb_lock:
+                data = query_area.database.get_directed_graph(query_area.get_interfaces())
+                directed_graph = data[0]
+                prefixes = data[1]
+                shortest_path_tree = query_area.database.get_shortest_path_tree(directed_graph, self.router_id)
+                shortest_path_tree_dictionary[query_area.area_id] = shortest_path_tree
+                prefixes_dictionary[query_area.area_id] = prefixes
         self.routing_table = self.get_intra_area_routing_table(shortest_path_tree_dictionary, prefixes_dictionary)
-        Router.set_kernel_routing_table_from_ospf_table(self.routing_table)
+        with kernel_table.KernelTable.lock:
+            self.set_kernel_routing_table_from_ospf_table(self.routing_table)
 
     #  #  #  #  #  #  #  #  #  #  #  #  #
     #  Command-line interface methods  #
@@ -551,6 +568,7 @@ class Router:
 
     #  Ensures router is down, and with it all of its area data structures and interfaces
     def shutdown_router(self):
+        kernel_table.KernelTable.delete_all_ospf_routes(self.ospf_version)
         for s in self.socket_shutdown_events:
             self.socket_shutdown_events[s].set()
         for t in self.socket_threads:
