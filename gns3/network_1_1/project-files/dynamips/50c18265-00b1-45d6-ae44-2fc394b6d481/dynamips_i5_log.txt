@@ -1,0 +1,32 @@
+Sep 20 05:52:35.766 HYPERVISOR: Release 0.2.17-x86/Windows (tag 2017072410)
+Sep 20 05:52:35.768 HYPERVISOR: Started on IP = localhost, TCP port = 59787.
+Sep 20 05:52:36.272 HYPERVISOR: exec_cmd: hypervisor version 
+Sep 20 05:52:36.272 HYPERVISOR: exec_cmd: hypervisor working_dir D:\PycharmProjects\ospf-multiarea-arbitrary-topology\gns3\network_1_1\project-files\dynamips 
+Sep 20 05:52:36.272 GENERAL: working_dir=D:\PycharmProjects\ospf-multiarea-arbitrary-topology\gns3\network_1_1\project-files\dynamips
+Sep 20 05:52:36.272 HYPERVISOR: exec_cmd: hypervisor working_dir D:\PycharmProjects\ospf-multiarea-arbitrary-topology\gns3\network_1_1\project-files\dynamips\5a3dff10-9417-4e6d-9038-d5e87312555c 
+Sep 20 05:52:36.272 GENERAL: working_dir=D:\PycharmProjects\ospf-multiarea-arbitrary-topology\gns3\network_1_1\project-files\dynamips\5a3dff10-9417-4e6d-9038-d5e87312555c
+Sep 20 05:52:36.273 HYPERVISOR: exec_cmd: vm create R6 4 c3725 
+Sep 20 05:52:36.274 VM: VM R6 created.
+Sep 20 05:52:36.275 HYPERVISOR: exec_cmd: vm set_con_tcp_port R6 5007 
+Sep 20 05:52:36.275 HYPERVISOR: exec_cmd: c3725 get_mac_addr R6 
+Sep 20 05:52:36.276 HYPERVISOR: exec_cmd: vm set_disk0 R6 0 
+Sep 20 05:52:36.276 HYPERVISOR: exec_cmd: vm set_exec_area R6 64 
+Sep 20 05:52:36.277 HYPERVISOR: exec_cmd: vm get_status R6 
+Sep 20 05:52:36.277 HYPERVISOR: exec_cmd: vm set_idle_pc R6 0x60236160 
+Sep 20 05:52:36.278 HYPERVISOR: exec_cmd: vm set_ios R6 C:/Users/Huawei/GNS3/images/IOS/c3725-advipservicesk9-mz.124-21.bin 
+Sep 20 05:52:36.279 HYPERVISOR: exec_cmd: c3725 set_mac_addr R6 c204.43bc.0000 
+Sep 20 05:52:36.279 HYPERVISOR: exec_cmd: vm set_nvram R6 256 
+Sep 20 05:52:36.280 HYPERVISOR: exec_cmd: vm get_status R6 
+Sep 20 05:52:36.280 HYPERVISOR: exec_cmd: vm slot_add_binding R6 1 0 NM-1FE-TX 
+Sep 20 05:52:38.552 HYPERVISOR: exec_cmd: nio create_udp udp-ea35e6b1-60f0-43ab-be49-5db903c9dcf0 10038 127.0.0.1 10039 
+Sep 20 05:52:38.795 HYPERVISOR: exec_cmd: vm slot_add_nio_binding R6 0 0 udp-ea35e6b1-60f0-43ab-be49-5db903c9dcf0 
+Sep 20 05:52:38.796 HYPERVISOR: exec_cmd: vm get_status R6 
+Sep 20 05:52:40.016 HYPERVISOR: exec_cmd: vm get_status R6 
+Sep 20 05:52:40.017 HYPERVISOR: exec_cmd: vm extract_config R6 
+Sep 20 05:52:40.717 HYPERVISOR: exec_cmd: vm get_status R6 
+Sep 20 05:52:40.718 HYPERVISOR: exec_cmd: vm extract_config R6 
+Sep 20 05:52:40.718 HYPERVISOR: exec_cmd: vm delete R6 
+Sep 20 05:52:40.718 VM: VM R6 destroyed.
+Sep 20 05:52:40.730 HYPERVISOR: exec_cmd: hypervisor stop 
+Sep 20 05:52:40.840 HYPERVISOR: Stopped.
+Sep 20 05:52:40.840 GENERAL: reset done.
