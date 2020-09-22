@@ -118,35 +118,35 @@ class TestRoutingTable(unittest.TestCase):
 
         #  Implementation requires physical interface identifier for OSPFv3 to match a VM interface
         self.interface_r1_f0_0_v3 = interface.Interface(
-            self.router_id_1, 'ens33', '', self.r1_f0_0_v3, '', [[self.prefix_3_v3, self.prefix_length]],
-            conf.BACKBONE_AREA, None, None, conf.VERSION_IPV6, None, False)
+            self.router_id_1, conf.INTERFACE_NAMES[0], '', self.r1_f0_0_v3, '',
+            [[self.prefix_3_v3, self.prefix_length]], conf.BACKBONE_AREA, None, None, conf.VERSION_IPV6, None, False)
         self.interface_r1_f0_1_v3 = interface.Interface(
-            self.router_id_1, 'ens33', '', self.r1_f0_1_v3, '', [[self.prefix_2_v3, self.prefix_length]],
-            conf.BACKBONE_AREA, None, None, conf.VERSION_IPV6, None, False)
+            self.router_id_1, conf.INTERFACE_NAMES[0], '', self.r1_f0_1_v3, '',
+            [[self.prefix_2_v3, self.prefix_length]], conf.BACKBONE_AREA, None, None, conf.VERSION_IPV6, None, False)
         self.interface_r1_f1_0_v3 = interface.Interface(
-            self.router_id_1, 'ens33', '', self.r1_f1_0_v3, '', [[self.prefix_1_v3, self.prefix_length]],
-            conf.BACKBONE_AREA, None, None, conf.VERSION_IPV6, None, False)
+            self.router_id_1, conf.INTERFACE_NAMES[0], '', self.r1_f1_0_v3, '',
+            [[self.prefix_1_v3, self.prefix_length]], conf.BACKBONE_AREA, None, None, conf.VERSION_IPV6, None, False)
         self.interface_r1_s2_0_v3 = interface.Interface(
-            self.router_id_1, 'ens33', '', self.r1_s2_0_v3, '', [[self.prefix_6_v3, self.prefix_length]],
-            conf.BACKBONE_AREA, None, None, conf.VERSION_IPV6, None, False)
+            self.router_id_1, conf.INTERFACE_NAMES[0], '', self.r1_s2_0_v3, '',
+            [[self.prefix_6_v3, self.prefix_length]], conf.BACKBONE_AREA, None, None, conf.VERSION_IPV6, None, False)
         self.interface_r2_f0_0_v3 = interface.Interface(
-            self.router_id_2, 'ens33', '', self.r2_f0_0_v3, '', [[self.prefix_4_v3, self.prefix_length]],
-            conf.BACKBONE_AREA, None, None, conf.VERSION_IPV6, None, False)
+            self.router_id_2, conf.INTERFACE_NAMES[0], '', self.r2_f0_0_v3, '',
+            [[self.prefix_4_v3, self.prefix_length]], conf.BACKBONE_AREA, None, None, conf.VERSION_IPV6, None, False)
         self.interface_r2_f0_1_v3 = interface.Interface(
-            self.router_id_2, 'ens33', '', self.r2_f0_1_v3, '', [[self.prefix_3_v3, self.prefix_length]],
-            conf.BACKBONE_AREA, None, None, conf.VERSION_IPV6, None, False)
+            self.router_id_2, conf.INTERFACE_NAMES[0], '', self.r2_f0_1_v3, '',
+            [[self.prefix_3_v3, self.prefix_length]], conf.BACKBONE_AREA, None, None, conf.VERSION_IPV6, None, False)
         self.interface_r2_f1_0_v3 = interface.Interface(
-            self.router_id_2, 'ens33', '', self.r2_f1_0_v3, '', [[self.prefix_5_v3, self.prefix_length]],
-            conf.BACKBONE_AREA, None, None, conf.VERSION_IPV6, None, False)
+            self.router_id_2, conf.INTERFACE_NAMES[0], '', self.r2_f1_0_v3, '',
+            [[self.prefix_5_v3, self.prefix_length]], conf.BACKBONE_AREA, None, None, conf.VERSION_IPV6, None, False)
         self.interface_r3_f0_0_v3 = interface.Interface(
-            self.router_id_3, 'ens33', '', self.r3_f0_0_v3, '', [[self.prefix_5_v3, self.prefix_length]],
-            conf.BACKBONE_AREA, None, None, conf.VERSION_IPV6, None, False)
+            self.router_id_3, conf.INTERFACE_NAMES[0], '', self.r3_f0_0_v3, '',
+            [[self.prefix_5_v3, self.prefix_length]], conf.BACKBONE_AREA, None, None, conf.VERSION_IPV6, None, False)
         self.interface_r3_s1_0_v3 = interface.Interface(
-            self.router_id_3, 'ens33', '', self.r3_s1_0_v3, '', [[self.prefix_6_v3, self.prefix_length]],
-            conf.BACKBONE_AREA, None, None, conf.VERSION_IPV6, None, False)
+            self.router_id_3, conf.INTERFACE_NAMES[0], '', self.r3_s1_0_v3, '',
+            [[self.prefix_6_v3, self.prefix_length]], conf.BACKBONE_AREA, None, None, conf.VERSION_IPV6, None, False)
         self.interface_r4_e0_v3 = interface.Interface(
-            self.router_id_4, 'ens33', '', self.r4_e0_v3, '', [[self.prefix_1_v3, self.prefix_length]],
-            conf.BACKBONE_AREA, None, None, conf.VERSION_IPV6, None, False)
+            self.router_id_4, conf.INTERFACE_NAMES[0], '', self.r4_e0_v3, '',
+            [[self.prefix_1_v3, self.prefix_length]], conf.BACKBONE_AREA, None, None, conf.VERSION_IPV6, None, False)
 
         self.interfaces_r1_v2 = [self.interface_r1_f0_0_v2, self.interface_r1_f0_1_v2, self.interface_r1_f1_0_v2,
                                  self.interface_r1_s2_0_v2]

@@ -139,8 +139,6 @@ class Interface:
                 version = incoming_packet.header.version
                 packet_type = incoming_packet.header.packet_type
                 neighbor_id = incoming_packet.header.router_id
-                if packet_type != conf.PACKET_TYPE_HELLO:
-                    neighbor_router = self.neighbors[neighbor_id]
 
                 #  Packet does not come from a neighbor router
                 if (packet_type != conf.PACKET_TYPE_HELLO) & (neighbor_id not in self.neighbors):
@@ -208,6 +206,7 @@ class Interface:
                     self.event_hello_received(incoming_packet, source_ip, neighbor_id)
 
                 elif packet_type == conf.PACKET_TYPE_DB_DESCRIPTION:
+                    neighbor_router = self.neighbors[neighbor_id]
                     neighbor_options = incoming_packet.body.options
                     neighbor_i_bit = incoming_packet.body.i_bit
                     neighbor_m_bit = incoming_packet.body.m_bit
@@ -301,6 +300,7 @@ class Interface:
                         continue
 
                 elif packet_type == conf.PACKET_TYPE_LS_REQUEST:
+                    neighbor_router = self.neighbors[neighbor_id]
                     if neighbor_router.neighbor_state not in [
                             conf.NEIGHBOR_STATE_EXCHANGE, conf.NEIGHBOR_STATE_LOADING, conf.NEIGHBOR_STATE_FULL]:
                         continue  # Packet ignored
@@ -329,6 +329,7 @@ class Interface:
                     self.send_packet(self.ls_update_packet, neighbor_router.neighbor_ip_address, neighbor_router)
 
                 elif packet_type == conf.PACKET_TYPE_LS_UPDATE:
+                    neighbor_router = self.neighbors[neighbor_id]
                     if neighbor_router.neighbor_state not in [
                             conf.NEIGHBOR_STATE_EXCHANGE, conf.NEIGHBOR_STATE_LOADING, conf.NEIGHBOR_STATE_FULL]:
                         continue
@@ -446,6 +447,7 @@ class Interface:
                         self.event_loading_done(neighbor_router)
 
                 elif packet_type == conf.PACKET_TYPE_LS_ACKNOWLEDGMENT:
+                    neighbor_router = self.neighbors[neighbor_id]
                     if neighbor_router.neighbor_state not in [
                             conf.NEIGHBOR_STATE_EXCHANGE, conf.NEIGHBOR_STATE_LOADING, conf.NEIGHBOR_STATE_FULL]:
                         continue

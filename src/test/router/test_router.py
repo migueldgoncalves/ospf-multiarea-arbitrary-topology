@@ -99,6 +99,22 @@ class RouterTest(unittest.TestCase):
             router.Router(
                 conf.ROUTER_ID, 4, self.shutdown_event_v2, conf.INTERFACE_NAMES, conf.INTERFACE_AREAS, False)
 
+    #  Successful run - Instant
+    def test_get_unique_values(self):
+        self.assertEqual(['0.0.0.0'], router.Router.get_unique_values(['0.0.0.0']))
+        self.assertEqual(['0.0.0.0'], router.Router.get_unique_values(['0.0.0.0', '0.0.0.0']))
+        self.assertEqual(2, len(router.Router.get_unique_values(['0.0.0.0', '0.0.0.0', '1.1.1.1'])))
+        for area_id in ['0.0.0.0', '1.1.1.1']:
+            self.assertTrue(area_id in router.Router.get_unique_values(['0.0.0.0', '0.0.0.0', '1.1.1.1']))
+        self.assertEqual(2, len(router.Router.get_unique_values(['0.0.0.0', '0.0.0.0', '1.1.1.1', '1.1.1.1'])))
+        for area_id in ['0.0.0.0', '1.1.1.1']:
+            self.assertTrue(area_id in router.Router.get_unique_values(['0.0.0.0', '0.0.0.0', '1.1.1.1', '1.1.1.1']))
+        self.assertEqual(3, len(router.Router.get_unique_values(
+            ['0.0.0.0', '0.0.0.0', '1.1.1.1', '1.1.1.1', '2.2.2.2'])))
+        for area_id in ['0.0.0.0', '1.1.1.1', '2.2.2.2']:
+            self.assertTrue(area_id in router.Router.get_unique_values(
+                ['0.0.0.0', '0.0.0.0', '1.1.1.1', '1.1.1.1', '2.2.2.2']))
+
     def tearDown(self):
         self.shutdown_event_v2.set()
         self.shutdown_event_v3.set()

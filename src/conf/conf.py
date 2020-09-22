@@ -2,15 +2,23 @@
 This file contains the program constants
 """
 
-#  OSPF-related constants
+#  OSPF configurable parameters
 
 ROUTER_ID = '4.4.4.4'
 ROUTER_PRIORITY = 1
+INTERFACE_COST = 10
+#  1st element in interface names tuple must match 1st element in interface areas tuple, and so on
+#  Ex: Interface "ens32" belongs to area '0.0.0.0'
+INTERFACE_NAMES = ["ens32"]  # Must match interface names in the machine
+INTERFACE_AREAS = ['0.0.0.0']
+KERNEL_UPDATE_INTERVAL = 10  # Implementation-specific - Time between updates of kernel routing table
+
+#  OSPF-related constants
+
 OPTIONS = 2  # External Routing enabled - For compatibility with Cisco routers used
 PREFIX_OPTIONS = 0
 DEFAULT_DESIGNATED_ROUTER = '0.0.0.0'
 DEFAULT_AUTH = 0
-INTERFACE_COST = 10
 MTU = 1500  # Maximum transmission unit - In bytes
 OSPF_PROTOCOL_NUMBER = 89
 INITIAL_LS_AGE = 0
@@ -25,7 +33,6 @@ TRANSMISSION_DELAY = 1
 RETRANSMISSION_INTERVAL = 5
 MIN_LS_ARRIVAL = 1
 LS_ACK_TRANSMISSION_DELAY = 3  # Time acknowledgements to LS Update packets will be delayed to be grouped
-KERNEL_UPDATE_INTERVAL = 10  # Implementation-specific - Time between updates of kernel routing table
 
 VERSION_IPV4 = 2
 VERSION_IPV6 = 3
@@ -56,11 +63,6 @@ LSA_TYPE_EXTENSION_ASBR_LSA = 12  # Just for OSPFv3
 OPAQUE_TYPE_ABR_LSA = 10
 OPAQUE_TYPE_PREFIX_LSA = 11
 OPAQUE_TYPE_ASBR_LSA = 12
-
-#  1st element in interface names tuple must match 1st element in interface areas tuple, and so on
-#  Ex: Interface "ens33" belongs to area '0.0.0.0'
-INTERFACE_NAMES = ["ens33"]  # Must match interface names in the machine
-INTERFACE_AREAS = ['0.0.0.0']
 
 HELLO_INTERVAL = 10
 ROUTER_DEAD_INTERVAL = 40

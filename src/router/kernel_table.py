@@ -63,6 +63,8 @@ class KernelTable:
     #  Adds route to default routing table with provided parameters and OSPF as protocol
     @staticmethod
     def add_ospf_route(prefix, prefix_length, next_hop, outgoing_interface):
+        if (prefix == '') | (next_hop == '') | (outgoing_interface == ''):
+            return
         with KernelTable.lock:
             #  Direct routes are always preferred over OSPF routes
             if (not KernelTable.has_ospf_route(prefix, prefix_length, next_hop)) & (

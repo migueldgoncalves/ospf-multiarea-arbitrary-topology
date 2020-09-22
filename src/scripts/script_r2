@@ -1,0 +1,68 @@
+#!/bin/bash
+INTERFACE_1="ens32"
+INTERFACE_2="ens33"
+INTERFACE_3="ens35"
+INTERFACE_4="ens38"
+INTERFACE_5="ens39"
+INTERFACE_6="ens40"
+
+if [ $# -eq 0 ]; then  # No arguments provided
+	echo "Provide as argument 1, 2, or 3, to configure the interfaces for the respective environment"
+	echo "Example: './script_r2 1' to configure the interfaces for environment 1"
+	exit 0
+fi
+
+echo "Flushing previous IP addresses..."
+ip addr flush dev $INTERFACE_1
+ip addr flush dev $INTERFACE_2
+ip addr flush dev $INTERFACE_3
+ip addr flush dev $INTERFACE_4
+ip addr flush dev $INTERFACE_5
+ip addr flush dev $INTERFACE_6
+echo "Flushing default gateway..."
+ip route flush table main
+ip -6 route flush table main
+
+if [ "$1" -eq 1 ]; then  # Environment 1
+
+	#  Interfaces for GNS3
+	echo "Configuring $INTERFACE_1..."
+	ip link set $INTERFACE_1 up
+	ip addr add 222.222.4.1/24 dev $INTERFACE_1
+	ip addr add 2001:db8:cafe:4::1/64 dev $INTERFACE_1
+	echo "Configuring $INTERFACE_2..."
+	ip link set $INTERFACE_2 up
+	ip addr add 222.222.3.2/24 dev $INTERFACE_2
+	ip addr add 2001:db8:cafe:3::2/64 dev $INTERFACE_2
+	echo "Configuring $INTERFACE_3..."
+	ip link set $INTERFACE_3 up
+	ip addr add 222.222.5.1/24 dev $INTERFACE_3
+	ip addr add 2001:db8:cafe:5::1/64 dev $INTERFACE_3
+	echo "Configuring $INTERFACE_4..."
+	ifconfig $INTERFACE_4 down
+
+elif [ "$1" -eq 2 ]; then  # Environment 2
+	echo "TODO"
+	#  TODO
+
+elif [ "$1" -eq 3 ]; then  # Environment 3
+	echo "TODO"
+	#  TODO
+
+else
+	echo "Provide as argument 1, 2, or 3, to configure the interfaces for the respective environment"
+	echo "Example: './script_r2 1' to configure the interfaces for environment 1"
+	exit 0
+fi
+
+#  Interfaces for local integration tests - Same configuration for all routers and environments
+echo "Configuring $INTERFACE_5..."
+ip link set $INTERFACE_5 up
+ip addr add 111.111.1.1/24 dev $INTERFACE_5
+ip addr add 1001:db8:cafe:1::1/64 dev $INTERFACE_5
+echo "Configuring $INTERFACE_6..."
+ip link set $INTERFACE_6 up
+ip addr add 111.111.1.2/24 dev $INTERFACE_6
+ip addr add 1001:db8:cafe:1::2/64 dev $INTERFACE_6
+
+echo "Configuration complete"

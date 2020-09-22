@@ -46,11 +46,12 @@ class Socket:
 
         #  Joins multicast group(s)
         group_address_bits = socket.inet_aton(conf.ALL_OSPF_ROUTERS_IPV4)
-        membership_parameters = struct.pack(MULTICAST_STRING_FORMAT_IPV4, group_address_bits, socket.INADDR_ANY)
+        interface_id = socket.if_nametoindex(interface)
+        membership_parameters = struct.pack(MULTICAST_STRING_FORMAT_IPV4, group_address_bits, interface_id)
         s.setsockopt(socket.IPPROTO_IP, socket.IP_ADD_MEMBERSHIP, membership_parameters)
         if self.is_dr:
             group_address_bits = socket.inet_aton(conf.ALL_DR_IPV4)
-            membership_parameters = struct.pack(MULTICAST_STRING_FORMAT_IPV4, group_address_bits, socket.INADDR_ANY)
+            membership_parameters = struct.pack(MULTICAST_STRING_FORMAT_IPV4, group_address_bits, interface_id)
             s.setsockopt(socket.IPPROTO_IP, socket.IP_ADD_MEMBERSHIP, membership_parameters)
 
         #  Listens to packets from the network
@@ -87,11 +88,12 @@ class Socket:
 
         #  Joins multicast group(s)
         group_address_bits = socket.inet_pton(socket.AF_INET6, conf.ALL_OSPF_ROUTERS_IPV6)
-        membership_parameters = group_address_bits + struct.pack(MULTICAST_STRING_FORMAT_IPV6, socket.INADDR_ANY)
+        interface_id = socket.if_nametoindex(interface)
+        membership_parameters = group_address_bits + struct.pack(MULTICAST_STRING_FORMAT_IPV6, interface_id)
         s.setsockopt(socket.IPPROTO_IPV6, socket.IPV6_JOIN_GROUP, membership_parameters)
         if self.is_dr:
             group_address_bits = socket.inet_pton(socket.AF_INET6, conf.ALL_DR_IPV6)
-            membership_parameters = group_address_bits + struct.pack(MULTICAST_STRING_FORMAT_IPV6, socket.INADDR_ANY)
+            membership_parameters = group_address_bits + struct.pack(MULTICAST_STRING_FORMAT_IPV6, interface_id)
             s.setsockopt(socket.IPPROTO_IPV6, socket.IPV6_JOIN_GROUP, membership_parameters)
 
         #  Listens to packets from the network

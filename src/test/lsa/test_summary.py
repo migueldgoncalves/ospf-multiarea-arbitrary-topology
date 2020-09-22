@@ -10,7 +10,7 @@ This class tests the OSPFv2 Summary-LSAs body class and its operations
 #  Full successful run - Instant
 class TestSummary(unittest.TestCase):
 
-    body_bytes = b'\xff\xff\xff\x00\x00\x00\x00\n\x00\x00\x00\x00'
+    body_bytes = b'\xff\xff\xff\x00\x00\x00\x00\n'
     network_mask = '255.255.255.0'
     metric = 10
 

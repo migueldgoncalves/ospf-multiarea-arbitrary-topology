@@ -15,6 +15,8 @@ class Lsdb:
     def __init__(self, version, area_id):
         self.router_lsa_list = []
         self.network_lsa_list = []
+        self.summary_lsa_type_3_list = []  # Only for OSPFv2
+        self.inter_area_prefix_lsa_list = []  # Only for OSPFv3
         self.intra_area_prefix_lsa_list = []  # Only for OSPFv3
         #  Link-LSAs are stored in the appropriate interface instance
 
@@ -33,6 +35,8 @@ class Lsdb:
             lsa_list = []
             lsa_list.extend(self.router_lsa_list)
             lsa_list.extend(self.network_lsa_list)
+            lsa_list.extend(self.summary_lsa_type_3_list)
+            lsa_list.extend(self.inter_area_prefix_lsa_list)
             lsa_list.extend(self.intra_area_prefix_lsa_list)
             for i in interfaces:
                 lsa_list.extend(i.get_link_local_lsa_list())
@@ -82,21 +86,13 @@ class Lsdb:
         if not utils.Utils.is_ipv4_address(link_state_id):
             link_state_id = utils.Utils.decimal_to_ipv4(int(link_state_id))
         with self.lsdb_lock:
-            for query_lsa in self.router_lsa_list:
-                if query_lsa.is_lsa_identifier_equal(ls_type, link_state_id, advertising_router):
-                    self.router_lsa_list.remove(query_lsa)
-                    self.lsdb_modified()
-                    return
-            for query_lsa in self.network_lsa_list:
-                if query_lsa.is_lsa_identifier_equal(ls_type, link_state_id, advertising_router):
-                    self.network_lsa_list.remove(query_lsa)
-                    self.lsdb_modified()
-                    return
-            for query_lsa in self.intra_area_prefix_lsa_list:
-                if query_lsa.is_lsa_identifier_equal(ls_type, link_state_id, advertising_router):
-                    self.intra_area_prefix_lsa_list.remove(query_lsa)
-                    self.lsdb_modified()
-                    return
+            for lsa_list in [self.router_lsa_list, self.network_lsa_list, self.summary_lsa_type_3_list,
+                             self.inter_area_prefix_lsa_list, self.intra_area_prefix_lsa_list]:
+                for query_lsa in lsa_list:
+                    if query_lsa.is_lsa_identifier_equal(ls_type, link_state_id, advertising_router):
+                        lsa_list.remove(query_lsa)
+                        self.lsdb_modified()
+                        return
             for i in interfaces:
                 i.delete_link_local_lsa(ls_type, link_state_id, advertising_router)
             self.lsdb_modified()
@@ -123,6 +119,12 @@ class Lsdb:
             elif ls_type == conf.LSA_TYPE_NETWORK:
                 self.network_lsa_list.append(lsa_to_add)
                 self.lsdb_modified()
+            elif (ls_type == conf.LSA_TYPE_SUMMARY_TYPE_3) & (self.version == conf.VERSION_IPV4):
+                self.summary_lsa_type_3_list.append(lsa_to_add)
+                self.lsdb_modified()
+            elif (ls_type == conf.LSA_TYPE_INTER_AREA_PREFIX) & (self.version == conf.VERSION_IPV6):
+                self.inter_area_prefix_lsa_list.append(lsa_to_add)
+                self.lsdb_modified()
             elif ls_type == conf.LSA_TYPE_INTRA_AREA_PREFIX:
                 self.intra_area_prefix_lsa_list.append(lsa_to_add)
                 self.lsdb_modified()
@@ -138,6 +140,8 @@ class Lsdb:
         with self.lsdb_lock:
             self.router_lsa_list = []
             self.network_lsa_list = []
+            self.summary_lsa_type_3_list = []
+            self.inter_area_prefix_lsa_list = []
             self.intra_area_prefix_lsa_list = []
             for i in interfaces:
                 i.clean_link_local_lsa_list()
@@ -276,7 +280,7 @@ class Lsdb:
                 dr_interface_id = network_id.split("|")[1]
                 intra_area_prefix_lsa = None
                 for query_lsa in self.intra_area_prefix_lsa_list:
-                    if (query_lsa.header.advertising_router == dr_id) | (
+                    if (query_lsa.header.advertising_router == dr_id) & (
                             query_lsa.body.referenced_link_state_id == utils.Utils.decimal_to_ipv4(dr_interface_id)):
                         intra_area_prefix_lsa = query_lsa
                 if intra_area_prefix_lsa is not None:

@@ -42,7 +42,7 @@ class Router:
                                  self.interface_ids, self.area_ids, self.localhost)
             self.areas[area_id] = new_area
         self.interfaces = {}
-        for area_id in self.area_ids:
+        for area_id in list(set(self.area_ids)):  # Unique values
             for interface_id in self.areas[area_id].interfaces:
                 self.interfaces[interface_id] = self.areas[area_id].interfaces[interface_id]
         self.max_ip_datagram = conf.MTU
@@ -59,7 +59,7 @@ class Router:
             self.socket_shutdown_events[interface_id] = threading.Event()
         self.socket_threads = {}
         accept_self_packets = False
-        is_dr = False
+        is_dr = False  # Router on startup is never DR/BDR
         for interface_id in self.interfaces:
             if self.ospf_version == conf.VERSION_IPV4:
                 self.socket_threads[interface_id] = threading.Thread(
@@ -74,6 +74,7 @@ class Router:
             self.socket_threads[interface_id].start()
         self.router_shutdown_event = router_shutdown_event
         self.start_time = datetime.datetime.now()
+        self.is_abr = Router.is_abr()
 
     #  #  #  #  #  #
     #  Main method  #
@@ -287,7 +288,7 @@ class Router:
                             options = network_lsa.body.options
                             intra_area_prefix_lsa = None
                             for query_lsa in lsdb.intra_area_prefix_lsa_list:
-                                if (query_lsa.header.advertising_router == router_id) | (
+                                if (query_lsa.header.advertising_router == router_id) & (
                                         query_lsa.body.referenced_link_state_id == utils.Utils.decimal_to_ipv4(
                                         interface_id)):
                                     intra_area_prefix_lsa = query_lsa
@@ -575,3 +576,20 @@ class Router:
             self.socket_threads[t].join()
         for a in self.areas:
             self.areas[a].shutdown_area()
+
+    #  #  #  #  #  #  #  #
+    #  Auxiliary methods  #
+    #  #  #  #  #  #  #  #
+
+    #  Given a list, returns its unique values
+    @staticmethod
+    def get_unique_values(input_list):
+        return list(set(input_list))
+
+    #  Returns True if router is ABR, returns False otherwise
+    @staticmethod
+    def is_abr():
+        if len(Router.get_unique_values(conf.INTERFACE_AREAS)) > 1:  # Router connected to multiple areas
+            return True
+        else:
+            return False

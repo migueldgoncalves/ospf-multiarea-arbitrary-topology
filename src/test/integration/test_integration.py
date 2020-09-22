@@ -13,6 +13,9 @@ import packet.packet as packet
 This class tests integration between 2 router processes running inside the VM
 '''
 
+INTERFACE_1 = 'ens39'
+INTERFACE_2 = 'ens40'
+
 
 #  Full successful run - 226 s
 class IntegrationTest(unittest.TestCase):
@@ -24,7 +27,7 @@ class IntegrationTest(unittest.TestCase):
 
     def one_router(self, version):
         router_ids = ['1.1.1.1']
-        interfaces = [['ens38']]
+        interfaces = [[INTERFACE_1]]
         areas = [[conf.BACKBONE_AREA]]
         network = IntegrationTest.create_network(router_ids, interfaces, areas, version)
         router_1 = network[0][0]
@@ -119,7 +122,7 @@ class IntegrationTest(unittest.TestCase):
 
     def two_routers(self, version):
         router_ids = ['1.1.1.1', '2.2.2.2']
-        interfaces = [['ens38'], ['ens39']]
+        interfaces = [[INTERFACE_1], [INTERFACE_2]]
         areas = [[conf.BACKBONE_AREA], [conf.BACKBONE_AREA]]  # One element for each router interface
         network = IntegrationTest.create_network(router_ids, interfaces, areas, version)
         routers = network[0]
@@ -137,15 +140,15 @@ class IntegrationTest(unittest.TestCase):
         self.assertEqual(1, len(router_1.interfaces))
         self.assertEqual(1, len(router_2.interfaces))
         if version == conf.VERSION_IPV4:
-            ip_address_1 = utils.Utils.get_ipv4_address_from_interface_name('ens38')
-            ip_address_2 = utils.Utils.get_ipv4_address_from_interface_name('ens39')
+            ip_address_1 = utils.Utils.get_ipv4_address_from_interface_name(INTERFACE_1)
+            ip_address_2 = utils.Utils.get_ipv4_address_from_interface_name(INTERFACE_2)
             self.assertEqual(ip_address_1, interface_object_1.ipv4_address)
             self.assertEqual(ip_address_2, interface_object_2.ipv4_address)
             self.assertEqual(1, len(interface_object_1.lsdb.get_lsdb([interface_object_1], None)))
             self.assertEqual(1, len(interface_object_2.lsdb.get_lsdb([interface_object_2], None)))
         elif version == conf.VERSION_IPV6:
-            ip_address_1 = utils.Utils.get_ipv6_link_local_address_from_interface_name('ens38')
-            ip_address_2 = utils.Utils.get_ipv6_link_local_address_from_interface_name('ens39')
+            ip_address_1 = utils.Utils.get_ipv6_link_local_address_from_interface_name(INTERFACE_1)
+            ip_address_2 = utils.Utils.get_ipv6_link_local_address_from_interface_name(INTERFACE_2)
             self.assertEqual(ip_address_1, interface_object_1.ipv6_address)
             self.assertEqual(ip_address_2, interface_object_2.ipv6_address)
             self.assertEqual(3, len(interface_object_1.lsdb.get_lsdb([interface_object_1], None)))

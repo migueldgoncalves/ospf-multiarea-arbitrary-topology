@@ -11,10 +11,10 @@ LSA structure is the same for both Type 3 Summary-LSA (Network-Summary) and Type
 
 #  > - Big-endian
 #  L - Unsigned long (4 bytes) - struct.pack("> L", 1) -> b'\x00\x00\x00\x01
-FORMAT_STRING = "> L L L"  # Determines the format of the byte object to be created
+FORMAT_STRING = "> L L"  # Determines the format of the byte object to be created
 
 
-class Summary(body.Body):  # 12 bytes
+class Summary(body.Body):  # 8 bytes
 
     def __init__(self, network_mask, metric):
         is_valid, message = self.parameter_validation(network_mask, metric)
@@ -26,8 +26,7 @@ class Summary(body.Body):  # 12 bytes
 
     #  Creates byte object suitable to be sent and recognized as the body of an OSPFv2 Summary-LSA
     def pack_lsa_body(self):
-        #  Last 4 bytes in Summary-LSA are for TOS-specific information, here set to 0
-        return struct.pack(FORMAT_STRING, utils.Utils.ipv4_to_decimal(self.network_mask), self.metric, 0)
+        return struct.pack(FORMAT_STRING, utils.Utils.ipv4_to_decimal(self.network_mask), self.metric)
 
     #  Converts byte stream to body of an OSPFv2 Summary-LSA
     @staticmethod

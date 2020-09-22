@@ -1,12 +1,14 @@
 import unittest
 import os
 
+import conf.conf as conf
+
 '''
 This class tests connection with the GNS3 network elements
 '''
 
 PING_SUCCESSFUL = 0  # Ping command returns 0 if successful
-HOST_INTERFACE_NAME = "ens33"
+HOST_INTERFACE_NAME = conf.INTERFACE_NAMES[0]
 
 ROUTER_INT_IPV4 = '222.222.1.1'
 HOST_INT_IPV4 = '222.222.1.2'

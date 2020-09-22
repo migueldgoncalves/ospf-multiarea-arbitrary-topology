@@ -31,10 +31,10 @@ class TestLsa(unittest.TestCase):
     link_lsa_bytes = b'\x00&\x00\x08\x00\x00\x00\x04\x01\x01\x01\x01\x80\x00\x00\x02\x80\xfe\x008\x01\x00\x003\xfe' \
                      b'\x80\x00\x00\x00\x00\x00\x00\xc0\x01\x18\xff\xfe4\x00\x00\x00\x00\x00\x01@\x00\x00\x00 \x01\r' \
                      b'\xb8\xca\xfe\x00\x03'
-    summary_lsa_3_bytes = b'\x00\x14\x00\x03\xde\xde\x01\x00\x04\x04\x04\x04\x80\x00\x00\x01\xae\xd3\x00 \xff\xff\xff' \
-                          b'\x00\x00\x00\x00\n\x00\x00\x00\x00'
-    summary_lsa_4_bytes = b'\x00\x14\x00\x04\xde\xde\x01\x00\x04\x04\x04\x04\x80\x00\x00\x01\xa0\xe0\x00 \xff\xff' \
-                          b'\xff\x00\x00\x00\x00\n\x00\x00\x00\x00'
+    summary_lsa_3_bytes = b'\x00\x14\x00\x03\xde\xde\x01\x00\x04\x04\x04\x04\x80\x00\x00\x01\xa6\xdf\x00\x1c\xff\xff' \
+                          b'\xff\x00\x00\x00\x00\n'
+    summary_lsa_4_bytes = b'\x00\x14\x00\x04\xde\xde\x01\x00\x04\x04\x04\x04\x80\x00\x00\x01\x98\xec\x00\x1c\xff\xff' \
+                          b'\xff\x00\x00\x00\x00\n'
     inter_area_prefix_lsa_bytes = b'\x00\x14 \x03\x00\x00\x00\x01\x04\x04\x04\x04\x80\x00\x00\x01H\xe1\x00$\x00\x00' \
                                   b'\x00\n@\x00\x00\x00 \x01\r\xb8\xca\xfe\x00\x01'
     extension_abr_lsa_v2_bytes = b'\x00\x01\x00\x0b\x0a\x00\x00\x00\x04\x04\x04\x04\x80\x00\x00\x01*\xe0\x00$\x00' \
@@ -266,10 +266,10 @@ class TestLsa(unittest.TestCase):
         self.assertEqual(2147483649, unpacked_lsa_4.header.ls_sequence_number)
         self.assertEqual(conf.VERSION_IPV4, unpacked_lsa_3.header.ospf_version)
         self.assertEqual(conf.VERSION_IPV4, unpacked_lsa_4.header.ospf_version)
-        self.assertEqual(44755, unpacked_lsa_3.header.ls_checksum)
-        self.assertEqual(41184, unpacked_lsa_4.header.ls_checksum)
-        self.assertEqual(32, unpacked_lsa_3.header.length)
-        self.assertEqual(32, unpacked_lsa_4.header.length)
+        self.assertEqual(42719, unpacked_lsa_3.header.ls_checksum)
+        self.assertEqual(39148, unpacked_lsa_4.header.ls_checksum)
+        self.assertEqual(28, unpacked_lsa_3.header.length)
+        self.assertEqual(28, unpacked_lsa_4.header.length)
         self.assertEqual('255.255.255.0', unpacked_lsa_3.body.network_mask)
         self.assertEqual('255.255.255.0', unpacked_lsa_4.body.network_mask)
         self.assertEqual(10, unpacked_lsa_3.body.metric)
