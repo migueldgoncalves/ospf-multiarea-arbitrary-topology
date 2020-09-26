@@ -11,23 +11,20 @@ This class tests the top-level OSPF operations in the router
 '''
 
 
-#  Full successful run - 19-34 s
+#  Full successful run - 19-33 s
 class RouterTest(unittest.TestCase):
 
     def setUp(self):
-        self.shutdown_event_v2 = threading.Event()
-        self.shutdown_event_v3 = threading.Event()
-        self.router_v2 = router.Router(conf.ROUTER_ID, conf.VERSION_IPV4, self.shutdown_event_v2, conf.INTERFACE_NAMES,
-                                       conf.INTERFACE_AREAS, False)
-        self.router_v3 = router.Router(conf.ROUTER_ID, conf.VERSION_IPV6, self.shutdown_event_v3, conf.INTERFACE_NAMES,
-                                       conf.INTERFACE_AREAS, False)
-        self.thread_v2 = threading.Thread(target=self.router_v2.main_loop)
-        self.thread_v3 = threading.Thread(target=self.router_v3.main_loop)
-        self.thread_v2.start()
-        self.thread_v3.start()
+        self.shutdown_event_v2 = None
+        self.shutdown_event_v3 = None
+        self.router_v2 = None
+        self.router_v3 = None
+        self.thread_v2 = None
+        self.thread_v3 = None
 
     #  Successful run - 9-18 s
     def test_constructor_successful(self):
+        self.router_set_up()
         self.assertEqual(conf.VERSION_IPV4, self.router_v2.ospf_version)
         self.assertEqual(conf.VERSION_IPV6, self.router_v3.ospf_version)
 
@@ -81,16 +78,20 @@ class RouterTest(unittest.TestCase):
                 time.sleep(2)
                 self.assertTrue(router_lsa.header.ls_age > ls_age)
 
+        self.router_tear_down()
+
     #  Successful run - 10-15 s
     def test_main_loop_successful(self):
+        self.router_set_up()
         time.sleep(10)  # Ensures neighbor has time to send Hello packets acknowledging this router
         neighbor_id = '1.1.1.1'
         neighbor_v2 = self.router_v2.interfaces[conf.INTERFACE_NAMES[0]][area.INTERFACE_OBJECT].neighbors[neighbor_id]
         neighbor_v3 = self.router_v3.interfaces[conf.INTERFACE_NAMES[0]][area.INTERFACE_OBJECT].neighbors[neighbor_id]
         self.assertTrue(neighbor_v2.neighbor_state not in [conf.NEIGHBOR_STATE_DOWN, conf.NEIGHBOR_STATE_INIT])
         self.assertTrue(neighbor_v3.neighbor_state not in [conf.NEIGHBOR_STATE_DOWN, conf.NEIGHBOR_STATE_INIT])
+        self.router_tear_down()
 
-    #  Successful run - 0-1 s
+    #  Successful run - Instant
     def test_constructor_invalid_parameters(self):
         with self.assertRaises(ValueError):
             router.Router(
@@ -115,7 +116,42 @@ class RouterTest(unittest.TestCase):
             self.assertTrue(area_id in router.Router.get_unique_values(
                 ['0.0.0.0', '0.0.0.0', '1.1.1.1', '1.1.1.1', '2.2.2.2']))
 
-    def tearDown(self):
+    #  Successful run - Instant
+    def test_is_abr(self):
+        self.assertFalse(router.Router.is_abr([]))
+        self.assertFalse(router.Router.is_abr(['0.0.0.0']))
+        self.assertFalse(router.Router.is_abr(['1.1.1.1']))
+        self.assertFalse(router.Router.is_abr(['0.0.0.0', '0.0.0.0']))
+        self.assertFalse(router.Router.is_abr(['1.1.1.1', '1.1.1.1']))
+        self.assertFalse(router.Router.is_abr(['0.0.0.0', '0.0.0.0', '0.0.0.0']))
+        self.assertFalse(router.Router.is_abr(['1.1.1.1', '1.1.1.1', '1.1.1.1']))
+        self.assertTrue(router.Router.is_abr(['0.0.0.0', '1.1.1.1']))
+        self.assertTrue(router.Router.is_abr(['1.1.1.1', '0.0.0.0']))
+        self.assertTrue(router.Router.is_abr(['1.1.1.1', '0.0.0.0', '0.0.0.0']))
+        self.assertTrue(router.Router.is_abr(['0.0.0.0', '1.1.1.1', '0.0.0.0']))
+        self.assertTrue(router.Router.is_abr(['0.0.0.0', '0.0.0.0', '1.1.1.1']))
+        self.assertTrue(router.Router.is_abr(['0.0.0.0', '1.1.1.1', '1.1.1.1']))
+        self.assertTrue(router.Router.is_abr(['1.1.1.1', '0.0.0.0', '1.1.1.1']))
+        self.assertTrue(router.Router.is_abr(['1.1.1.1', '1.1.1.1', '0.0.0.0']))
+        self.assertTrue(router.Router.is_abr(['0.0.0.1', '1.1.1.1', '0.0.0.0']))
+
+    #  #  #  #  #  #  #  #
+    #  Auxiliary methods  #
+    #  #  #  #  #  #  #  #
+
+    def router_set_up(self):
+        self.shutdown_event_v2 = threading.Event()
+        self.shutdown_event_v3 = threading.Event()
+        self.router_v2 = router.Router(conf.ROUTER_ID, conf.VERSION_IPV4, self.shutdown_event_v2, conf.INTERFACE_NAMES,
+                                       conf.INTERFACE_AREAS, False)
+        self.router_v3 = router.Router(conf.ROUTER_ID, conf.VERSION_IPV6, self.shutdown_event_v3, conf.INTERFACE_NAMES,
+                                       conf.INTERFACE_AREAS, False)
+        self.thread_v2 = threading.Thread(target=self.router_v2.main_loop)
+        self.thread_v3 = threading.Thread(target=self.router_v3.main_loop)
+        self.thread_v2.start()
+        self.thread_v3.start()
+
+    def router_tear_down(self):
         self.shutdown_event_v2.set()
         self.shutdown_event_v3.set()
         self.thread_v2.join()

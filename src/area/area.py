@@ -20,7 +20,8 @@ SHUTDOWN_EVENT = 3
 
 class Area:
 
-    def __init__(self, router_id, ospf_version, area_id, external_routing_capable, interfaces, areas, localhost):
+    def __init__(self, router_id, ospf_version, area_id, external_routing_capable, interfaces, areas, localhost,
+                 is_abr):
         if ospf_version not in [conf.VERSION_IPV4, conf.VERSION_IPV6]:
             raise ValueError("Invalid OSPF version")
         if not utils.Utils.is_ipv4_address(area_id):
@@ -30,9 +31,10 @@ class Area:
         self.area_id = area_id  # 0.0.0.0 - Backbone area
         self.interfaces = {}  # Contains as key their identifier, and as value the list above mentioned
         self.external_routing_capable = external_routing_capable
+        self.is_abr = is_abr  # True if router is ABR
 
         #  LSDB initialization
-        self.database = self.lsdb_startup(self.router_id, self.ospf_version, self.area_id)
+        self.database = self.lsdb_startup(self.router_id, self.ospf_version, self.area_id, self.is_abr)
 
         #  Creates the interfaces that belong to this area
         self.localhost = localhost
@@ -42,7 +44,7 @@ class Area:
 
     #  Creates and populates LSDB with LSAs that should be in it on startup
     @staticmethod
-    def lsdb_startup(router_id, version, area_id):
+    def lsdb_startup(router_id, version, area_id, is_abr):
         database = lsdb.Lsdb(version, area_id)
         router_lsa = lsa.Lsa()
         if version == conf.VERSION_IPV4:
@@ -53,7 +55,7 @@ class Area:
             options = conf.OPTIONS
         router_lsa.create_header(conf.INITIAL_LS_AGE, conf.OPTIONS, conf.LSA_TYPE_ROUTER, link_state_id, router_id,
                                  conf.INITIAL_SEQUENCE_NUMBER, version)
-        router_lsa.create_router_lsa_body(False, False, False, options, version)
+        router_lsa.create_router_lsa_body(False, False, is_abr, options, version)
         database.add_lsa(router_lsa, None)
 
         if version == conf.VERSION_IPV6:
@@ -82,13 +84,13 @@ class Area:
             network_mask = utils.Utils.get_ipv4_network_mask_from_interface_name(interface_id)
             new_interface = interface.Interface(
                 self.router_id, interface_id, ip_address, '', network_mask, [], self.area_id, pipeline, shutdown,
-                self.ospf_version, self.database, self.localhost)
+                self.ospf_version, self.database, self.localhost, self.is_abr)
         else:
             ip_address = utils.Utils.get_ipv6_link_local_address_from_interface_name(interface_id)
             link_prefix = utils.Utils.get_ipv6_prefix_from_interface_name(interface_id)
             new_interface = interface.Interface(
                 self.router_id, interface_id, '', ip_address, '', [link_prefix], self.area_id, pipeline, shutdown,
-                self.ospf_version, self.database, self.localhost)
+                self.ospf_version, self.database, self.localhost, self.is_abr)
 
         interface_thread = threading.Thread(target=new_interface.interface_loop)
 

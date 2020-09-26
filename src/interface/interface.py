@@ -26,7 +26,7 @@ class Interface:
     ospf_identifier = 1
 
     def __init__(self, router_id, physical_identifier, ipv4_address, ipv6_address, network_mask, link_prefixes, area_id,
-                 pipeline, interface_shutdown, version, lsdb, localhost):
+                 pipeline, interface_shutdown, version, lsdb, localhost, is_abr):
 
         #  OSPF interface parameters
 
@@ -81,6 +81,7 @@ class Interface:
         self.flooding_pipeline = queue.Queue()  # Router layer will flood any LSAs here through the proper interfaces
         self.flooded_pipeline = queue.Queue()  # Content states whether provided LSA was flooded or not
         self.lsa_list_to_ack = []  # Stores LSA headers to be flooded in same LS Acknowledgement packet
+        self.is_abr = is_abr  # True if router is ABR
 
         self.hello_thread = None
         self.hello_timer = timer.Timer()
@@ -557,7 +558,7 @@ class Interface:
         #  Reset interface values
         self.__init__(self.router_id, self.physical_identifier, self.ipv4_address, self.ipv6_address, self.network_mask,
                       self.link_prefixes, self.area_id, self.pipeline, self.interface_shutdown, self.version, self.lsdb,
-                      self.localhost)
+                      self.localhost, self.is_abr)
 
     #  #  #  #  #  #  #  #  #  #  #  #  #
     #  Interface event handling methods  #

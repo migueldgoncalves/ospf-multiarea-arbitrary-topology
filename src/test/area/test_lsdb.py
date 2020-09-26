@@ -29,10 +29,10 @@ class TestLsdb(unittest.TestCase):
         interface_shutdown_v3 = threading.Event()
         self.interface_ospfv2 = interface.Interface(
             conf.ROUTER_ID, interface_identifier, ipv4_address, '', network_mask, [], area_id, interface_pipeline_v2,
-            interface_shutdown_v2, conf.VERSION_IPV4, None, False)
+            interface_shutdown_v2, conf.VERSION_IPV4, None, False, False)
         self.interface_ospfv3 = interface.Interface(
             conf.ROUTER_ID, interface_identifier, '', ipv6_address, '', link_prefixes, area_id, interface_pipeline_v3,
-            interface_shutdown_v3, conf.VERSION_IPV6, None, False)
+            interface_shutdown_v3, conf.VERSION_IPV6, None, False, False)
 
         self.lsa_ospfv2_1 = lsa.Lsa()
         self.lsa_ospfv2_2 = lsa.Lsa()

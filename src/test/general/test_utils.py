@@ -379,9 +379,14 @@ class UtilsTest(unittest.TestCase):
         self.assertEqual('2001:db8:cafe:1::', utils.Utils.ip_address_to_prefix('2001:db8:cafe:1::1', 64))
 
     #  Successful run - Instant
+    def test_prefix_to_network_mask(self):
+        self.assertEqual('255.255.255.0', utils.Utils.prefix_to_network_mask('222.222.1.0'))
+        self.assertEqual('ffff:ffff:ffff:ffff::', utils.Utils.prefix_to_network_mask('2001:db8:cafe:1::'))
+
+    #  Successful run - Instant
     def test_get_prefix_length_from_prefix(self):
-        self.assertEqual(24, utils.Utils.get_prefix_length_from_prefix('255.255.255.0'))
-        self.assertEqual(64, utils.Utils.get_prefix_length_from_prefix('ffff:ffff:ffff:ffff::'))
+        self.assertEqual(24, utils.Utils.get_prefix_length_from_prefix('222.222.1.0'))
+        self.assertEqual(64, utils.Utils.get_prefix_length_from_prefix('2001:db8:cafe:1::'))
 
     #  Successful run - Instant
     def test_get_prefix_from_prefix_length(self):

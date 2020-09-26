@@ -235,13 +235,22 @@ class Utils:
         else:
             raise ValueError("Invalid IP address")
 
+    #  Given prefix, returns its network mask
+    @staticmethod
+    def prefix_to_network_mask(prefix):
+        prefix_length = Utils.get_prefix_length_from_prefix(prefix)
+        if Utils.is_ipv4_address(prefix):
+            return str(ipaddress.IPv4Network((prefix, prefix_length)).netmask)
+        else:
+            return str(ipaddress.IPv6Network((prefix, prefix_length)).netmask)
+
     #  Given a prefix, returns its length
     @staticmethod
     def get_prefix_length_from_prefix(prefix):
-        if Utils.is_ipv4_network_mask(prefix):
+        if Utils.is_ipv4_address(prefix):
             prefix = Utils.ipv4_to_decimal(prefix)
             prefix_length = 4 * conf.BYTE_SIZE
-        elif Utils.is_ipv6_network_mask(prefix):
+        elif Utils.is_ipv6_address(prefix):
             prefix = Utils.ipv6_to_decimal(prefix)
             prefix_length = 16 * conf.BYTE_SIZE
         else:
