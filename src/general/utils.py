@@ -235,14 +235,19 @@ class Utils:
         else:
             raise ValueError("Invalid IP address")
 
-    #  Given prefix, returns its network mask
+    #  Given prefix length, returns corresponding network mask
     @staticmethod
-    def prefix_to_network_mask(prefix):
-        prefix_length = Utils.get_prefix_length_from_prefix(prefix)
-        if Utils.is_ipv4_address(prefix):
-            return str(ipaddress.IPv4Network((prefix, prefix_length)).netmask)
+    def prefix_length_to_network_mask(prefix_length, version):
+        if version == conf.VERSION_IPV4:
+            max_len = 4 * conf.BYTE_SIZE
+            max_netmask = conf.MAX_VALUE_32_BITS
+            return Utils.decimal_to_ipv4((max_netmask >> (max_len - prefix_length)) << (max_len - prefix_length))
+        elif version == conf.VERSION_IPV6:
+            max_len = 16 * conf.BYTE_SIZE
+            max_netmask = conf.MAX_VALUE_128_BITS
+            return Utils.decimal_to_ipv6((max_netmask >> (max_len - prefix_length)) << (max_len - prefix_length))
         else:
-            return str(ipaddress.IPv6Network((prefix, prefix_length)).netmask)
+            raise ValueError("Invalid OSPF version")
 
     #  Given a prefix, returns its length
     @staticmethod

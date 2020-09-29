@@ -3,6 +3,7 @@ import threading
 import datetime
 import time
 import copy
+import random
 
 import general.utils as utils
 import general.sock as sock
@@ -392,6 +393,8 @@ class Router:
                 if (node_id not in next_hop_info) & (node_id != root_id):
                     parent_node = shortest_path_tree[node_id][1]
                     while True:
+                        if self.router_shutdown_event.is_set():  # Shutdown
+                            return
                         if parent_node in next_hop_info:
                             next_hop_info[node_id] = next_hop_info[parent_node]
                             break
@@ -467,8 +470,11 @@ class Router:
                 shortest_path_tree_dictionary[query_area.area_id] = shortest_path_tree
                 prefixes_dictionary[query_area.area_id] = prefixes
         self.routing_table = self.get_intra_area_routing_table(shortest_path_tree_dictionary, prefixes_dictionary)
-        if self.abr:
+        if self.router_shutdown_event.is_set():  # Shutdown
+            return
+        elif self.abr:
             self.update_inter_area_lsa_list()
+
         with kernel_table.KernelTable.lock:
             self.set_kernel_routing_table_from_ospf_table(self.routing_table)
 
@@ -607,7 +613,8 @@ class Router:
         for lsa_data in existing_lsa_list:
             query_lsa = lsa_data[0]
             lsa_area = lsa_data[1]
-            if lsa_area == area_to_flood:  # LSA was injected in this area
+            #  Router injected LSA in this area
+            if (lsa_area == area_to_flood) & (query_lsa.header.advertising_router == router_id):
                 keep_lsa = False
                 for entry in table.entries:
                     #  Network Summary-LSA stores prefix in Link State ID
@@ -618,14 +625,14 @@ class Router:
                         if entry.destination_id == query_lsa.body.address_prefix:
                             keep_lsa = True
                 if not keep_lsa:  # Router lost access to area-external prefix
-                    query_lsa.header.set_ls_age_max()
+                    query_lsa.set_ls_age_max()
                     lsa_list.append(query_lsa)
 
         #  Updating costs to reach prefixes in LSAs
         for lsa_data in existing_lsa_list:
             query_lsa = lsa_data[0]
             lsa_area = lsa_data[1]
-            if lsa_area == area_to_flood:
+            if (lsa_area == area_to_flood) & (query_lsa.header.advertising_router == router_id):
                 for entry in table.entries:
                     is_advertised = False
                     if version == conf.VERSION_IPV4:
@@ -650,27 +657,30 @@ class Router:
             for lsa_data in existing_lsa_list:
                 query_lsa = lsa_data[0]
                 lsa_area = lsa_data[1]
-                if version == conf.VERSION_IPV4:
-                    if entry.destination_id == query_lsa.header.link_state_id:
-                        is_advertised = True
-                elif version == conf.VERSION_IPV6:
-                    if entry.destination_id == query_lsa.body.address_prefix:
-                        is_advertised = True
+                if query_lsa.header.advertising_router == router_id:  # LSA came from this router
+                    if version == conf.VERSION_IPV4:
+                        if entry.destination_id == query_lsa.header.link_state_id:
+                            is_advertised = True
+                    elif version == conf.VERSION_IPV6:
+                        if entry.destination_id == query_lsa.body.address_prefix:
+                            is_advertised = True
             if (entry.area != area_to_flood) & (not is_advertised):
                 prefix = entry.destination_id
+                prefix_length = entry.prefix_length
                 metric = entry.paths[0].cost
                 if version == conf.VERSION_IPV4:
-                    network_mask = utils.Utils.prefix_to_network_mask(prefix)
+                    network_mask = utils.Utils.prefix_length_to_network_mask(prefix_length, version)
                     summary_lsa = lsa.Lsa()
                     summary_lsa.create_header(conf.INITIAL_LS_AGE, conf.OPTIONS, conf.LSA_TYPE_SUMMARY_TYPE_3, prefix,
                                               router_id, conf.INITIAL_SEQUENCE_NUMBER, version)
                     summary_lsa.create_summary_lsa_body(network_mask, metric)
                     lsa_list.append(summary_lsa)
                 elif version == conf.VERSION_IPV6:
+                    link_state_id = random.randint(0, conf.MAX_VALUE_16_BITS)
                     prefix_length = entry.prefix_length
                     inter_area_prefix_lsa = lsa.Lsa()
                     inter_area_prefix_lsa.create_header(
-                        conf.INITIAL_LS_AGE, 0, conf.LSA_TYPE_INTER_AREA_PREFIX, existing_lsa_list, router_id,
+                        conf.INITIAL_LS_AGE, 0, conf.LSA_TYPE_INTER_AREA_PREFIX, link_state_id, router_id,
                         conf.INITIAL_SEQUENCE_NUMBER, version)
                     inter_area_prefix_lsa.create_inter_area_prefix_lsa_body(
                         metric, prefix_length, conf.PREFIX_OPTIONS, prefix)

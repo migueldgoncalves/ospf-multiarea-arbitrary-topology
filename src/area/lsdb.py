@@ -236,7 +236,7 @@ class Lsdb:
                     if link_info[2] == conf.LINK_TO_TRANSIT_NETWORK:
                         for network_lsa in self.network_lsa_list:
                             dr_ip_address = network_lsa.header.link_state_id
-                            if link_info[0] == dr_ip_address:
+                            if (link_info[0] == dr_ip_address) & (router_id in network_lsa.body.attached_routers):
                                 network_id = network_lsa.header.link_state_id
                                 directed_graph[router_id][network_id] = link_info[4]
                                 directed_graph[network_id][router_id] = 0  # No cost going from network to router
@@ -244,7 +244,8 @@ class Lsdb:
                     if link_info[0] == conf.LINK_TO_TRANSIT_NETWORK:
                         neighbor_id = link_info[4]
                         for network_lsa in self.network_lsa_list:
-                            if network_lsa.header.advertising_router == neighbor_id:
+                            if (network_lsa.header.advertising_router == neighbor_id) & (
+                                    router_id in network_lsa.body.attached_routers):
                                 network_id = neighbor_id + "|" + str(utils.Utils.ipv4_to_decimal(
                                     network_lsa.header.link_state_id))
                                 directed_graph[router_id][network_id] = link_info[1]

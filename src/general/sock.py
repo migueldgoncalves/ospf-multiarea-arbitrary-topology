@@ -2,6 +2,7 @@ import socket
 import struct
 import queue
 import warnings
+import threading
 
 import conf.conf as conf
 import general.utils as utils
@@ -21,9 +22,13 @@ class Socket:
 
     def __init__(self):
         #  Test parameters
-        self.is_dr = False  # If router is DR/BDR
+        self.is_dr = threading.Event()  # Set if router is DR/BDR
         self.exit_pipeline_v2 = queue.Queue()
         self.exit_pipeline_v3 = queue.Queue()
+
+    #  #  #  #  #  #  #
+    #  Main methods  #
+    #  #  #  #  #  #  #
 
     #  Listens to IPv4 packets in the network until signaled to stop
     def receive_ipv4(self, pipeline, shutdown, interface, accept_self_packets, is_dr, localhost):
@@ -44,18 +49,16 @@ class Socket:
         s = socket.socket(socket.AF_INET, socket.SOCK_RAW, conf.OSPF_PROTOCOL_NUMBER)
         s.setsockopt(socket.SOL_SOCKET, socket.SO_BINDTODEVICE, str(interface + '\0').encode(ENCODING))
 
-        #  Joins multicast group(s)
-        group_address_bits = socket.inet_aton(conf.ALL_OSPF_ROUTERS_IPV4)
-        interface_id = socket.if_nametoindex(interface)
-        membership_parameters = struct.pack(MULTICAST_STRING_FORMAT_IPV4, group_address_bits, interface_id)
-        s.setsockopt(socket.IPPROTO_IP, socket.IP_ADD_MEMBERSHIP, membership_parameters)
-        if self.is_dr:
-            group_address_bits = socket.inet_aton(conf.ALL_DR_IPV4)
-            membership_parameters = struct.pack(MULTICAST_STRING_FORMAT_IPV4, group_address_bits, interface_id)
-            s.setsockopt(socket.IPPROTO_IP, socket.IP_ADD_MEMBERSHIP, membership_parameters)
-
-        #  Listens to packets from the network
+        #  Joins multicast groups and listens to packets from the network
+        flag = False
+        Socket.join_multicast_group(s, interface, conf.ALL_OSPF_ROUTERS_IPV4, conf.VERSION_IPV4)
         while not shutdown.is_set():
+            if is_dr.is_set() != flag:  # Interface state has just changed to or from DR/BDR
+                if is_dr.is_set():  # DR/BDR
+                    Socket.join_multicast_group(s, interface, conf.ALL_DR_IPV4, conf.VERSION_IPV4)
+                else:  # Non-DR/BDR
+                    Socket.leave_multicast_group(s, interface, conf.ALL_DR_IPV4, conf.VERSION_IPV4)
+                flag = is_dr.is_set()
             s.settimeout(0.1)
             try:
                 data = s.recvfrom(conf.MTU)  # Includes IP header
@@ -86,18 +89,16 @@ class Socket:
         s = socket.socket(socket.AF_INET6, socket.SOCK_RAW, conf.OSPF_PROTOCOL_NUMBER)
         s.setsockopt(socket.SOL_SOCKET, socket.SO_BINDTODEVICE, str(interface + '\0').encode(ENCODING))
 
-        #  Joins multicast group(s)
-        group_address_bits = socket.inet_pton(socket.AF_INET6, conf.ALL_OSPF_ROUTERS_IPV6)
-        interface_id = socket.if_nametoindex(interface)
-        membership_parameters = group_address_bits + struct.pack(MULTICAST_STRING_FORMAT_IPV6, interface_id)
-        s.setsockopt(socket.IPPROTO_IPV6, socket.IPV6_JOIN_GROUP, membership_parameters)
-        if self.is_dr:
-            group_address_bits = socket.inet_pton(socket.AF_INET6, conf.ALL_DR_IPV6)
-            membership_parameters = group_address_bits + struct.pack(MULTICAST_STRING_FORMAT_IPV6, interface_id)
-            s.setsockopt(socket.IPPROTO_IPV6, socket.IPV6_JOIN_GROUP, membership_parameters)
-
-        #  Listens to packets from the network
+        #  Joins multicast groups and listens to packets from the network
+        flag = False
+        Socket.join_multicast_group(s, interface, conf.ALL_OSPF_ROUTERS_IPV6, conf.VERSION_IPV6)
         while not shutdown.is_set():
+            if is_dr.is_set() != flag:  # Interface state has just changed to or from DR/BDR
+                if is_dr.is_set():  # DR/BDR
+                    Socket.join_multicast_group(s, interface, conf.ALL_DR_IPV6, conf.VERSION_IPV6)
+                else:  # Non-DR/BDR
+                    Socket.leave_multicast_group(s, interface, conf.ALL_DR_IPV6, conf.VERSION_IPV6)
+                flag = is_dr.is_set()
             s.settimeout(0.1)
             try:
                 data = s.recvfrom(conf.MTU)  # Does not include IP header
@@ -171,6 +172,50 @@ class Socket:
         #  Sends packet
         s.sendto(packet_bytes, (destination_address, PORT))
         s.close()
+
+    #  #  #  #  #  #  #  #  #  #
+    #  Multicast group methods  #
+    #  #  #  #  #  #  #  #  #  #
+
+    #  Joins provided multicast group
+    @staticmethod
+    def join_multicast_group(s, interface_name, multicast_address, ospf_version):
+        if ospf_version == conf.VERSION_IPV4:
+            action = socket.IP_ADD_MEMBERSHIP
+        elif ospf_version == conf.VERSION_IPV6:
+            action = socket.IPV6_JOIN_GROUP
+        else:
+            raise ValueError("Invalid OSPF version")
+        Socket.join_leave_multicast_group(s, interface_name, multicast_address, action, ospf_version)
+
+    #  Leaves provided multicast group
+    @staticmethod
+    def leave_multicast_group(s, interface_name, multicast_address, ospf_version):
+        if ospf_version == conf.VERSION_IPV4:
+            action = socket.IP_DROP_MEMBERSHIP
+        elif ospf_version == conf.VERSION_IPV6:
+            action = socket.IPV6_LEAVE_GROUP
+        else:
+            raise ValueError("Invalid OSPF version")
+        Socket.join_leave_multicast_group(s, interface_name, multicast_address, action, ospf_version)
+
+    #  Joins or leaves provided multicast group according to provided action
+    @staticmethod
+    def join_leave_multicast_group(s, interface_name, multicast_address, action, ospf_version):
+        if ospf_version == conf.VERSION_IPV4:
+            group_address_bits = socket.inet_aton(multicast_address)
+            interface_index = socket.if_nametoindex(interface_name)
+            membership_parameters = struct.pack(MULTICAST_STRING_FORMAT_IPV4, group_address_bits, interface_index)
+            s.setsockopt(socket.IPPROTO_IP, action, membership_parameters)
+        else:
+            group_address_bits = socket.inet_pton(socket.AF_INET6, multicast_address)
+            interface_index = socket.if_nametoindex(interface_name)
+            membership_parameters = group_address_bits + struct.pack(MULTICAST_STRING_FORMAT_IPV6, interface_index)
+            s.setsockopt(socket.IPPROTO_IPV6, action, membership_parameters)
+
+    #  #  #  #  #  #  #  #
+    #  Auxiliary methods  #
+    #  #  #  #  #  #  #  #
 
     #  Processes incoming IPv4 data
     @staticmethod

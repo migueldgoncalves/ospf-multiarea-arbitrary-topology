@@ -19,11 +19,10 @@ DATA_TO_SEND_OSPFV2 = b'\x02\x01\x000\x04\x04\x04\x04\x02\x02\x02\x02\x14\xb3\x0
 DATA_TO_SEND_OSPFV3 = b'\x03\x01\x00(\x04\x04\x04\x04\x02\x02\x02\x02;j\x03\x00\x00\x00\x00\x01\x01\x00\x00\x02\x00\n' \
                       b'\x00(\xde\xde\x01\x01\x00\x00\x00\x00\x01\x01\x01\x01'
 OTHER_ROUTER_IPV4_ADDRESS = '222.222.1.1'
-OTHER_ROUTER_IPV6_ADDRESS = 'fe80::c001:18ff:fe34:10'
 OTHER_ROUTER_ID = '1.1.1.1'
 
 
-#  Full successful run - 42-82 s
+#  Full successful run - 40-80 s
 class SocketTest(unittest.TestCase):
 
     def setUp(self):
@@ -33,9 +32,9 @@ class SocketTest(unittest.TestCase):
 
     #  Successful run - 10-20 s
     @timeout_decorator.timeout(TIMEOUT_SECONDS)
-    def test_receive_data_successful_ipv4(self):
+    def test_receive_data_successful_not_dr_bdr_ipv4(self):
         accept_self_packets = False
-        is_dr = False
+        is_dr = threading.Event()
         thread = threading.Thread(target=self.socket.receive_ipv4, args=(
             self.pipeline, self.shutdown, conf.INTERFACE_NAMES[0], accept_self_packets, is_dr, False))
         thread.start()
@@ -60,9 +59,9 @@ class SocketTest(unittest.TestCase):
 
     #  Successful run - 10-20 s
     @timeout_decorator.timeout(TIMEOUT_SECONDS)
-    def test_receive_data_successful_ipv6(self):
+    def test_receive_data_successful_not_dr_bdr_ipv6(self):
         accept_self_packets = False
-        is_dr = False
+        is_dr = threading.Event()
         thread = threading.Thread(target=self.socket.receive_ipv6, args=(
             self.pipeline, self.shutdown, conf.INTERFACE_NAMES[0], accept_self_packets, is_dr, False))
         thread.start()
@@ -80,55 +79,70 @@ class SocketTest(unittest.TestCase):
         self.assertEqual(conf.VERSION_IPV6, received_packet.header.version)
         self.assertEqual(conf.PACKET_TYPE_HELLO, received_packet.header.packet_type)
         self.assertEqual(OTHER_ROUTER_ID, received_packet.body.designated_router)
-        self.assertEqual(OTHER_ROUTER_IPV6_ADDRESS, source_ip_address)
+        link_local_address = utils.Utils.get_ipv6_link_local_address_from_interface_name(conf.INTERFACE_NAMES[0])
+        self.assertNotEqual(link_local_address, source_ip_address)
 
         self.shutdown.set()
         thread.join()
 
     #  Successful run - Instant
     @timeout_decorator.timeout(TIMEOUT_SECONDS)
-    def test_is_dr_ipv4(self):
-        accept_self_packets = False
-        is_dr = False
+    def test_receive_data_successful_dr_bdr_ipv4(self):
+        interface_name = conf.INTERFACE_NAMES[0]
+        accept_self_packets = True
+        is_dr = threading.Event()
+        sending_socket = sock.Socket()
         thread = threading.Thread(target=self.socket.receive_ipv4, args=(
-            self.pipeline, self.shutdown, conf.INTERFACE_NAMES[0], accept_self_packets, is_dr, False))
-        thread.start()
-        self.shutdown.set()
-        thread.join()
-        self.assertFalse(self.socket.is_dr)
+            self.pipeline, self.shutdown, interface_name, accept_self_packets, is_dr, False))
 
-        is_dr = True
-        thread = threading.Thread(target=self.socket.receive_ipv4, args=(
-            self.pipeline, self.shutdown, conf.INTERFACE_NAMES[0], accept_self_packets, is_dr, False))
         thread.start()
+        time.sleep(0.1)  # Needed to give CPU to other thread
+        sending_socket.send_ipv4(DATA_TO_SEND_OSPFV2, conf.ALL_DR_IPV4, interface_name, False)  # Dropped
+        is_dr.set()
+        time.sleep(0.1)
+        sending_socket.send_ipv4(DATA_TO_SEND_OSPFV2, conf.ALL_DR_IPV4, interface_name, False)  # Accepted
+        while self.pipeline.qsize() == 0:
+            pass
+        self.assertEqual(1, self.pipeline.qsize())
+        data_array = self.pipeline.get()
+        self.assertEqual(2, len(data_array))
+        self.assertEqual(DATA_TO_SEND_OSPFV2, data_array[0])
+        self.assertEqual(utils.Utils.get_ipv4_address_from_interface_name(interface_name), data_array[1])
+
         self.shutdown.set()
         thread.join()
-        self.assertTrue(self.socket.is_dr)
 
     #  Successful run - Instant
     @timeout_decorator.timeout(TIMEOUT_SECONDS)
-    def test_is_dr_ipv6(self):
-        accept_self_packets = False
-        is_dr = False
+    def test_receive_data_successful_dr_bdr_ipv6(self):
+        interface_name = conf.INTERFACE_NAMES[0]
+        accept_self_packets = True
+        is_dr = threading.Event()
+        sending_socket = sock.Socket()
         thread = threading.Thread(target=self.socket.receive_ipv6, args=(
             self.pipeline, self.shutdown, conf.INTERFACE_NAMES[0], accept_self_packets, is_dr, False))
-        thread.start()
-        self.shutdown.set()
-        thread.join()
-        self.assertFalse(self.socket.is_dr)
 
-        is_dr = True
-        thread = threading.Thread(target=self.socket.receive_ipv6, args=(
-            self.pipeline, self.shutdown, conf.INTERFACE_NAMES[0], accept_self_packets, is_dr, False))
         thread.start()
+        time.sleep(0.1)  # Needed to give CPU to other thread
+        sending_socket.send_ipv6(DATA_TO_SEND_OSPFV3, conf.ALL_DR_IPV6, interface_name, False)  # Dropped
+        is_dr.set()
+        time.sleep(0.1)
+        sending_socket.send_ipv6(DATA_TO_SEND_OSPFV3, conf.ALL_DR_IPV6, interface_name, False)  # Accepted
+        while self.pipeline.qsize() == 0:
+            pass
+        self.assertEqual(1, self.pipeline.qsize())
+        data_array = self.pipeline.get()
+        self.assertEqual(2, len(data_array))
+        self.assertEqual(DATA_TO_SEND_OSPFV3, data_array[0])
+        self.assertEqual(utils.Utils.get_ipv6_link_local_address_from_interface_name(interface_name), data_array[1])
+
         self.shutdown.set()
         thread.join()
-        self.assertTrue(self.socket.is_dr)
 
     #  Successful run - Instant
-    def test_receive_invalid_parameters_ipv4(self):
+    def test_receive_data_invalid_parameters_ipv4(self):
         accept_self_packets = False
-        is_dr = False
+        is_dr = threading.Event()
         with self.assertRaises(ValueError):
             sock.Socket.receive_ipv4(sock.Socket(), None, self.shutdown, conf.INTERFACE_NAMES[0],
                                      accept_self_packets, is_dr, False)
@@ -146,9 +160,9 @@ class SocketTest(unittest.TestCase):
                                      accept_self_packets, is_dr, False)
 
     #  Successful run - Instant
-    def test_receive_invalid_parameters_ipv6(self):
+    def test_receive_data_invalid_parameters_ipv6(self):
         accept_self_packets = False
-        is_dr = False
+        is_dr = threading.Event()
         with self.assertRaises(ValueError):
             sock.Socket.receive_ipv6(sock.Socket(), None, self.shutdown, conf.INTERFACE_NAMES[0],
                                      accept_self_packets, is_dr, False)
@@ -165,15 +179,15 @@ class SocketTest(unittest.TestCase):
             sock.Socket.receive_ipv6(sock.Socket(), self.pipeline, self.shutdown, '        ',
                                      accept_self_packets, is_dr, False)
 
-    #  Successful run - 11-21 s
+    #  Successful run - 10-20 s
     @timeout_decorator.timeout(TIMEOUT_SECONDS)
     def test_send_data_successful_ipv4(self):
         accept_self_packets = True
-        is_dr = False
+        is_dr = threading.Event()
         thread = threading.Thread(target=self.socket.receive_ipv4, args=(
             self.pipeline, self.shutdown, conf.INTERFACE_NAMES[0], accept_self_packets, is_dr, False))
         thread.start()
-        time.sleep(1)   # Needed to give CPU to other thread
+        time.sleep(0.1)   # Needed to give CPU to other thread
         self.socket.send_ipv4(DATA_TO_SEND_OSPFV2, conf.ALL_OSPF_ROUTERS_IPV4, conf.INTERFACE_NAMES[0], False)
         time.sleep(10)  # Wait of 10 s ensures other router always sends one and only one Hello packet during wait
         self.assertTrue(self.pipeline.qsize() > 1)  # Hello packets from other router will appear while waiting
@@ -201,15 +215,15 @@ class SocketTest(unittest.TestCase):
         self.shutdown = threading.Event()
         self.socket = sock.Socket()
 
-    #  Successful run - 11-21 s
+    #  Successful run - 10-20 s
     @timeout_decorator.timeout(TIMEOUT_SECONDS)
     def test_send_data_successful_ipv6(self):
         accept_self_packets = True
-        is_dr = False
+        is_dr = threading.Event()
         thread = threading.Thread(target=self.socket.receive_ipv6, args=(
             self.pipeline, self.shutdown, conf.INTERFACE_NAMES[0], accept_self_packets, is_dr, False))
         thread.start()
-        time.sleep(1)
+        time.sleep(0.1)
         self.socket.send_ipv6(DATA_TO_SEND_OSPFV3, conf.ALL_OSPF_ROUTERS_IPV6, conf.INTERFACE_NAMES[0], False)
         time.sleep(10)
         self.assertTrue(self.pipeline.qsize() > 1)
