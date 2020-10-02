@@ -22,7 +22,7 @@ OTHER_ROUTER_IPV4_ADDRESS = '222.222.1.1'
 OTHER_ROUTER_ID = '1.1.1.1'
 
 
-#  Full successful run - 40-80 s
+#  Full successful run - 20-40 s
 class SocketTest(unittest.TestCase):
 
     def setUp(self):
@@ -30,7 +30,7 @@ class SocketTest(unittest.TestCase):
         self.shutdown = threading.Event()
         self.socket = sock.Socket()
 
-    #  Successful run - 10-20 s
+    #  Successful run - 0-10 s
     @timeout_decorator.timeout(TIMEOUT_SECONDS)
     def test_receive_data_successful_not_dr_bdr_ipv4(self):
         accept_self_packets = False
@@ -57,7 +57,7 @@ class SocketTest(unittest.TestCase):
         self.shutdown.set()  # Signals the thread to shutdown
         thread.join()
 
-    #  Successful run - 10-20 s
+    #  Successful run - 0-10 s
     @timeout_decorator.timeout(TIMEOUT_SECONDS)
     def test_receive_data_successful_not_dr_bdr_ipv6(self):
         accept_self_packets = False
@@ -101,6 +101,9 @@ class SocketTest(unittest.TestCase):
         is_dr.set()
         time.sleep(0.1)
         sending_socket.send_ipv4(DATA_TO_SEND_OSPFV2, conf.ALL_DR_IPV4, interface_name, False)  # Accepted
+        is_dr.clear()
+        time.sleep(0.1)
+        sending_socket.send_ipv4(DATA_TO_SEND_OSPFV2, conf.ALL_DR_IPV4, interface_name, False)  # Dropped
         while self.pipeline.qsize() == 0:
             pass
         self.assertEqual(1, self.pipeline.qsize())
@@ -128,6 +131,9 @@ class SocketTest(unittest.TestCase):
         is_dr.set()
         time.sleep(0.1)
         sending_socket.send_ipv6(DATA_TO_SEND_OSPFV3, conf.ALL_DR_IPV6, interface_name, False)  # Accepted
+        is_dr.clear()
+        time.sleep(0.1)
+        sending_socket.send_ipv6(DATA_TO_SEND_OSPFV3, conf.ALL_DR_IPV6, interface_name, False)  # Dropped
         while self.pipeline.qsize() == 0:
             pass
         self.assertEqual(1, self.pipeline.qsize())
@@ -179,7 +185,7 @@ class SocketTest(unittest.TestCase):
             sock.Socket.receive_ipv6(sock.Socket(), self.pipeline, self.shutdown, '        ',
                                      accept_self_packets, is_dr, False)
 
-    #  Successful run - 10-20 s
+    #  Successful run - 10 s
     @timeout_decorator.timeout(TIMEOUT_SECONDS)
     def test_send_data_successful_ipv4(self):
         accept_self_packets = True
@@ -215,7 +221,7 @@ class SocketTest(unittest.TestCase):
         self.shutdown = threading.Event()
         self.socket = sock.Socket()
 
-    #  Successful run - 10-20 s
+    #  Successful run - 10 s
     @timeout_decorator.timeout(TIMEOUT_SECONDS)
     def test_send_data_successful_ipv6(self):
         accept_self_packets = True

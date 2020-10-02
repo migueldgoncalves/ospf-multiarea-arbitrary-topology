@@ -57,8 +57,20 @@ elif [ "$1" -eq 2 ]; then  # Environment 2
 	ifconfig $INTERFACE_4 down
 
 elif [ "$1" -eq 3 ]; then  # Environment 3
-	echo "TODO"
-	#  TODO
+
+	#  Interfaces for GNS3
+	echo "Configuring $INTERFACE_1..."
+	ip link set $INTERFACE_1 up
+	ip addr add 222.222.4.2/24 dev $INTERFACE_1
+	ip addr add 2001:db8:cafe:4::2/64 dev $INTERFACE_1
+	echo "Configuring $INTERFACE_2..."
+	ip link set $INTERFACE_2 up
+	ip addr add 222.222.8.1/24 dev $INTERFACE_2
+	ip addr add 2001:db8:cafe:8::1/64 dev $INTERFACE_2
+	echo "Configuring $INTERFACE_3..."
+	ifconfig $INTERFACE_3 down
+	echo "Configuring $INTERFACE_4..."
+	ifconfig $INTERFACE_4 down
 
 else
 	echo "Provide as argument 1, 2, or 3, to configure the interfaces for the respective environment"

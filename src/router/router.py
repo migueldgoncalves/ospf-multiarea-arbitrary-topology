@@ -38,13 +38,13 @@ class Router:
         self.router_id = router_id
         self.areas = {}
         external_routing_capable = False
-        for area_id in self.area_ids:
+        for area_id in Router.get_unique_values(self.area_ids):
             new_area = area.Area(
                 self.router_id, self.ospf_version, area_id, external_routing_capable, self.interface_ids, self.area_ids,
                 self.localhost, Router.is_abr(conf.INTERFACE_AREAS))
             self.areas[area_id] = new_area
         self.interfaces = {}
-        for area_id in list(set(self.area_ids)):  # Unique values
+        for area_id in Router.get_unique_values(self.area_ids):
             for interface_id in self.areas[area_id].interfaces:
                 self.interfaces[interface_id] = self.areas[area_id].interfaces[interface_id]
         self.max_ip_datagram = conf.MTU
@@ -52,31 +52,37 @@ class Router:
 
         #  Implementation-specific parameters
 
-        self.packet_socket = sock.Socket()
+        self.packet_sockets = {}
         self.packet_pipelines = {}
         for interface_id in self.interfaces:
+            self.packet_sockets[interface_id] = sock.Socket()
             self.packet_pipelines[interface_id] = queue.Queue()
         self.socket_shutdown_events = {}
         for interface_id in self.interfaces:
             self.socket_shutdown_events[interface_id] = threading.Event()
         self.socket_threads = {}
         accept_self_packets = False
-        is_dr = False  # Router on startup is never DR/BDR
+        is_dr = threading.Event()  # Event is clear on creation - Router on startup is never DR/BDR
         for interface_id in self.interfaces:
             if self.ospf_version == conf.VERSION_IPV4:
                 self.socket_threads[interface_id] = threading.Thread(
-                    target=self.packet_socket.receive_ipv4,
+                    target=self.packet_sockets[interface_id].receive_ipv4,
                     args=(self.packet_pipelines[interface_id], self.socket_shutdown_events[interface_id], interface_id,
                           accept_self_packets, is_dr, localhost))
             else:
                 self.socket_threads[interface_id] = threading.Thread(
-                    target=self.packet_socket.receive_ipv6,
+                    target=self.packet_sockets[interface_id].receive_ipv6,
                     args=(self.packet_pipelines[interface_id], self.socket_shutdown_events[interface_id], interface_id,
                           accept_self_packets, is_dr, localhost))
             self.socket_threads[interface_id].start()
         self.router_shutdown_event = router_shutdown_event
         self.start_time = datetime.datetime.now()
         self.abr = Router.is_abr(conf.INTERFACE_AREAS)
+        self.shortest_path_tree_dictionary = {}  # One tree per area
+
+        #  Extension LSA list
+        self.abr_lsa_list = []
+        self.prefix_lsa_list = []
 
     #  #  #  #  #  #
     #  Main method  #
@@ -213,6 +219,16 @@ class Router:
                 if lsdb_modified:
                     thread = threading.Thread(target=self.set_kernel_routing_table)
                     thread.start()  # Separate thread is required due to slow execution time
+
+            #  Tells receiving socket whether respective interface is DR/BDR or not, if state changed
+            for interface_id in self.interfaces:
+                interface_is_dr_bdr = self.interfaces[interface_id][area.INTERFACE_OBJECT].is_dr_bdr()
+                socket_is_dr_flag = self.packet_sockets[interface_id].is_dr
+                if interface_is_dr_bdr != socket_is_dr_flag.is_set():
+                    if interface_is_dr_bdr:
+                        socket_is_dr_flag.set()
+                    else:
+                        socket_is_dr_flag.clear()
 
         #  Router signalled to shutdown
         self.shutdown_router()
@@ -469,6 +485,7 @@ class Router:
                 shortest_path_tree = query_area.database.get_shortest_path_tree(directed_graph, self.router_id)
                 shortest_path_tree_dictionary[query_area.area_id] = shortest_path_tree
                 prefixes_dictionary[query_area.area_id] = prefixes
+        self.shortest_path_tree_dictionary = shortest_path_tree_dictionary
         self.routing_table = self.get_intra_area_routing_table(shortest_path_tree_dictionary, prefixes_dictionary)
         if self.router_shutdown_event.is_set():  # Shutdown
             return
@@ -536,6 +553,7 @@ class Router:
     def show_neighbor_data(self):
         for i in self.interfaces:
             neighbors = self.interfaces[i][0].neighbors
+            print(self.interfaces[i][0].physical_identifier)
             if self.ospf_version == conf.VERSION_IPV4:
                 print("Neighbor ID\tState\t\tDead Time\tAddress\t\tInterface")
             else:
@@ -555,9 +573,15 @@ class Router:
     def show_lsdb_content(self):
         for a in self.areas:
             query_area = self.areas[a]
-            for i in self.areas[a].interfaces:
+            if query_area.area_id == conf.BACKBONE_AREA:
+                print("Area BACKBONE")
+            else:
+                print("Area", query_area.area_id)
+            for query_lsa in query_area.database.get_lsdb([], None):
+                print(query_lsa)
+            for i in query_area.interfaces:
                 query_interface = query_area.interfaces[i][area.INTERFACE_OBJECT]
-                for query_lsa in query_interface.lsdb.get_lsdb([query_interface], None):
+                for query_lsa in query_interface.link_local_lsa_list:
                     print(query_lsa)
 
     #  Performs shutdown of specified interface
@@ -709,3 +733,121 @@ class Router:
                     query_interface = self.areas[area_id].interfaces[interface_id][area.INTERFACE_OBJECT]
                     query_interface.flooding_pipeline.put([query_lsa, self.router_id])
                     time.sleep(0.1)
+
+    #  TODO: Age extension LSAs
+
+    #  Given OSPF routing table, shortest path trees, router ID, existing extensions LSAs and OSPF version, returns
+    #  extension LSAs to flood
+    @staticmethod
+    def get_extension_lsa_list_to_flood(
+            table, shortest_path_tree_dictionary, router_id, existing_abr_lsa_list, existing_prefix_lsa_list, version):
+        lsa_list = []
+        own_abr_lsa = None
+        own_prefix_lsa = None
+        for query_lsa in existing_abr_lsa_list:
+            if query_lsa.header.advertising_router == router_id:
+                own_abr_lsa = query_lsa
+        for query_lsa in existing_prefix_lsa_list:
+            if query_lsa.header.advertising_router == router_id:
+                own_prefix_lsa = query_lsa
+
+        #  Removing and updating ABR info
+        if own_abr_lsa is not None:
+            has_changed = False
+            for abr_info in own_abr_lsa.body.abr_list:
+                is_present = False
+                abr = abr_info[1]
+                advertised_metric = abr_info[0]
+                new_metric = 0
+                for shortest_path_tree in shortest_path_tree_dictionary:
+                    for node in shortest_path_tree:
+                        if node == abr:
+                            is_present = True
+                            new_metric = node[0]
+                if not is_present:
+                    own_abr_lsa.body.delete_abr_info(abr)
+                    has_changed = True
+                elif advertised_metric != new_metric:
+                    own_abr_lsa.body.delete_abr_info(abr)
+                    own_abr_lsa.add_abr_info(new_metric, abr)
+                    has_changed = True
+            if has_changed:
+                own_abr_lsa.header.ls_age = conf.INITIAL_LS_AGE
+                own_abr_lsa.header.ls_sequence_number = lsa.Lsa.get_next_ls_sequence_number(
+                    own_abr_lsa.header.ls_sequence_number)
+                own_abr_lsa.set_lsa_length()
+                own_abr_lsa.set_lsa_checksum()
+                lsa_list.append(own_abr_lsa)
+
+        #  Removing and updating prefix info
+        if own_prefix_lsa is not None:
+                has_changed = False
+                if version == conf.VERSION_IPV4:
+                    for subnet_info in own_prefix_lsa.body.subnet_list:
+                        is_present = False
+                        subnet_address = subnet_info[2]
+                        netmask_length = utils.Utils.get_prefix_length_from_prefix(subnet_info[1])
+                        advertised_metric = subnet_info[0]
+                        new_metric = 0
+                        for entry in table.entries:
+                            if (entry.destination_id == subnet_address) & (entry.prefix_length == netmask_length):
+                                is_present = True
+                                new_metric = entry.paths[0].cost
+                        if not is_present:
+                            own_prefix_lsa.body.delete_subnet_info(netmask_length, subnet_address)
+                            has_changed = True
+                        elif advertised_metric != new_metric:
+                            own_prefix_lsa.body.delete_subnet_info(netmask_length, subnet_address)
+                            own_prefix_lsa.body.add_subnet_info(new_metric, netmask_length, subnet_address)
+                elif version == conf.VERSION_IPV6:
+                    for prefix_info in own_prefix_lsa.body.prefix_list:
+                        is_present = False
+                        prefix = prefix_info[3]
+                        prefix_length = prefix_info[1]
+                        advertised_metric = prefix_info[0]
+                        new_metric = 0
+                        for entry in table.entries:
+                            if (entry.destination_id == prefix) & (entry.prefix_length == prefix_length):
+                                is_present = True
+                                new_metric = entry.paths[0].cost
+                        if not is_present:
+                            own_prefix_lsa.body.delete_prefix_info(prefix_length, prefix)
+                            has_changed = True
+                        elif advertised_metric != new_metric:
+                            own_prefix_lsa.body.delete_prefix_info(prefix_length, prefix)
+                            own_prefix_lsa.body.add_prefix_info(new_metric, prefix_length, prefix)
+                else:
+                    raise ValueError("Invalid OSPF version")
+                if has_changed:
+                    own_prefix_lsa.header.ls_age = conf.INITIAL_LS_AGE
+                    own_prefix_lsa.header.ls_sequence_number = lsa.Lsa.get_next_ls_sequence_number(
+                        own_prefix_lsa.header.ls_sequence_number)
+                    own_prefix_lsa.set_lsa_length()
+                    own_prefix_lsa.set_lsa_checksum()
+                    own_prefix_lsa.append(own_prefix_lsa)
+
+        #  Adding ABR info
+        has_own_lsa = False
+        for query_lsa in existing_abr_lsa_list:
+            if query_lsa.header.advertising_router == router_id:
+                has_own_lsa = True
+
+        for shortest_path_tree in shortest_path_tree_dictionary:
+            for node in shortest_path_tree:
+                is_advertised = False
+                for query_lsa in existing_abr_lsa_list:
+                    if query_lsa.body.has_abr_info(node):
+                        is_advertised = True
+                if not has_own_lsa:
+                    #  TODO
+                    pass
+
+        return lsa_list
+
+    #  Updates extension LSA list and floods required LSAs
+    def update_extension_lsa_list(self):
+        existing_extension_lsa_list = []
+        for lsa_list in [self.abr_lsa_list, self.prefix_lsa_list]:
+            for query_lsa in lsa_list:
+                existing_extension_lsa_list.append(query_lsa)
+

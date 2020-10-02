@@ -56,7 +56,7 @@ class InterfaceTest(unittest.TestCase):
         socket_shutdown_v2 = threading.Event()
         socket_shutdown_v3 = threading.Event()
         accept_self_packets = True
-        is_dr = False
+        is_dr = threading.Event()
 
         #  Creates thread with socket that listens for packets from the router itself
         thread_socket_v2 = threading.Thread(
@@ -130,7 +130,7 @@ class InterfaceTest(unittest.TestCase):
         socket_shutdown_v2 = threading.Event()
         socket_shutdown_v3 = threading.Event()
         accept_self_packets = False
-        is_dr = False
+        is_dr = threading.Event()
         one_way_v2 = packet.Packet()  # Bogus packet from router 1.1.1.1 not listing this router as neighbor
         one_way_v3 = packet.Packet()
         one_way_v2.create_header_v2(conf.PACKET_TYPE_HELLO, '1.1.1.1', '0.0.0.0', 0, 0)

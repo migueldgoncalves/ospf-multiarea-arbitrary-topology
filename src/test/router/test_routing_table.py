@@ -633,10 +633,12 @@ class TestRoutingTable(unittest.TestCase):
     def test_get_intra_area_routing_table(self):
         #  Startup
 
-        router_v2 = router.Router(self.router_id_4, conf.VERSION_IPV4, None, conf.INTERFACE_NAMES, conf.INTERFACE_AREAS,
-                                  False)
-        router_v3 = router.Router(self.router_id_4, conf.VERSION_IPV6, None, conf.INTERFACE_NAMES, conf.INTERFACE_AREAS,
-                                  False)
+        shutdown_event_v2 = threading.Event()
+        shutdown_event_v3 = threading.Event()
+        router_v2 = router.Router(self.router_id_4, conf.VERSION_IPV4, shutdown_event_v2, conf.INTERFACE_NAMES,
+                                  conf.INTERFACE_AREAS, False)
+        router_v3 = router.Router(self.router_id_4, conf.VERSION_IPV6, shutdown_event_v3, conf.INTERFACE_NAMES,
+                                  conf.INTERFACE_AREAS, False)
         router_v2.shutdown_router()  # Router threads are not necessary for this test, only its data objects
         router_v3.shutdown_router()
         router_v2.areas[conf.BACKBONE_AREA].database = self.lsdb_v2  # Overwriting the router LSDB
