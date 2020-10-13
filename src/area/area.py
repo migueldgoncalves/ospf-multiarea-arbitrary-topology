@@ -34,7 +34,7 @@ class Area:
         self.is_abr = is_abr  # True if router is ABR
 
         #  LSDB initialization
-        self.database = self.lsdb_startup(self.router_id, self.ospf_version, self.area_id, self.is_abr)
+        self.database = Area.lsdb_startup(self.router_id, self.ospf_version, self.area_id, self.is_abr, interfaces)
 
         #  Creates the interfaces that belong to this area
         self.localhost = localhost
@@ -44,7 +44,7 @@ class Area:
 
     #  Creates and populates LSDB with LSAs that should be in it on startup
     @staticmethod
-    def lsdb_startup(router_id, version, area_id, is_abr):
+    def lsdb_startup(router_id, version, area_id, is_abr, physical_ids):
         database = lsdb.Lsdb(version, area_id)
         router_lsa = lsa.Lsa()
         if version == conf.VERSION_IPV4:
@@ -56,6 +56,12 @@ class Area:
         router_lsa.create_header(conf.INITIAL_LS_AGE, conf.OPTIONS, conf.LSA_TYPE_ROUTER, link_state_id, router_id,
                                  conf.INITIAL_SEQUENCE_NUMBER, version)
         router_lsa.create_router_lsa_body(False, False, is_abr, options, version)
+        if version == conf.VERSION_IPV4:
+            for identifier in physical_ids:
+                prefix = utils.Utils.get_ipv4_prefix_from_interface_name(identifier)[0]
+                netmask = utils.Utils.get_ipv4_network_mask_from_interface_name(identifier)
+                cost = conf.INTERFACE_COST
+                router_lsa.add_link_info_v2(prefix, netmask, conf.LINK_TO_STUB_NETWORK, conf.DEFAULT_TOS, cost)
         database.add_lsa(router_lsa, None)
 
         if version == conf.VERSION_IPV6:
@@ -68,6 +74,14 @@ class Area:
                 conf.INITIAL_SEQUENCE_NUMBER, version)
             intra_area_prefix_lsa.create_intra_area_prefix_lsa_body(referenced_ls_type, referenced_link_state_id,
                                                                     referenced_advertising_router)
+            for identifier in physical_ids:
+                prefix_data = utils.Utils.get_ipv6_prefix_from_interface_name(identifier)
+                prefix_length = prefix_data[1]
+                prefix_options = conf.PREFIX_OPTIONS
+                metric = conf.INTERFACE_COST
+                prefix = prefix_data[0]
+                intra_area_prefix_lsa.add_prefix_info(
+                    prefix_length, prefix_options, metric, prefix, conf.LSA_TYPE_INTRA_AREA_PREFIX)
             database.add_lsa(intra_area_prefix_lsa, None)
         return database
 

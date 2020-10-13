@@ -9,6 +9,10 @@ import general.utils as utils
 This class represents the OSPF neighbor and contains its data and operations
 '''
 
+DB_DESCRIPTION = "DB Description"
+LS_REQUEST = "LS Request"
+LS_UPDATE = "LS Update"
+
 
 class Neighbor:
 
@@ -40,9 +44,7 @@ class Neighbor:
         #  Implementation-specific parameters
         self.reset = threading.Event()
         self.inactivity_timeout = threading.Event()
-        self.retransmission_timeout = threading.Event()
         self.inactivity_shutdown = threading.Event()
-        self.retransmission_shutdown = threading.Event()
         self.last_sent_packet = None  # Last DD Description, LS Request or LS Update packet sent to neighbor
         self.last_sent_dd_description_packet = None  # Last DD Description packet sent to neighbor
         self.last_sent_ls_request_packet = None
@@ -57,30 +59,77 @@ class Neighbor:
             args=(self.reset, self.inactivity_timeout, self.inactivity_shutdown, timeout_seconds))
         self.inactivity_thread.start()
 
-        #  Packet retransmission timer
+        #  Packet retransmission timers
         self.retransmission_timer = timer.Timer()
         self.retransmission_thread = None
+        self.retransmission_timeout = threading.Event()
+        self.retransmission_shutdown = threading.Event()
+        self.dd_packet_retransmit_timer = timer.Timer()
+        self.dd_packet_retransmit_thread = None
+        self.dd_packet_retransmit_timeout = threading.Event()
+        self.dd_packet_retransmit_shutdown = threading.Event()
+        self.ls_request_retransmit_timer = timer.Timer()
+        self.ls_request_retransmit_thread = None
+        self.ls_request_retransmit_timeout = threading.Event()
+        self.ls_request_retransmit_shutdown = threading.Event()
+        self.ls_update_retransmit_timer = timer.Timer()
+        self.ls_update_retransmit_thread = None
+        self.ls_update_retransmit_timeout = threading.Event()
+        self.ls_update_retransmit_shutdown = threading.Event()
 
-    #  Starts retransmission timer
-    def start_retransmission_timer(self):
-        self.stop_retransmission_timer()
-        self.retransmission_timeout.clear()
-        self.retransmission_shutdown.clear()
-        self.retransmission_thread = threading.Thread(
-            target=self.retransmission_timer.interval_timer,
-            args=(0, self.retransmission_timeout, self.retransmission_shutdown, conf.RETRANSMISSION_INTERVAL))
-        self.retransmission_thread.start()
+    #  Starts retransmission timer for specified packet type
+    def start_retransmission_timer(self, packet_type):
+        if packet_type not in [DB_DESCRIPTION, LS_REQUEST, LS_UPDATE]:
+            raise ValueError("Invalid packet type")
+        self.stop_retransmission_timer(packet_type)
+        if packet_type == DB_DESCRIPTION:
+            self.dd_packet_retransmit_timeout.clear()
+            self.dd_packet_retransmit_shutdown.clear()
+            self.dd_packet_retransmit_thread = threading.Thread(
+                target=self.dd_packet_retransmit_timer.interval_timer,
+                args=(0, self.dd_packet_retransmit_timeout, self.dd_packet_retransmit_shutdown,
+                      conf.RETRANSMISSION_INTERVAL))
+            self.dd_packet_retransmit_thread.start()
+        elif packet_type == LS_REQUEST:
+            self.ls_request_retransmit_timeout.clear()
+            self.ls_request_retransmit_shutdown.clear()
+            self.ls_request_retransmit_thread = threading.Thread(
+                target=self.ls_request_retransmit_timer.interval_timer,
+                args=(0, self.ls_request_retransmit_timeout, self.ls_request_retransmit_shutdown,
+                      conf.RETRANSMISSION_INTERVAL))
+            self.ls_request_retransmit_thread.start()
+        else:  # LS Update packets
+            self.ls_update_retransmit_timeout.clear()
+            self.ls_update_retransmit_shutdown.clear()
+            self.ls_update_retransmit_thread = threading.Thread(
+                target=self.ls_update_retransmit_timer.interval_timer,
+                args=(0, self.ls_update_retransmit_timeout, self.ls_update_retransmit_shutdown,
+                      conf.RETRANSMISSION_INTERVAL))
+            self.ls_update_retransmit_thread.start()
 
     #  Returns True if inactivity timer has fired - No activity from neighbor was received lately
     def is_expired(self):
         return self.inactivity_timeout.is_set()
 
-    #  Returns True if retransmission timer has fired and resets flag if so
-    def is_retransmission_time(self):
-        if self.retransmission_timeout.is_set() & (self.retransmission_thread is not None):
-            if self.retransmission_thread.isAlive():
-                self.retransmission_timeout.clear()
-                return True
+    #  Returns True if retransmission timer for provided packet type has fired and resets flag if so
+    def is_retransmission_time(self, packet_type):
+        if packet_type not in [DB_DESCRIPTION, LS_REQUEST, LS_UPDATE]:
+            raise ValueError("Invalid packet type")
+        if packet_type == DB_DESCRIPTION:
+            if self.dd_packet_retransmit_timeout.is_set() & (self.dd_packet_retransmit_thread is not None):
+                if self.dd_packet_retransmit_thread.isAlive():
+                    self.dd_packet_retransmit_timeout.clear()
+                    return True
+        elif packet_type == LS_REQUEST:
+            if self.ls_request_retransmit_timeout.is_set() & (self.ls_request_retransmit_thread is not None):
+                if self.ls_request_retransmit_thread.isAlive():
+                    self.ls_request_retransmit_timeout.clear()
+                    return True
+        else:  # LS Update packet
+            if self.ls_update_retransmit_timeout.is_set() & (self.ls_update_retransmit_thread is not None):
+                if self.ls_update_retransmit_thread.isAlive():
+                    self.ls_update_retransmit_timeout.clear()
+                    return True
         return False
 
     #  Resets inactivity timer - Activity from neighbor has just been received
@@ -88,11 +137,24 @@ class Neighbor:
         self.reset.set()
 
     #  Stops retransmission timer
-    def stop_retransmission_timer(self):
-        if self.retransmission_thread is not None:
-            self.retransmission_shutdown.set()
-            if self.retransmission_thread.isAlive():
-                self.retransmission_thread.join()
+    def stop_retransmission_timer(self, packet_type):
+        if packet_type not in [DB_DESCRIPTION, LS_REQUEST, LS_UPDATE]:
+            raise ValueError("Invalid packet type")
+        if packet_type == DB_DESCRIPTION:
+            if self.dd_packet_retransmit_thread is not None:
+                self.dd_packet_retransmit_shutdown.set()
+                if self.dd_packet_retransmit_thread.isAlive():
+                    self.dd_packet_retransmit_thread.join()
+        elif packet_type == LS_REQUEST:
+            if self.ls_request_retransmit_thread is not None:
+                self.ls_request_retransmit_shutdown.set()
+                if self.ls_request_retransmit_thread.isAlive():
+                    self.ls_request_retransmit_thread.join()
+        else:  # LS Update packet
+            if self.ls_update_retransmit_thread is not None:
+                self.ls_update_retransmit_shutdown.set()
+                if self.ls_update_retransmit_thread.isAlive():
+                    self.ls_update_retransmit_thread.join()
 
     #  Stops timer thread so that neighbor can be deleted
     def delete_neighbor(self):
@@ -102,7 +164,9 @@ class Neighbor:
         self.ls_request_list = []
         self.inactivity_shutdown.set()
         self.inactivity_thread.join()
-        self.stop_retransmission_timer()
+        self.stop_retransmission_timer(DB_DESCRIPTION)
+        self.stop_retransmission_timer(LS_REQUEST)
+        self.stop_retransmission_timer(LS_UPDATE)
 
     #  Changes neighbor state and prints a message
     def set_neighbor_state(self, new_state):
@@ -150,9 +214,10 @@ class Neighbor:
             raise ValueError("Invalid LSA list")
         if lsa_identifier in lsa_list:
             lsa_list.remove(lsa_identifier)
-        if ((lsa_list == self.ls_request_list) & (len(self.ls_request_list) == 0)) | (
-                (lsa_list == self.ls_retransmission_list) & (len(self.ls_retransmission_list) == 0)):
-            self.stop_retransmission_timer()
+        if (lsa_list == self.ls_request_list) & (len(self.ls_request_list) == 0):
+            self.stop_retransmission_timer(LS_REQUEST)
+        elif (lsa_list == self.ls_retransmission_list) & (len(self.ls_retransmission_list) == 0):
+            self.stop_retransmission_timer(LS_UPDATE)
 
     #  Validates constructor parameters - Returns error message in case of failed validation
     @staticmethod

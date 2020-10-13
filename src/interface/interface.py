@@ -124,13 +124,18 @@ class Interface:
 
             #  Retransmits last DD Description, LS Request or LS Update packet to neighbor, if needed
             for n in list(self.neighbors):
-                if self.neighbors[n].is_retransmission_time():
-                    packet_to_send = self.neighbors[n].last_sent_packet
+                packet_to_send = None
+                if self.neighbors[n].is_retransmission_time(neighbor.DB_DESCRIPTION):
+                    packet_to_send = self.neighbors[n].last_sent_dd_description_packet
+                elif self.neighbors[n].is_retransmission_time(neighbor.LS_REQUEST):
+                    packet_to_send = self.neighbors[n].last_sent_ls_request_packet
+                elif self.neighbors[n].is_retransmission_time(neighbor.LS_UPDATE):
+                    packet_to_send = self.neighbors[n].last_sent_ls_update_packet
+                if packet_to_send is not None:
                     packet_to_send.set_packet_length()
                     packet_to_send.set_packet_checksum()
                     destination_address = self.neighbors[n].neighbor_ip_address
-                    if packet_to_send is not None:  # Safety check
-                        self.send_packet(packet_to_send, destination_address, self.neighbors[n])
+                    self.send_packet(packet_to_send, destination_address, self.neighbors[n])
 
             #  Processes incoming packets
             if not self.pipeline.empty():
@@ -235,7 +240,7 @@ class Interface:
                                     neighbor_router.master_slave = False
                                     neighbor_router.dd_sequence = incoming_packet.body.dd_sequence_number
                                     neighbor_router.neighbor_options = neighbor_options
-                                    neighbor_router.stop_retransmission_timer()
+                                    neighbor_router.stop_retransmission_timer(neighbor.DB_DESCRIPTION)
                                     self.event_negotiation_done(neighbor_router)
                         #  This router is the master
                         elif (not incoming_packet.body.i_bit) & (not incoming_packet.body.ms_bit):
@@ -246,14 +251,14 @@ class Interface:
                                     neighbor_router.dd_sequence += 1
                                     neighbor_router.neighbor_options = neighbor_options
                                     self.event_negotiation_done(neighbor_router)
-                                    neighbor_router.stop_retransmission_timer()
-                                    self.update_ls_request_list(neighbor_router, incoming_packet)
+                                    neighbor_router.stop_retransmission_timer(neighbor.DB_DESCRIPTION)
+                                    self.dd_packet_to_ls_request_list(neighbor_router, incoming_packet)
                         else:
                             continue  # Ex: This router is the master but has no information to know it
 
                     elif neighbor_router.neighbor_state == conf.NEIGHBOR_STATE_EXCHANGE:
                         #  Stores new LSA headers in the LS Request list of the neighbor
-                        invalid_ls_type = self.update_ls_request_list(neighbor_router, incoming_packet)
+                        invalid_ls_type = self.dd_packet_to_ls_request_list(neighbor_router, incoming_packet)
                         if invalid_ls_type:  # At least one LSA with invalid type was detected
                             self.event_seq_number_mismatch(neighbor_router, source_ip)
                             continue
@@ -263,7 +268,8 @@ class Interface:
                             neighbor_router.delete_lsa_identifier(neighbor_router.db_summary_list, lsa_identifier)
                         m_bit = (len(neighbor_router.db_summary_list) != 0)
                         if m_bit:
-                            neighbor_router.stop_retransmission_timer()  # TODO: Only suitable if LSAs fit in 1 packet
+                            # TODO: Only suitable if LSAs fit in 1 packet
+                            neighbor_router.stop_retransmission_timer(neighbor.DB_DESCRIPTION)
 
                         if neighbor_router.master_slave:  # This router is the master
                             if incoming_packet.body.dd_sequence_number != neighbor_router.dd_sequence:
@@ -372,15 +378,17 @@ class Interface:
                         #  If LSA instance is not in LSDB or if received instance is more recent
                         if (local_copy is None) | (lsa.Lsa.get_fresher_lsa(received_lsa, local_copy) == header.FIRST):
                             self.add_lsa_to_flooding_pipeline(received_lsa, neighbor_id)  # This LSA will be flooded
-                            for n in self.neighbors:
+                            for n in self.neighbors:  # Implicit acknowledgement
                                 self.neighbors[n].delete_lsa_identifier(
                                     self.neighbors[n].ls_retransmission_list, received_lsa.get_lsa_identifier())
+                            neighbor_router.delete_lsa_identifier(
+                                neighbor_router.ls_request_list, received_lsa.get_lsa_identifier())
                             self.lsdb.add_lsa(received_lsa, self)
 
                             #  Adds LSA header to list of LSAs to acknowledge
                             lsa_flooded = self.flooded_pipeline.get()  # True if LSA flooded back out this interface
                             if (not lsa_flooded) & ((self.state != conf.INTERFACE_STATE_BACKUP) | (
-                                    self.designated_router == neighbor_id)):
+                                    self.get_router_id_by_interface_ip(self.designated_router) == neighbor_id)):
                                 if len(self.lsa_list_to_ack) == 0:  # Starts grouping of received LSAs to acknowledge
                                     self.ls_ack_timer_timeout.clear()
                                     self.ls_ack_timer_shutdown.clear()
@@ -407,7 +415,7 @@ class Interface:
                             if received_lsa.get_lsa_identifier() in neighbor_router.ls_retransmission_list:
                                 neighbor_router.delete_lsa_identifier(
                                     neighbor_router.ls_retransmission_list, received_lsa.get_lsa_identifier())
-                                if (self.designated_router == neighbor_id) & (
+                                if (self.get_router_id_by_interface_ip(self.designated_router) == neighbor_id) & (
                                         self.state == conf.INTERFACE_STATE_BACKUP):
                                     self.lsa_list_to_ack.append(received_lsa.header)  # Delayed acknowledgement
                             else:
@@ -460,7 +468,7 @@ class Interface:
                                 continue
                             else:
                                 neighbor_router.delete_lsa_identifier(retransmission_list, ack_id)
-                                neighbor_router.stop_retransmission_timer()
+                                neighbor_router.stop_retransmission_timer(neighbor.LS_UPDATE)
 
                 else:
                     pass
@@ -501,10 +509,11 @@ class Interface:
                     if (not lsa_in_retransmission_list) & (query_lsa.header.ls_age >= conf.MAX_AGE):
                         self.lsdb.delete_lsa(lsa_identifier[0], lsa_identifier[1], lsa_identifier[2], [self])
 
-            #  Creates new instance of LSA if previous reaches LS Age of 30 minutes
+            #  Creates new instances of own LSAs if previous reach LS Age of 30 minutes
             lsa_instances = self.lsdb.get_lsdb([self], None)
             for query_lsa in lsa_instances:
-                if query_lsa.header.ls_age >= conf.LS_REFRESH_TIME:
+                if (query_lsa.header.ls_age >= conf.LS_REFRESH_TIME) & (
+                        query_lsa.header.advertising_router == self.router_id):
                     #  Creates and floods new instance of LSA with same body
                     self.event_ls_age_refresh_time(query_lsa)
 
@@ -532,17 +541,17 @@ class Interface:
         if packet_to_send.header.packet_type == conf.PACKET_TYPE_LS_REQUEST:
             neighbor_router.last_sent_packet = packet_to_send
             neighbor_router.last_sent_ls_request_packet = packet_to_send
-            neighbor_router.start_retransmission_timer()
+            neighbor_router.start_retransmission_timer(neighbor.LS_REQUEST)
         elif packet_to_send.header.packet_type == conf.PACKET_TYPE_LS_UPDATE:
             neighbor_router.last_sent_packet = packet_to_send
             neighbor_router.last_sent_ls_update_packet = packet_to_send
-            neighbor_router.start_retransmission_timer()
+            neighbor_router.start_retransmission_timer(neighbor.LS_UPDATE)
         #  Only master retransmits DB Description packets in state higher than EXSTART
         elif packet_to_send.header.packet_type == conf.PACKET_TYPE_DB_DESCRIPTION:
             if (neighbor_router.neighbor_state == conf.NEIGHBOR_STATE_EXSTART) | neighbor_router.master_slave:
                 neighbor_router.last_sent_packet = packet_to_send
                 neighbor_router.last_sent_dd_description_packet = packet_to_send
-                neighbor_router.start_retransmission_timer()
+                neighbor_router.start_retransmission_timer(neighbor.DB_DESCRIPTION)
 
     #  Performs shutdown operations on the interface
     def shutdown_interface(self):
@@ -764,15 +773,19 @@ class Interface:
 
     #  Changes DR or BDR value and prints a message
     def set_dr_bdr(self, value_name, new_value):
+        if self.version == conf.VERSION_IPV4:
+            prefix = utils.Utils.get_ipv4_prefix_from_interface_name(self.physical_identifier)[0]
+        else:
+            prefix = utils.Utils.get_ipv6_prefix_from_interface_name(self.physical_identifier)[0]
         if (value_name == Interface.DR) & (new_value != self.designated_router):
             print(self.router_id + ": OSPFv" + str(self.version), value_name, "changed from", self.designated_router,
-                  "to", new_value)
+                  "to", new_value, "at network", prefix)
             old_value = self.designated_router
             self.designated_router = new_value
             self.event_network_dr_change(old_value, new_value)
         elif (value_name == Interface.BDR) & (new_value != self.backup_designated_router):
             print(self.router_id + ": OSPFv" + str(self.version), value_name, "changed from",
-                  self.backup_designated_router, "to", new_value)
+                  self.backup_designated_router, "to", new_value, "at network", prefix)
             self.backup_designated_router = new_value
         else:
             pass
@@ -934,9 +947,9 @@ class Interface:
             pass
 
     #  Given a DB Description packet, stores its LSA headers in the respective neighbor LS Request list if needed
-    def update_ls_request_list(self, neighbor_router, incoming_packet):
+    def dd_packet_to_ls_request_list(self, neighbor_router, incoming_packet):
         #  TODO: Check if this verification is in the right place
-        neighbor_router.stop_retransmission_timer()
+        neighbor_router.stop_retransmission_timer(neighbor.DB_DESCRIPTION)
         #  TODO: Implement resending if incoming packet is duplicate
         invalid_ls_type = False
         for lsa_header in incoming_packet.body.lsa_headers:
@@ -992,15 +1005,23 @@ class Interface:
             link_type = conf.LINK_TO_STUB_NETWORK
             tos_number = conf.DEFAULT_TOS
             metric = self.cost
+            is_changed = False
             if self.type == conf.POINT_TO_POINT_INTERFACE:
                 if new_state == conf.INTERFACE_STATE_POINT_POINT:
-                    router_lsa.body.add_link_info_v2(link_id, link_data, link_type, tos_number, metric)
+                    if not router_lsa.has_link_info_v2(link_id, link_data, link_type, tos_number, metric):
+                        router_lsa.body.add_link_info_v2(link_id, link_data, link_type, tos_number, metric)
+                        is_changed = True
                 elif old_state == conf.INTERFACE_STATE_POINT_POINT:
-                    router_lsa.body.delete_link_info_v2(link_id, link_data, link_type, tos_number, metric)
+                    if router_lsa.has_link_info_v2(link_id, link_data, link_type, tos_number, metric):
+                        router_lsa.body.delete_link_info_v2(link_id, link_data, link_type, tos_number, metric)
+                        is_changed = True
             elif self.type == conf.BROADCAST_INTERFACE:
                 if new_state == conf.INTERFACE_STATE_WAITING:
-                    router_lsa.body.add_link_info_v2(link_id, link_data, link_type, tos_number, metric)
-            self.generate_lsa_instance(router_lsa, self.router_id)
+                    if not router_lsa.has_link_info_v2(link_id, link_data, link_type, tos_number, metric):
+                        router_lsa.body.add_link_info_v2(link_id, link_data, link_type, tos_number, metric)
+                        is_changed = True
+            if is_changed:
+                self.generate_lsa_instance(router_lsa, self.router_id)
 
         #  Network-LSA
         if (old_state == conf.INTERFACE_STATE_DR) & (old_state != new_state):
@@ -1015,7 +1036,12 @@ class Interface:
 
         #  Link-LSA
         if (old_state != new_state) & (self.version == conf.VERSION_IPV6):
-            link_lsa = self.create_link_lsa()
+            if len(self.link_local_lsa_list) == 0:
+                ls_sequence_number = conf.INITIAL_SEQUENCE_NUMBER
+            else:
+                ls_sequence_number = self.get_link_local_lsa(
+                    conf.LSA_TYPE_LINK, self.ospf_identifier, self.router_id).header.ls_sequence_number
+            link_lsa = self.create_link_lsa(ls_sequence_number)
             if new_state == conf.INTERFACE_STATE_WAITING:
                 self.install_flood_lsa(link_lsa, self.router_id)
             elif new_state == conf.INTERFACE_STATE_DOWN:
@@ -1023,9 +1049,8 @@ class Interface:
 
         #  Intra-Area-Prefix-LSA
         if (old_state != new_state) & (self.version == conf.VERSION_IPV6):
-            intra_area_prefix_lsa = self.create_intra_area_prefix_lsa(conf.LSA_TYPE_ROUTER)
-            if new_state == conf.INTERFACE_STATE_WAITING:
-                self.install_flood_lsa(intra_area_prefix_lsa, self.router_id)
+            intra_area_prefix_lsa = self.lsdb.get_lsa(
+                conf.LSA_TYPE_INTRA_AREA_PREFIX, conf.DEFAULT_DESIGNATED_ROUTER, self.router_id, [self])
             if new_state == conf.INTERFACE_STATE_DOWN:
                 self.flush_lsa(intra_area_prefix_lsa)
 
@@ -1033,7 +1058,9 @@ class Interface:
     def event_network_dr_change(self, old_dr, new_dr):
         if self.type == conf.BROADCAST_INTERFACE:
             #  Router-LSA
-            if self.version == conf.VERSION_IPV4:
+            if (old_dr == conf.DEFAULT_DESIGNATED_ROUTER) & (not self.is_transit_network(new_dr)):
+                pass  # Interface left Waiting state and is connected to stub link
+            elif self.version == conf.VERSION_IPV4:
                 router_lsa = copy.deepcopy(
                     self.lsdb.get_lsa(conf.LSA_TYPE_ROUTER, self.router_id, self.router_id, [self]))
                 if self.ipv4_address == self.designated_router:
@@ -1068,25 +1095,41 @@ class Interface:
 
             #  Network-LSA
             if ((self.router_id in [old_dr, new_dr]) | (self.ipv4_address in [old_dr, new_dr])) & (old_dr != new_dr):
-                network_lsa = self.create_network_lsa()
                 if (new_dr in [self.router_id, self.ipv4_address]) & self.is_transit_network(new_dr):
+                    network_lsa = self.create_network_lsa(conf.INITIAL_SEQUENCE_NUMBER)
                     self.install_flood_lsa(network_lsa, self.router_id)  # LSA is new in the LSDB
                 elif old_dr in [self.router_id, self.ipv4_address]:
                     if self.version == conf.VERSION_IPV4:
                         link_state_id = self.ipv4_address
                     else:
                         link_state_id = self.ospf_identifier
-                    if self.lsdb.get_lsa(conf.LSA_TYPE_NETWORK, link_state_id, self.router_id, [self]) is not None:
+                    network_lsa = self.lsdb.get_lsa(conf.LSA_TYPE_NETWORK, link_state_id, self.router_id, [self])
+                    if network_lsa is not None:
                         self.flush_lsa(network_lsa)
 
             #  Intra-Area-Prefix LSA
             if ((self.router_id in [old_dr, new_dr]) | (self.ipv4_address in [old_dr, new_dr])) & (
                     old_dr != new_dr) & (self.version == conf.VERSION_IPV6):
+                prefix_length = utils.Utils.get_ipv6_prefix_from_interface_name(self.physical_identifier)[1]
+                prefix_options = conf.PREFIX_OPTIONS
+                metric = self.cost
+                prefix = utils.Utils.get_ipv6_prefix_from_interface_name(self.physical_identifier)[0]
+                #  TODO: Correct?
                 if old_dr in [self.router_id, self.ipv4_address]:
-                    existing_intra_area_prefix_lsa = copy.deepcopy(self.lsdb.get_lsa(
+                    network_intra_area_prefix_lsa = copy.deepcopy(self.lsdb.get_lsa(
                         conf.LSA_TYPE_INTRA_AREA_PREFIX, self.ospf_identifier, self.router_id, [self]))
-                    self.flush_lsa(existing_intra_area_prefix_lsa)
-                    self.install_flood_lsa(self.create_intra_area_prefix_lsa(conf.LSA_TYPE_ROUTER), self.router_id)
+                    if network_intra_area_prefix_lsa is not None:
+                        self.flush_lsa(network_intra_area_prefix_lsa)
+                    router_intra_area_prefix_lsa = self.lsdb.get_lsa(
+                        conf.LSA_TYPE_INTRA_AREA_PREFIX, conf.DEFAULT_DESIGNATED_ROUTER, self.router_id, [self])
+                    if router_intra_area_prefix_lsa is None:  # Router is not connected to other stub links
+                        router_intra_area_prefix_lsa = self.create_lsa_header(
+                            conf.LSA_TYPE_INTRA_AREA_PREFIX, 0, conf.INITIAL_SEQUENCE_NUMBER)
+                        router_intra_area_prefix_lsa.create_intra_area_prefix_lsa_body(
+                            conf.LSA_TYPE_ROUTER, conf.DEFAULT_DESIGNATED_ROUTER, self.router_id)
+                    router_intra_area_prefix_lsa.add_prefix_info(
+                        prefix_length, prefix_options, metric, prefix, conf.LSA_TYPE_INTRA_AREA_PREFIX)
+                    self.install_flood_lsa(router_intra_area_prefix_lsa, self.router_id)
 
     #  Neighbor reached/left FULL state
     def event_neighbor_full_state(self, old_state, new_state, neighbor_id):
@@ -1144,7 +1187,7 @@ class Interface:
                     network_lsa.body.add_attached_router(neighbor_id)
                     self.generate_lsa_instance(network_lsa, self.router_id)
                 else:
-                    network_lsa = self.create_network_lsa()
+                    network_lsa = self.create_network_lsa(conf.INITIAL_SEQUENCE_NUMBER)
                     self.install_flood_lsa(network_lsa, self.router_id)
             elif old_state == conf.NEIGHBOR_STATE_FULL:
                 if self.is_transit_network(self.designated_router):
@@ -1162,24 +1205,36 @@ class Interface:
             if new_state == conf.NEIGHBOR_STATE_FULL:
                 if self.is_transit_network(self.designated_router):
                     router_intra_area_prefix_lsa = copy.deepcopy(self.lsdb.get_lsa(
-                        conf.LSA_TYPE_INTRA_AREA_PREFIX, 0, self.router_id, [self]))  # Associated to stub network
-                    #  If first full adjacency has just been created
+                        conf.LSA_TYPE_INTRA_AREA_PREFIX, 0, self.router_id, [self]))  # Associated to stub networks
+                    #  If first full adjacency has just been created and/or router is connected to stub networks
                     if router_intra_area_prefix_lsa is not None:
-                        self.flush_lsa(router_intra_area_prefix_lsa)
+                        if len(router_intra_area_prefix_lsa.body.prefixes) == 1:  # This prefix
+                            self.flush_lsa(router_intra_area_prefix_lsa)
+                        else:
+                            router_intra_area_prefix_lsa.delete_prefix_info(
+                                prefix_length, prefix_options, metric, prefix, conf.LSA_TYPE_INTRA_AREA_PREFIX)
+                            self.install_flood_lsa(router_intra_area_prefix_lsa, self.router_id)
                         if self.designated_router == self.router_id:
-                            network_intra_area_prefix_lsa = self.create_intra_area_prefix_lsa(conf.LSA_TYPE_NETWORK)
+                            network_intra_area_prefix_lsa = self.create_network_intra_area_prefix_lsa(
+                                conf.INITIAL_SEQUENCE_NUMBER)
                             network_intra_area_prefix_lsa.add_prefix_info(
                                 prefix_length, prefix_options, metric, prefix, conf.LSA_TYPE_INTRA_AREA_PREFIX)
                             self.install_flood_lsa(network_intra_area_prefix_lsa, self.router_id)
             elif (old_state == conf.NEIGHBOR_STATE_FULL) & (self.designated_router == self.router_id):
                 if not self.is_transit_network(self.designated_router):  # Last full adjacency was destroyed
-                    existing_intra_area_prefix_lsa = copy.deepcopy(self.lsdb.get_lsa(
+                    network_intra_area_prefix_lsa = copy.deepcopy(self.lsdb.get_lsa(
                         conf.LSA_TYPE_INTRA_AREA_PREFIX, self.ospf_identifier, self.router_id, [self]))
-                    self.flush_lsa(existing_intra_area_prefix_lsa)
-                    new_intra_area_prefix_lsa = self.create_intra_area_prefix_lsa(conf.LSA_TYPE_ROUTER)
-                    new_intra_area_prefix_lsa.add_prefix_info(
+                    self.flush_lsa(network_intra_area_prefix_lsa)
+                    router_intra_area_prefix_lsa = self.lsdb.get_lsa(
+                        conf.LSA_TYPE_INTRA_AREA_PREFIX, conf.DEFAULT_DESIGNATED_ROUTER, self.router_id, [self])
+                    if router_intra_area_prefix_lsa is None:  # Router is not connected to other stub links
+                        router_intra_area_prefix_lsa = self.create_lsa_header(
+                            conf.LSA_TYPE_INTRA_AREA_PREFIX, 0, conf.INITIAL_SEQUENCE_NUMBER)
+                        router_intra_area_prefix_lsa.create_intra_area_prefix_lsa_body(
+                            conf.LSA_TYPE_ROUTER, conf.DEFAULT_DESIGNATED_ROUTER, self.router_id)
+                    router_intra_area_prefix_lsa.add_prefix_info(
                         prefix_length, prefix_options, metric, prefix, conf.LSA_TYPE_INTRA_AREA_PREFIX)
-                    self.install_flood_lsa(new_intra_area_prefix_lsa, self.router_id)
+                    self.install_flood_lsa(router_intra_area_prefix_lsa, self.router_id)
 
     #  New Link-LSA received
     def event_new_link_lsa_received(self):
@@ -1202,9 +1257,9 @@ class Interface:
     #  Flushes given LSA instance
     def flush_lsa(self, lsa_instance):
         if not lsa_instance.is_lsa_self_originated(self.router_id):
-            warnings.warn("Router", self.router_id, "flushing LSA originated at other router")
+            warnings.warn("Router " + self.router_id + " flushing LSA originated at other router")
         lsa_instance.set_ls_age_max()
-        self.lsdb.add_lsa(lsa_instance, [self])  # Replace current instance with MaxAge instance
+        self.lsdb.add_lsa(lsa_instance, self)  # Replace current instance with MaxAge instance
         lsa_identifier = lsa_instance.get_lsa_identifier()
         for neighbor_id in self.neighbors:
             neighbor_router = self.neighbors[neighbor_id]
@@ -1236,8 +1291,8 @@ class Interface:
         time.sleep(0.1)  # Gives CPU to router main loop thread
 
     #  Creates and returns the link Network-LSA if interface is DR
-    def create_network_lsa(self):
-        network_lsa = self.create_lsa_header(conf.LSA_TYPE_NETWORK, 0)
+    def create_network_lsa(self, ls_sequence_number):
+        network_lsa = self.create_lsa_header(conf.LSA_TYPE_NETWORK, 0, ls_sequence_number)
         if self.version == conf.VERSION_IPV4:
             network_mask = self.network_mask
         else:
@@ -1250,8 +1305,8 @@ class Interface:
         return network_lsa
 
     #  Creates and returns the Link-LSA for this interface
-    def create_link_lsa(self):
-        link_lsa = self.create_lsa_header(conf.LSA_TYPE_LINK, 0)
+    def create_link_lsa(self, ls_sequence_number):
+        link_lsa = self.create_lsa_header(conf.LSA_TYPE_LINK, 0, ls_sequence_number)
         link_lsa.create_link_lsa_body(self.router_priority, conf.OPTIONS, self.ipv6_address)
         #  TODO: Consider the case where there are multiple link prefixes
         prefix_length = utils.Utils.get_ipv6_prefix_from_interface_name(self.physical_identifier)[1]
@@ -1260,32 +1315,24 @@ class Interface:
         link_lsa.add_prefix_info(prefix_length, prefix_options, 0, prefix, conf.LSA_TYPE_LINK)
         return link_lsa
 
-    #  Creates and returns a Intra-Area-Prefix-LSA for this interface
-    def create_intra_area_prefix_lsa(self, referenced_ls_type):
-        intra_area_prefix_lsa = self.create_lsa_header(conf.LSA_TYPE_INTRA_AREA_PREFIX, referenced_ls_type)
-        if header.Header.get_ls_type(referenced_ls_type) == conf.LSA_TYPE_NETWORK:  # Assumes this router is DR
-            intra_area_prefix_lsa.create_intra_area_prefix_lsa_body(
-                referenced_ls_type, self.ospf_identifier, self.router_id)
-            for query_lsa in self.get_link_lsa_list():
-                neighbor_id = query_lsa.header.advertising_router
-                if neighbor_id in self.neighbors:
-                    if (self.neighbors[neighbor_id].neighbor_state == conf.NEIGHBOR_STATE_FULL) & (
-                            self.neighbors[neighbor_id].neighbor_interface_id == query_lsa.header.link_state_id):
-                        for prefix_info in query_lsa.body.prefixes:
-                            intra_area_prefix_lsa.add_prefix_info(prefix_info[0], prefix_info[1], self.cost,
-                                                                  prefix_info[2], conf.LSA_TYPE_INTRA_AREA_PREFIX)
-        elif header.Header.get_ls_type(referenced_ls_type) == conf.LSA_TYPE_ROUTER:
-            intra_area_prefix_lsa.create_intra_area_prefix_lsa_body(referenced_ls_type, '0.0.0.0', self.router_id)
-            for query_lsa in self.get_link_lsa_list():
-                for prefix_info in query_lsa.body.prefixes:
-                    intra_area_prefix_lsa.add_prefix_info(
-                        prefix_info[0], prefix_info[1], self.cost, prefix_info[2], conf.LSA_TYPE_INTRA_AREA_PREFIX)
-        else:
-            return None
+    #  Creates and returns an Intra-Area-Prefix-LSA referencing a Network-LSA for this interface
+    def create_network_intra_area_prefix_lsa(self, ls_sequence_number):
+        intra_area_prefix_lsa = self.create_lsa_header(
+            conf.LSA_TYPE_INTRA_AREA_PREFIX, conf.LSA_TYPE_NETWORK, ls_sequence_number)
+        intra_area_prefix_lsa.create_intra_area_prefix_lsa_body(
+            conf.LSA_TYPE_NETWORK, self.ospf_identifier, self.router_id)
+        for query_lsa in self.get_link_lsa_list():  # Assumes this router is DR
+            neighbor_id = query_lsa.header.advertising_router
+            if neighbor_id in self.neighbors:
+                if (self.neighbors[neighbor_id].neighbor_state == conf.NEIGHBOR_STATE_FULL) & (
+                        self.neighbors[neighbor_id].neighbor_interface_id == query_lsa.header.link_state_id):
+                    for prefix_info in query_lsa.body.prefixes:
+                        intra_area_prefix_lsa.add_prefix_info(prefix_info[0], prefix_info[1], self.cost, prefix_info[2],
+                                                              conf.LSA_TYPE_INTRA_AREA_PREFIX)
         return intra_area_prefix_lsa
 
     #  Returns a LSA with header created and empty body
-    def create_lsa_header(self, lsa_type, referenced_ls_type):
+    def create_lsa_header(self, lsa_type, referenced_ls_type, ls_sequence_number):
         new_lsa = lsa.Lsa()
         link_state_id = ''
         if self.version == conf.VERSION_IPV4:
@@ -1294,7 +1341,7 @@ class Interface:
             elif lsa_type == conf.LSA_TYPE_NETWORK:
                 link_state_id = self.ipv4_address
             new_lsa.create_header(conf.INITIAL_LS_AGE, conf.OPTIONS, lsa_type, link_state_id, self.router_id,
-                                  conf.INITIAL_SEQUENCE_NUMBER, self.version)
+                                  ls_sequence_number, self.version)
         elif self.version == conf.VERSION_IPV6:
             if lsa_type == conf.LSA_TYPE_ROUTER:
                 link_state_id = 0
@@ -1309,8 +1356,8 @@ class Interface:
                     raise ValueError("Invalid Referenced LS Type")
             elif lsa_type == conf.LSA_TYPE_LINK:
                 link_state_id = self.ospf_identifier
-            new_lsa.create_header(conf.INITIAL_LS_AGE, 0, lsa_type, link_state_id, self.router_id,
-                                  conf.INITIAL_SEQUENCE_NUMBER, self.version)
+            new_lsa.create_header(
+                conf.INITIAL_LS_AGE, 0, lsa_type, link_state_id, self.router_id, ls_sequence_number, self.version)
         else:
             raise ValueError("Invalid OSPF version")
         return new_lsa
@@ -1368,16 +1415,16 @@ class Interface:
             for n in self.neighbors:
                 if self.neighbors[n].neighbor_id in [self.designated_router, self.backup_designated_router]:
                     self.neighbors[n].add_lsa_identifier(self.neighbors[n].ls_retransmission_list, lsa_identifier)
-                    self.neighbors[n].start_retransmission_timer()
+                    self.neighbors[n].start_retransmission_timer(neighbor.LS_UPDATE)
         elif flooding_address in [conf.ALL_OSPF_ROUTERS_IPV4, conf.ALL_OSPF_ROUTERS_IPV6]:
             for n in self.neighbors:
                 self.neighbors[n].add_lsa_identifier(self.neighbors[n].ls_retransmission_list, lsa_identifier)
-                self.neighbors[n].start_retransmission_timer()
+                self.neighbors[n].start_retransmission_timer(neighbor.LS_UPDATE)
         else:  # LSA flooded to unicast IP address
             for n in self.neighbors:
                 if self.neighbors[n].ip_address == flooding_address:
                     self.neighbors[n].add_lsa_identifier(self.neighbors[n].ls_retransmission_list, lsa_identifier)
-                    self.neighbors[n].start_retransmission_timer()
+                    self.neighbors[n].start_retransmission_timer(neighbor.LS_UPDATE)
 
     #  Changes neighbor state
     def set_neighbor_state(self, neighbor_router, new_state):
@@ -1396,6 +1443,7 @@ class Interface:
             neighbor_router = self.neighbors[neighbor_id]
             if (neighbor_id == ip_address) | (neighbor_router.neighbor_ip_address == ip_address):
                 return neighbor_id
+        return '0.0.0.0'
 
     def get_ospf_multicast_destination_address(self):
         #  TODO: Use this method to decide between 224.0.0.5 and 224.0.0.6
