@@ -11,7 +11,7 @@ INTERFACE_COST = 10
 #  Ex: Interface "ens32" belongs to area '0.0.0.0'
 INTERFACE_NAMES = ["ens32"]  # Must match interface names in the machine
 INTERFACE_AREAS = ['0.0.0.0']
-KERNEL_UPDATE_INTERVAL = 10  # Implementation-specific - Time between updates of kernel routing table
+KERNEL_UPDATE_INTERVAL = 3  # Implementation-specific - Time between updates of kernel routing table
 
 #  OSPF-related constants
 

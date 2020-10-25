@@ -42,13 +42,11 @@ class Neighbor:
         self.ls_request_list = []
 
         #  Implementation-specific parameters
+
         self.reset = threading.Event()
         self.inactivity_timeout = threading.Event()
         self.inactivity_shutdown = threading.Event()
-        self.last_sent_packet = None  # Last DD Description, LS Request or LS Update packet sent to neighbor
         self.last_sent_dd_description_packet = None  # Last DD Description packet sent to neighbor
-        self.last_sent_ls_request_packet = None
-        self.last_sent_ls_update_packet = None
         self.router_id = router_id
 
         #  Sets timer that monitors neighbor last activity
@@ -185,7 +183,7 @@ class Neighbor:
             self.dd_sequence += 1
 
     #  Updates the last received DB Description packet from the neighbor
-    def update_last_dd_packet(self, i_bit, m_bit, ms_bit, options, dd_sequence):
+    def update_last_received_dd_packet(self, i_bit, m_bit, ms_bit, options, dd_sequence):
         packet_data = [i_bit, m_bit, ms_bit, options, dd_sequence]
         if packet_data == self.last_dd_packet:
             return False  # Duplicate packet received from neighbor
