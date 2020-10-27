@@ -58,10 +58,6 @@ class Neighbor:
         self.inactivity_thread.start()
 
         #  Packet retransmission timers
-        self.retransmission_timer = timer.Timer()
-        self.retransmission_thread = None
-        self.retransmission_timeout = threading.Event()
-        self.retransmission_shutdown = threading.Event()
         self.dd_packet_retransmit_timer = timer.Timer()
         self.dd_packet_retransmit_thread = None
         self.dd_packet_retransmit_timeout = threading.Event()

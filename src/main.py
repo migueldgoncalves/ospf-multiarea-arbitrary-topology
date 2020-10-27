@@ -1,5 +1,5 @@
 import cmd
-import threading
+import multiprocessing
 
 import router.router as router
 import conf.conf as conf
@@ -26,8 +26,8 @@ class Main(cmd.Cmd):
     shutdown_event_v3 = None
     router_v2 = None
     router_v3 = None
-    thread_v2 = None
-    thread_v3 = None
+    process_v2 = None
+    process_v3 = None
     option = 0
 
     def do_show(self, arg):
@@ -92,31 +92,34 @@ class Main(cmd.Cmd):
             "Write " + str(BOTH_VERSIONS) + " for running both OSPF versions, " + str(OSPF_V2) +
             " for running just OSPFv2, or " + str(OSPF_V3) + " for running just OSPFv3, then press ENTER:"))
         while self.option not in [BOTH_VERSIONS, OSPF_V2, OSPF_V3]:
-            self.option = int(input(str("Write " + str(BOTH_VERSIONS) + ", " + str(OSPF_V2) + ", " + "or " +
-                                        str(OSPF_V3) + ", then press ENTER:")))
+            try:
+                self.option = int(input(str("Write " + str(BOTH_VERSIONS) + ", " + str(OSPF_V2) + ", " + "or " +
+                                            str(OSPF_V3) + ", then press ENTER:")))
+            except ValueError:
+                pass
         print(conf.ROUTER_ID + ": Starting router...")
         if self.option in [BOTH_VERSIONS, OSPF_V2]:
-            self.shutdown_event_v2 = threading.Event()
+            self.shutdown_event_v2 = multiprocessing.Event()
             self.router_v2 = router.Router(conf.ROUTER_ID, conf.VERSION_IPV4, self.shutdown_event_v2,
                                            conf.INTERFACE_NAMES, conf.INTERFACE_AREAS, False)
-            self.thread_v2 = threading.Thread(target=self.router_v2.main_loop)
-            self.thread_v2.start()
+            self.process_v2 = multiprocessing.Process(target=self.router_v2.main_loop)
+            self.process_v2.start()
         if self.option in [BOTH_VERSIONS, OSPF_V3]:
-            self.shutdown_event_v3 = threading.Event()
+            self.shutdown_event_v3 = multiprocessing.Event()
             self.router_v3 = router.Router(conf.ROUTER_ID, conf.VERSION_IPV6, self.shutdown_event_v3,
                                            conf.INTERFACE_NAMES, conf.INTERFACE_AREAS, False)
-            self.thread_v3 = threading.Thread(target=self.router_v3.main_loop)
-            self.thread_v3.start()
+            self.process_v3 = multiprocessing.Process(target=self.router_v3.main_loop)
+            self.process_v3.start()
         print(conf.ROUTER_ID + ": Router started")
 
     def postloop(self):
         print(conf.ROUTER_ID + ": Shutting down router...")
         if self.option in [BOTH_VERSIONS, OSPF_V2]:
             self.shutdown_event_v2.set()
-            self.thread_v2.join()
+            self.process_v2.join()
         if self.option in [BOTH_VERSIONS, OSPF_V3]:
             self.shutdown_event_v3.set()
-            self.thread_v3.join()
+            self.process_v3.join()
         print(conf.ROUTER_ID + ": Router down")
 
 

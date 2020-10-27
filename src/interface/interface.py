@@ -117,15 +117,17 @@ class Interface:
             #  Retransmits last DD Description, LS Request or LS Update packet to neighbor, if needed
             for n in list(self.neighbors):
                 packet_to_send = None
+
                 if self.neighbors[n].is_retransmission_time(neighbor.DB_DESCRIPTION):
                     if self.neighbors[n].last_sent_dd_description_packet is None:
                         self.neighbors[n].stop_retransmission_timer(neighbor.DB_DESCRIPTION)
                     else:
                         packet_to_send = self.neighbors[n].last_sent_dd_description_packet
+
                 elif self.neighbors[n].is_retransmission_time(neighbor.LS_REQUEST):
                     if len(self.neighbors[n].ls_request_list) == 0:
                         self.neighbors[n].stop_retransmission_timer(neighbor.LS_REQUEST)
-                        break
+                        continue
                     packet_to_send = packet.Packet()
                     if self.version == conf.VERSION_IPV4:
                         packet_to_send.create_header_v2(conf.PACKET_TYPE_LS_REQUEST, self.router_id, self.area_id,
@@ -137,6 +139,7 @@ class Interface:
                     packet_to_send.create_ls_request_packet_body(self.version)
                     for lsa_identifier in self.neighbors[n].ls_request_list:
                         packet_to_send.add_lsa_info(lsa_identifier[0], lsa_identifier[1], lsa_identifier[2])
+
                 elif self.neighbors[n].is_retransmission_time(neighbor.LS_UPDATE):
                     if len(self.neighbors[n].ls_retransmission_list) == 0:
                         self.neighbors[n].stop_retransmission_timer(neighbor.LS_UPDATE)
@@ -150,13 +153,16 @@ class Interface:
                             conf.PACKET_TYPE_LS_REQUEST, self.router_id, self.area_id, self.instance_id,
                             self.ipv6_address, self.neighbors[n].neighbor_ip_address)
                     packet_to_send.create_ls_update_packet_body(self.version)
-                    for lsa_identifier in self.neighbors[n].ls_retransmission_list:
-                        lsa_header = self.lsdb.get_lsa_header(
-                            lsa_identifier[0], lsa_identifier[1], lsa_identifier[2], [self])
-                        packet_to_send.add_lsa_header(lsa_header)
+                    ls_retransmission_list = self.neighbors[n].ls_retransmission_list
+                    for lsa_identifier in ls_retransmission_list:
+                        lsa_to_send = self.lsdb.get_lsa(lsa_identifier[0], lsa_identifier[1], lsa_identifier[2], [self])
+                        if lsa_to_send is not None:
+                            packet_to_send.add_lsa(lsa_to_send)
+                        else:
+                            self.neighbors[n].delete_lsa_identifier(ls_retransmission_list, lsa_identifier)
+                    if len(packet_to_send.body.lsa_list) == 0:
+                        continue
                 if packet_to_send is not None:
-                    packet_to_send.set_packet_length()
-                    packet_to_send.set_packet_checksum()
                     destination_address = self.neighbors[n].neighbor_ip_address
                     self.send_packet(packet_to_send, destination_address, self.neighbors[n])
 
@@ -400,8 +406,7 @@ class Interface:
                                             self.instance_id, self.ipv6_address, neighbor_router.neighbor_ip_address)
                                     ls_ack_packet.create_ls_acknowledgement_packet_body(self.version)
                                     ls_ack_packet.add_lsa_header(received_lsa.header)
-                                    self.send_packet(
-                                        ls_ack_packet, neighbor_router.neighbor_ip_address, neighbor_router)
+                                    self.send_packet(ls_ack_packet, neighbor_router.neighbor_ip_address, None)
                                     continue  # Proceed to next LSA
 
                         #  If LSA instance is not in LSDB or if received instance is more recent
@@ -452,7 +457,7 @@ class Interface:
                                         self.instance_id, self.ipv6_address, neighbor_router.neighbor_ip_address)
                                 ls_ack_packet.create_ls_acknowledgement_packet_body(self.version)
                                 ls_ack_packet.add_lsa_header(received_lsa.header)
-                                self.send_packet(ls_ack_packet, neighbor_router.neighbor_ip_address, neighbor_router)
+                                self.send_packet(ls_ack_packet, neighbor_router.neighbor_ip_address, None)
 
                         elif received_lsa.get_lsa_identifier() in neighbor_router.ls_request_list:
                             self.event_bad_ls_req(neighbor_router, source_ip)
@@ -533,17 +538,25 @@ class Interface:
 
     #  Sends an OSPF packet through the interface
     def send_packet(self, packet_to_send, destination_address, neighbor_router):
+        packet_to_send.set_packet_length()
+        packet_to_send.set_packet_checksum()
         packet_bytes = packet_to_send.pack_packet()
         if self.version == conf.VERSION_IPV4:
             self.socket.send_ipv4(packet_bytes, destination_address, self.physical_identifier, self.localhost)
         else:
             self.socket.send_ipv6(packet_bytes, destination_address, self.physical_identifier, self.localhost)
 
-        #  Every LS Request and LS Update packets must be acknowledged
         if packet_to_send.header.packet_type == conf.PACKET_TYPE_LS_REQUEST:
             neighbor_router.start_retransmission_timer(neighbor.LS_REQUEST)
+            for lsa_identifier in packet_to_send.body.lsa_identifiers:
+                neighbor_router.add_lsa_identifier(neighbor_router.ls_request_list, lsa_identifier)
+
         elif packet_to_send.header.packet_type == conf.PACKET_TYPE_LS_UPDATE:
-            neighbor_router.start_retransmission_timer(neighbor.LS_UPDATE)
+            lsa_identifiers = []
+            for query_lsa in packet_to_send.body.lsa_list:
+                lsa_identifiers.append(query_lsa.get_lsa_identifier())
+            self.update_ls_retransmission_lists(lsa_identifiers, destination_address)
+
         #  Only master retransmits DB Description packets in state higher than EXSTART
         elif packet_to_send.header.packet_type == conf.PACKET_TYPE_DB_DESCRIPTION:
             if (neighbor_router.neighbor_state == conf.NEIGHBOR_STATE_EXSTART) | neighbor_router.master_slave:
@@ -1151,7 +1164,7 @@ class Interface:
                     if router_intra_area_prefix_lsa is None:  # Router is not connected to other stub links
                         is_new = True
                         router_intra_area_prefix_lsa = self.create_lsa_header(
-                            conf.LSA_TYPE_INTRA_AREA_PREFIX, 0, conf.INITIAL_SEQUENCE_NUMBER)
+                            conf.LSA_TYPE_INTRA_AREA_PREFIX, conf.LSA_TYPE_ROUTER, conf.INITIAL_SEQUENCE_NUMBER)
                         router_intra_area_prefix_lsa.create_intra_area_prefix_lsa_body(
                             conf.LSA_TYPE_ROUTER, conf.DEFAULT_DESIGNATED_ROUTER, self.router_id)
                     router_intra_area_prefix_lsa.add_prefix_info(
@@ -1439,21 +1452,24 @@ class Interface:
         else:  # Point-to-point interface
             return point_point_neighbor_ip
 
-    #  Updates LS Retransmission list of required neighbors with provided flooded LSA given flooding IP address
-    def update_ls_retransmission_lists(self, lsa_identifier, flooding_address):
+    #  Updates LS Retransmission list of required neighbors with provided flooded LSAs given flooding IP address
+    def update_ls_retransmission_lists(self, lsa_identifiers, flooding_address):
         if flooding_address in [conf.ALL_DR_IPV4, conf.ALL_DR_IPV6]:
             for n in self.neighbors:
                 if self.neighbors[n].neighbor_id in [self.designated_router, self.backup_designated_router]:
-                    self.neighbors[n].add_lsa_identifier(self.neighbors[n].ls_retransmission_list, lsa_identifier)
+                    for lsa_identifier in lsa_identifiers:
+                        self.neighbors[n].add_lsa_identifier(self.neighbors[n].ls_retransmission_list, lsa_identifier)
                     self.neighbors[n].start_retransmission_timer(neighbor.LS_UPDATE)
         elif flooding_address in [conf.ALL_OSPF_ROUTERS_IPV4, conf.ALL_OSPF_ROUTERS_IPV6]:
             for n in self.neighbors:
-                self.neighbors[n].add_lsa_identifier(self.neighbors[n].ls_retransmission_list, lsa_identifier)
+                for lsa_identifier in lsa_identifiers:
+                    self.neighbors[n].add_lsa_identifier(self.neighbors[n].ls_retransmission_list, lsa_identifier)
                 self.neighbors[n].start_retransmission_timer(neighbor.LS_UPDATE)
         else:  # LSA flooded to unicast IP address
             for n in self.neighbors:
                 if self.neighbors[n].ip_address == flooding_address:
-                    self.neighbors[n].add_lsa_identifier(self.neighbors[n].ls_retransmission_list, lsa_identifier)
+                    for lsa_identifier in lsa_identifiers:
+                        self.neighbors[n].add_lsa_identifier(self.neighbors[n].ls_retransmission_list, lsa_identifier)
                     self.neighbors[n].start_retransmission_timer(neighbor.LS_UPDATE)
 
     #  Changes neighbor state

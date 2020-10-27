@@ -1,4 +1,4 @@
-import threading
+import multiprocessing
 import os
 
 import conf.conf as conf
@@ -11,7 +11,7 @@ This class serves as an interface to OSPF route management in the Linux kernel d
 
 class KernelTable:
 
-    lock = threading.RLock()
+    lock = multiprocessing.RLock()
 
     #  Returns the prefixes associated with the router interfaces
     @staticmethod

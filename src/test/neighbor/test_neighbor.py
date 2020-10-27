@@ -11,7 +11,7 @@ This class tests the neighbor operations in the router
 #  TODO: Implement validation and testing of None parameters
 
 
-#  Full successful run - 102-103 s
+#  Full successful run - 105-106 s
 class TestNeighbor(unittest.TestCase):
 
     def setUp(self):
@@ -51,28 +51,28 @@ class TestNeighbor(unittest.TestCase):
         self.assertEqual(self.neighbor_dr, self.neighbor_v3.neighbor_dr)
         self.assertEqual(self.neighbor_bdr, self.neighbor_v3.neighbor_bdr)
 
-        self.assertIsNotNone(self.neighbor_v2.inactivity_timer)
-        self.assertIsNotNone(self.neighbor_v2.retransmission_timer)
-        self.assertIsNotNone(self.neighbor_v3.inactivity_timer)
-        self.assertIsNotNone(self.neighbor_v3.retransmission_timer)
-        self.assertTrue(self.neighbor_v2.inactivity_timer.initial_time > self.start_time)
-        self.assertTrue(self.neighbor_v3.inactivity_timer.initial_time > self.start_time)
+        for query_neighbor in [self.neighbor_v2, self.neighbor_v3]:
 
-        self.assertTrue(self.neighbor_v2.inactivity_thread.isAlive())
-        self.assertIsNone(self.neighbor_v2.retransmission_thread)
-        self.assertTrue(self.neighbor_v3.inactivity_thread.isAlive())
-        self.assertIsNone(self.neighbor_v3.retransmission_thread)
+            self.assertIsNotNone(query_neighbor.inactivity_timer)
+            self.assertIsNotNone(query_neighbor.dd_packet_retransmit_timer)
+            self.assertIsNotNone(query_neighbor.ls_request_retransmit_timer)
+            self.assertIsNotNone(query_neighbor.ls_update_retransmit_timer)
+            self.assertTrue(query_neighbor.inactivity_timer.initial_time > self.start_time)
 
-        self.assertFalse(self.neighbor_v2.reset.is_set())
-        self.assertFalse(self.neighbor_v3.reset.is_set())
-        self.assertFalse(self.neighbor_v2.inactivity_timeout.is_set())
-        self.assertFalse(self.neighbor_v2.retransmission_timeout.is_set())
-        self.assertFalse(self.neighbor_v3.inactivity_timeout.is_set())
-        self.assertFalse(self.neighbor_v3.retransmission_timeout.is_set())
-        self.assertFalse(self.neighbor_v2.inactivity_shutdown.is_set())
-        self.assertFalse(self.neighbor_v2.retransmission_shutdown.is_set())
-        self.assertFalse(self.neighbor_v3.inactivity_shutdown.is_set())
-        self.assertFalse(self.neighbor_v3.retransmission_shutdown.is_set())
+            self.assertTrue(query_neighbor.inactivity_thread.isAlive())
+            self.assertIsNone(query_neighbor.dd_packet_retransmit_thread)
+            self.assertIsNone(query_neighbor.ls_request_retransmit_thread)
+            self.assertIsNone(query_neighbor.ls_update_retransmit_thread)
+
+            self.assertFalse(query_neighbor.reset.is_set())
+            self.assertFalse(query_neighbor.inactivity_timeout.is_set())
+            self.assertFalse(query_neighbor.inactivity_shutdown.is_set())
+            self.assertFalse(query_neighbor.dd_packet_retransmit_timeout.is_set())
+            self.assertFalse(query_neighbor.ls_request_retransmit_timeout.is_set())
+            self.assertFalse(query_neighbor.ls_update_retransmit_timeout.is_set())
+            self.assertFalse(query_neighbor.dd_packet_retransmit_shutdown.is_set())
+            self.assertFalse(query_neighbor.ls_request_retransmit_shutdown.is_set())
+            self.assertFalse(query_neighbor.ls_update_retransmit_shutdown.is_set())
 
     #  Successful run - 1 s
     def test_constructor_invalid_parameters(self):
@@ -105,60 +105,49 @@ class TestNeighbor(unittest.TestCase):
         self.assertFalse(self.neighbor_v2.inactivity_timeout.is_set())
         self.assertFalse(self.neighbor_v2.inactivity_shutdown.is_set())
 
-    #  Successful run - 12 s
+    #  Successful run - 15 s
     def test_retransmission_timer(self):
         for i in range(2):
-            self.assertFalse(self.neighbor_v2.is_retransmission_time(neighbor.DB_DESCRIPTION))
-            self.assertFalse(self.neighbor_v2.is_retransmission_time(neighbor.LS_REQUEST))
-            self.assertFalse(self.neighbor_v2.is_retransmission_time(neighbor.LS_UPDATE))
-            self.assertFalse(self.neighbor_v3.is_retransmission_time(neighbor.DB_DESCRIPTION))
-            self.assertFalse(self.neighbor_v3.is_retransmission_time(neighbor.LS_REQUEST))
-            self.assertFalse(self.neighbor_v3.is_retransmission_time(neighbor.LS_UPDATE))
-            self.neighbor_v2.start_retransmission_timer(neighbor.DB_DESCRIPTION)
-            self.neighbor_v2.start_retransmission_timer(neighbor.LS_REQUEST)
-            self.neighbor_v2.start_retransmission_timer(neighbor.LS_UPDATE)
-            self.neighbor_v3.start_retransmission_timer(neighbor.DB_DESCRIPTION)
-            self.neighbor_v3.start_retransmission_timer(neighbor.LS_REQUEST)
-            self.neighbor_v3.start_retransmission_timer(neighbor.LS_UPDATE)
-            self.assertFalse(self.neighbor_v2.is_retransmission_time(neighbor.DB_DESCRIPTION))
-            self.assertFalse(self.neighbor_v2.is_retransmission_time(neighbor.LS_REQUEST))
-            self.assertFalse(self.neighbor_v2.is_retransmission_time(neighbor.LS_UPDATE))
-            self.assertFalse(self.neighbor_v3.is_retransmission_time(neighbor.DB_DESCRIPTION))
-            self.assertFalse(self.neighbor_v3.is_retransmission_time(neighbor.LS_REQUEST))
-            self.assertFalse(self.neighbor_v3.is_retransmission_time(neighbor.LS_UPDATE))
-            self.assertFalse(self.neighbor_v2.retransmission_timeout.is_set())
-            self.assertFalse(self.neighbor_v3.retransmission_timeout.is_set())
-            self.assertTrue(self.neighbor_v2.retransmission_thread.isAlive())
-            self.assertTrue(self.neighbor_v3.retransmission_thread.isAlive())
+            for query_neighbor in [self.neighbor_v2, self.neighbor_v3]:
+                self.assertFalse(query_neighbor.is_retransmission_time(neighbor.DB_DESCRIPTION))
+                self.assertFalse(query_neighbor.is_retransmission_time(neighbor.LS_REQUEST))
+                self.assertFalse(query_neighbor.is_retransmission_time(neighbor.LS_UPDATE))
+                query_neighbor.start_retransmission_timer(neighbor.DB_DESCRIPTION)
+                query_neighbor.start_retransmission_timer(neighbor.LS_REQUEST)
+                query_neighbor.start_retransmission_timer(neighbor.LS_UPDATE)
+                self.assertFalse(query_neighbor.is_retransmission_time(neighbor.DB_DESCRIPTION))
+                self.assertFalse(query_neighbor.is_retransmission_time(neighbor.LS_REQUEST))
+                self.assertFalse(query_neighbor.is_retransmission_time(neighbor.LS_UPDATE))
+                self.assertFalse(query_neighbor.dd_packet_retransmit_timeout.is_set())
+                self.assertFalse(query_neighbor.ls_request_retransmit_timeout.is_set())
+                self.assertFalse(query_neighbor.ls_update_retransmit_timeout.is_set())
+                self.assertTrue(query_neighbor.dd_packet_retransmit_thread.isAlive())
+                self.assertTrue(query_neighbor.ls_request_retransmit_thread.isAlive())
+                self.assertTrue(query_neighbor.ls_update_retransmit_thread.isAlive())
 
             time.sleep(5)
-            self.assertTrue(self.neighbor_v2.is_retransmission_time(neighbor.DB_DESCRIPTION))
-            self.assertTrue(self.neighbor_v2.is_retransmission_time(neighbor.LS_REQUEST))
-            self.assertTrue(self.neighbor_v2.is_retransmission_time(neighbor.LS_UPDATE))
-            self.assertTrue(self.neighbor_v3.is_retransmission_time(neighbor.DB_DESCRIPTION))
-            self.assertTrue(self.neighbor_v3.is_retransmission_time(neighbor.LS_REQUEST))
-            self.assertTrue(self.neighbor_v3.is_retransmission_time(neighbor.LS_UPDATE))
-            self.assertFalse(self.neighbor_v2.retransmission_timeout.is_set())  # Timeout flag is cleared by method
-            self.assertFalse(self.neighbor_v3.retransmission_timeout.is_set())
+            for query_neighbor in [self.neighbor_v2, self.neighbor_v3]:
+                self.assertTrue(query_neighbor.is_retransmission_time(neighbor.DB_DESCRIPTION))
+                self.assertTrue(query_neighbor.is_retransmission_time(neighbor.LS_REQUEST))
+                self.assertTrue(query_neighbor.is_retransmission_time(neighbor.LS_UPDATE))
+                self.assertFalse(query_neighbor.dd_packet_retransmit_timeout.is_set())  # Flag cleared by start method
+                self.assertFalse(query_neighbor.ls_request_retransmit_timeout.is_set())
+                self.assertFalse(query_neighbor.ls_update_retransmit_timeout.is_set())
 
-            if i == 0:
-                self.neighbor_v2.stop_retransmission_timer(neighbor.DB_DESCRIPTION)
-                self.neighbor_v2.stop_retransmission_timer(neighbor.LS_REQUEST)
-                self.neighbor_v2.stop_retransmission_timer(neighbor.LS_UPDATE)
-                self.neighbor_v3.stop_retransmission_timer(neighbor.DB_DESCRIPTION)
-                self.neighbor_v3.stop_retransmission_timer(neighbor.LS_REQUEST)
-                self.neighbor_v3.stop_retransmission_timer(neighbor.LS_UPDATE)
-                time.sleep(1)
-                self.assertFalse(self.neighbor_v2.retransmission_thread.isAlive())
-                self.assertFalse(self.neighbor_v3.retransmission_thread.isAlive())
-                self.neighbor_v2.retransmission_timeout.set()
-                self.neighbor_v3.retransmission_timeout.set()
-                self.assertFalse(self.neighbor_v2.is_retransmission_time(neighbor.DB_DESCRIPTION))
-                self.assertFalse(self.neighbor_v2.is_retransmission_time(neighbor.LS_REQUEST))
-                self.assertFalse(self.neighbor_v2.is_retransmission_time(neighbor.LS_UPDATE))
-                self.assertFalse(self.neighbor_v3.is_retransmission_time(neighbor.DB_DESCRIPTION))
-                self.assertFalse(self.neighbor_v3.is_retransmission_time(neighbor.LS_REQUEST))
-                self.assertFalse(self.neighbor_v3.is_retransmission_time(neighbor.LS_UPDATE))
+                if i == 0:
+                    query_neighbor.stop_retransmission_timer(neighbor.DB_DESCRIPTION)
+                    query_neighbor.stop_retransmission_timer(neighbor.LS_REQUEST)
+                    query_neighbor.stop_retransmission_timer(neighbor.LS_UPDATE)
+                    time.sleep(1)
+                    self.assertFalse(query_neighbor.dd_packet_retransmit_thread.isAlive())
+                    self.assertFalse(query_neighbor.ls_request_retransmit_thread.isAlive())
+                    self.assertFalse(query_neighbor.ls_update_retransmit_thread.isAlive())
+                    query_neighbor.dd_packet_retransmit_timeout.set()
+                    query_neighbor.ls_request_retransmit_timeout.set()
+                    query_neighbor.ls_update_retransmit_timeout.set()
+                    self.assertFalse(query_neighbor.is_retransmission_time(neighbor.DB_DESCRIPTION))
+                    self.assertFalse(query_neighbor.is_retransmission_time(neighbor.LS_REQUEST))
+                    self.assertFalse(query_neighbor.is_retransmission_time(neighbor.LS_UPDATE))
 
     #  Successful run - 2 s
     def test_delete_neighbor(self):

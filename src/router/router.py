@@ -4,6 +4,7 @@ import datetime
 import time
 import copy
 import random
+import multiprocessing
 
 import general.utils as utils
 import general.sock as sock
@@ -154,7 +155,7 @@ class Router:
                             for n in j.neighbors:
                                 neighbor = j.neighbors[n]
                                 if neighbor.neighbor_state not in [
-                                        conf.NEIGHBOR_STATE_EXCHANGE, conf.NEIGHBOR_STATE_LOADING,
+                                    conf.NEIGHBOR_STATE_EXCHANGE, conf.NEIGHBOR_STATE_LOADING,
                                         conf.NEIGHBOR_STATE_FULL]:
                                     continue  # Neighbor does not take part in flooding
                                 elif neighbor.neighbor_state in [
@@ -193,17 +194,9 @@ class Router:
                                     current_interface.ipv6_address, destination_address)
                             ls_update_packet.create_ls_update_packet_body(self.ospf_version)
                             ls_update_packet.add_lsa(lsa_instance)
-                            packet_bytes = ls_update_packet.pack_packet()
-                            sending_socket = j.socket
-                            if self.ospf_version == conf.VERSION_IPV4:
-                                sending_socket.send_ipv4(
-                                    packet_bytes, destination_address, j.physical_identifier, self.localhost)
-                            elif self.ospf_version == conf.VERSION_IPV6:
-                                sending_socket.send_ipv6(
-                                    packet_bytes, destination_address, j.physical_identifier, self.localhost)
+                            j.send_packet(ls_update_packet, destination_address, None)
                             current_interface.flooded_pipeline.put(True)
                             time.sleep(0.1)
-                            current_interface.update_ls_retransmission_lists(lsa_identifier, destination_address)
 
             #  Sets the Linux kernel default routing table if any LSDB was changed and enough time has passed
             if not self.localhost:
@@ -217,8 +210,8 @@ class Router:
                             lsdb.reset_modification_time()
                             lsdb_modified = True
                 if lsdb_modified:
-                    thread = threading.Thread(target=self.set_kernel_routing_table)
-                    thread.start()  # Separate thread is required due to slow execution time
+                    process = multiprocessing.Process(target=self.set_kernel_routing_table)
+                    process.start()  # Separate process is required due to slow execution time
 
             #  Tells receiving socket whether respective interface is DR/BDR or not, if state changed
             for interface_id in self.interfaces:
@@ -781,50 +774,50 @@ class Router:
 
         #  Removing and updating prefix info
         if own_prefix_lsa is not None:
-                has_changed = False
-                if version == conf.VERSION_IPV4:
-                    for subnet_info in own_prefix_lsa.body.subnet_list:
-                        is_present = False
-                        subnet_address = subnet_info[2]
-                        netmask_length = utils.Utils.get_prefix_length_from_prefix(subnet_info[1])
-                        advertised_metric = subnet_info[0]
-                        new_metric = 0
-                        for entry in table.entries:
-                            if (entry.destination_id == subnet_address) & (entry.prefix_length == netmask_length):
-                                is_present = True
-                                new_metric = entry.paths[0].cost
-                        if not is_present:
-                            own_prefix_lsa.body.delete_subnet_info(netmask_length, subnet_address)
-                            has_changed = True
-                        elif advertised_metric != new_metric:
-                            own_prefix_lsa.body.delete_subnet_info(netmask_length, subnet_address)
-                            own_prefix_lsa.body.add_subnet_info(new_metric, netmask_length, subnet_address)
-                elif version == conf.VERSION_IPV6:
-                    for prefix_info in own_prefix_lsa.body.prefix_list:
-                        is_present = False
-                        prefix = prefix_info[3]
-                        prefix_length = prefix_info[1]
-                        advertised_metric = prefix_info[0]
-                        new_metric = 0
-                        for entry in table.entries:
-                            if (entry.destination_id == prefix) & (entry.prefix_length == prefix_length):
-                                is_present = True
-                                new_metric = entry.paths[0].cost
-                        if not is_present:
-                            own_prefix_lsa.body.delete_prefix_info(prefix_length, prefix)
-                            has_changed = True
-                        elif advertised_metric != new_metric:
-                            own_prefix_lsa.body.delete_prefix_info(prefix_length, prefix)
-                            own_prefix_lsa.body.add_prefix_info(new_metric, prefix_length, prefix)
-                else:
-                    raise ValueError("Invalid OSPF version")
-                if has_changed:
-                    own_prefix_lsa.header.ls_age = conf.INITIAL_LS_AGE
-                    own_prefix_lsa.header.ls_sequence_number = lsa.Lsa.get_next_ls_sequence_number(
-                        own_prefix_lsa.header.ls_sequence_number)
-                    own_prefix_lsa.set_lsa_length()
-                    own_prefix_lsa.set_lsa_checksum()
-                    own_prefix_lsa.append(own_prefix_lsa)
+            has_changed = False
+            if version == conf.VERSION_IPV4:
+                for subnet_info in own_prefix_lsa.body.subnet_list:
+                    is_present = False
+                    subnet_address = subnet_info[2]
+                    netmask_length = utils.Utils.get_prefix_length_from_prefix(subnet_info[1])
+                    advertised_metric = subnet_info[0]
+                    new_metric = 0
+                    for entry in table.entries:
+                        if (entry.destination_id == subnet_address) & (entry.prefix_length == netmask_length):
+                            is_present = True
+                            new_metric = entry.paths[0].cost
+                    if not is_present:
+                        own_prefix_lsa.body.delete_subnet_info(netmask_length, subnet_address)
+                        has_changed = True
+                    elif advertised_metric != new_metric:
+                        own_prefix_lsa.body.delete_subnet_info(netmask_length, subnet_address)
+                        own_prefix_lsa.body.add_subnet_info(new_metric, netmask_length, subnet_address)
+            elif version == conf.VERSION_IPV6:
+                for prefix_info in own_prefix_lsa.body.prefix_list:
+                    is_present = False
+                    prefix = prefix_info[3]
+                    prefix_length = prefix_info[1]
+                    advertised_metric = prefix_info[0]
+                    new_metric = 0
+                    for entry in table.entries:
+                        if (entry.destination_id == prefix) & (entry.prefix_length == prefix_length):
+                            is_present = True
+                            new_metric = entry.paths[0].cost
+                    if not is_present:
+                        own_prefix_lsa.body.delete_prefix_info(prefix_length, prefix)
+                        has_changed = True
+                    elif advertised_metric != new_metric:
+                        own_prefix_lsa.body.delete_prefix_info(prefix_length, prefix)
+                        own_prefix_lsa.body.add_prefix_info(new_metric, prefix_length, prefix)
+            else:
+                raise ValueError("Invalid OSPF version")
+            if has_changed:
+                own_prefix_lsa.header.ls_age = conf.INITIAL_LS_AGE
+                own_prefix_lsa.header.ls_sequence_number = lsa.Lsa.get_next_ls_sequence_number(
+                    own_prefix_lsa.header.ls_sequence_number)
+                own_prefix_lsa.set_lsa_length()
+                own_prefix_lsa.set_lsa_checksum()
+                own_prefix_lsa.append(own_prefix_lsa)
 
         #  Adding ABR info
         has_own_lsa = False
@@ -850,4 +843,3 @@ class Router:
         for lsa_list in [self.abr_lsa_list, self.prefix_lsa_list]:
             for query_lsa in lsa_list:
                 existing_extension_lsa_list.append(query_lsa)
-
