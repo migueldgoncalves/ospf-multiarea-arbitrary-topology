@@ -2,6 +2,7 @@ import unittest
 import threading
 import time
 import copy
+import multiprocessing
 
 import router.router as router
 import conf.conf as conf
@@ -241,9 +242,12 @@ class IntegrationTest(unittest.TestCase):
             router_interfaces = interfaces[i]
             router_areas = areas[i]
             router_shutdown = threading.Event()
-            routers.append(router.Router(router_id, version, router_shutdown, router_interfaces, router_areas, True))
-            threads.append(threading.Thread(target=routers[i].main_loop))
+            routers.append(router.Router())
+            threads.append(threading.Thread(target=routers[i].set_up, args=(
+                router_id, version, router_shutdown, router_interfaces, router_areas, True, multiprocessing.Queue(),
+                multiprocessing.Event())))
             threads[i].start()
+            time.sleep(0.2)  # Gives CPU to router thread
 
         entry_pipelines = {}
         exit_pipelines = {}

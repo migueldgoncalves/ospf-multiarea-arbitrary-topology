@@ -146,11 +146,11 @@ class Interface:
                         break
                     packet_to_send = packet.Packet()
                     if self.version == conf.VERSION_IPV4:
-                        packet_to_send.create_header_v2(conf.PACKET_TYPE_LS_REQUEST, self.router_id, self.area_id,
+                        packet_to_send.create_header_v2(conf.PACKET_TYPE_LS_UPDATE, self.router_id, self.area_id,
                                                         conf.NULL_AUTHENTICATION, conf.DEFAULT_AUTH)
                     else:
                         packet_to_send.create_header_v3(
-                            conf.PACKET_TYPE_LS_REQUEST, self.router_id, self.area_id, self.instance_id,
+                            conf.PACKET_TYPE_LS_UPDATE, self.router_id, self.area_id, self.instance_id,
                             self.ipv6_address, self.neighbors[n].neighbor_ip_address)
                     packet_to_send.create_ls_update_packet_body(self.version)
                     ls_retransmission_list = self.neighbors[n].ls_retransmission_list
@@ -538,8 +538,6 @@ class Interface:
 
     #  Sends an OSPF packet through the interface
     def send_packet(self, packet_to_send, destination_address, neighbor_router):
-        packet_to_send.set_packet_length()
-        packet_to_send.set_packet_checksum()
         packet_bytes = packet_to_send.pack_packet()
         if self.version == conf.VERSION_IPV4:
             self.socket.send_ipv4(packet_bytes, destination_address, self.physical_identifier, self.localhost)
@@ -1467,7 +1465,7 @@ class Interface:
                 self.neighbors[n].start_retransmission_timer(neighbor.LS_UPDATE)
         else:  # LSA flooded to unicast IP address
             for n in self.neighbors:
-                if self.neighbors[n].ip_address == flooding_address:
+                if self.neighbors[n].neighbor_ip_address == flooding_address:
                     for lsa_identifier in lsa_identifiers:
                         self.neighbors[n].add_lsa_identifier(self.neighbors[n].ls_retransmission_list, lsa_identifier)
                     self.neighbors[n].start_retransmission_timer(neighbor.LS_UPDATE)

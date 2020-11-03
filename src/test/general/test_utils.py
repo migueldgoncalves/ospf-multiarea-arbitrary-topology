@@ -137,12 +137,14 @@ class UtilsTest(unittest.TestCase):
 
     #  Successful run - Instant
     def test_create_checksum_ospfv3_successful(self):
-        source_address = 'fe80::c001:18ff:fe34:10'
-        destination_address = 'ff02::5'
         self.assertEqual(8768, utils.Utils.create_checksum_ospfv3(
             b'\x03\x01\x00$\x01\x01\x01\x01\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x06\x01\x00\x00\x13\x00\n\x00('
             b'\x01\x01\x01\x01\x00\x00\x00\x00',
-            source_address, destination_address))
+            'fe80::c001:18ff:fe34:10', 'ff02::5'))
+        self.assertEqual(32756, utils.Utils.create_checksum_ospfv3(
+            b'\x03\x04\x00\x3c\x01\x01\x01\x01\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x01\x00\x01\x20\x01\x00\x00'
+            b'\x00\x00\x01\x01\x01\x01\x80\x00\x00\xa6\xf1\x7d\x00\x28\x00\x00\x00\x02\x02\x00\x00\x0a\x00\x00\x00\x04'
+            b'\x00\x00\x00\x02\x02\x02\x02\x02', 'fe80::20c:29ff:fe27:b810', 'ff02::5'))
 
     #  Successful run - Instant
     def test_create_fletcher_checksum_successful(self):

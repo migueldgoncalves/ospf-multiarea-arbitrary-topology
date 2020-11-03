@@ -1,7 +1,6 @@
 import socket
 import struct
 import queue
-import warnings
 import threading
 
 import conf.conf as conf
@@ -127,7 +126,7 @@ class Socket:
             raise ValueError("No interface to bind provided")
         if interface.strip() == '':
             raise ValueError("Empty interface to bind provided")
-        self.is_packet_checksum_valid(packet_bytes, conf.VERSION_IPV4, '', '')
+        packet_bytes = self.is_packet_checksum_valid(packet_bytes, conf.VERSION_IPV4, '', '')
 
         if localhost:  # Socket will not be used in integration tests
             source_address = utils.Utils.get_ipv4_address_from_interface_name(interface)
@@ -158,7 +157,8 @@ class Socket:
         if interface.strip() == '':
             raise ValueError("Empty interface to bind provided")
         source_address = utils.Utils.get_ipv6_link_local_address_from_interface_name(interface)
-        self.is_packet_checksum_valid(packet_bytes, conf.VERSION_IPV6, source_address, destination_address)
+        packet_bytes = self.is_packet_checksum_valid(
+            packet_bytes, conf.VERSION_IPV6, source_address, destination_address)
 
         if localhost:  # Socket will not be used in integration tests
             data = [packet_bytes, source_address, destination_address]
@@ -236,5 +236,10 @@ class Socket:
     def is_packet_checksum_valid(packet_bytes, version, source_address, destination_address):
         packet_object = packet.Packet.unpack_packet(packet_bytes)
         if not packet_object.is_packet_checksum_valid(source_address, destination_address):
-            warning = "Invalid packet checksum for OSPFv" + str(version)
-            warnings.warn(warning)
+            if version == conf.VERSION_IPV6:
+                packet_object.header.source_ipv6_address = source_address
+                packet_object.header.destination_ipv6_address = destination_address
+            packet_object.set_packet_length()
+            packet_object.set_packet_checksum()
+            packet_bytes = packet_object.pack_packet()
+        return packet_bytes

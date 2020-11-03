@@ -1,6 +1,7 @@
 import unittest
-import multiprocessing
+import threading
 import time
+import multiprocessing
 
 import router.router as router
 import conf.conf as conf
@@ -19,8 +20,8 @@ class RouterTest(unittest.TestCase):
         self.shutdown_event_v3 = None
         self.router_v2 = None
         self.router_v3 = None
-        self.process_v2 = None
-        self.process_v3 = None
+        self.thread_v2 = None
+        self.thread_v3 = None
 
     #  Successful run - 25 s
     def test_constructor_successful(self):
@@ -58,14 +59,14 @@ class RouterTest(unittest.TestCase):
         self.assertEqual(len(conf.INTERFACE_NAMES), len(self.router_v3.packet_pipelines))
         self.assertEqual(len(conf.INTERFACE_NAMES), len(self.router_v2.socket_shutdown_events))
         self.assertEqual(len(conf.INTERFACE_NAMES), len(self.router_v3.socket_shutdown_events))
-        self.assertEqual(len(conf.INTERFACE_NAMES), len(self.router_v2.socket_processes))
-        self.assertEqual(len(conf.INTERFACE_NAMES), len(self.router_v3.socket_processes))
+        self.assertEqual(len(conf.INTERFACE_NAMES), len(self.router_v2.socket_threads))
+        self.assertEqual(len(conf.INTERFACE_NAMES), len(self.router_v3.socket_threads))
         for interface_id in self.router_v2.interfaces:
             self.assertFalse(self.router_v2.socket_shutdown_events[interface_id].is_set())
-            self.assertTrue(self.router_v2.socket_processes[interface_id].is_alive())
+            self.assertTrue(self.router_v2.socket_threads[interface_id].isAlive())
         for interface_id in self.router_v3.interfaces:
             self.assertFalse(self.router_v3.socket_shutdown_events[interface_id].is_set())
-            self.assertTrue(self.router_v3.socket_processes[interface_id].is_alive())
+            self.assertTrue(self.router_v3.socket_threads[interface_id].isAlive())
         self.assertFalse(self.router_v2.router_shutdown_event.is_set())
         self.assertFalse(self.router_v3.router_shutdown_event.is_set())
 
@@ -94,12 +95,15 @@ class RouterTest(unittest.TestCase):
 
     #  Successful run - Instant
     def test_constructor_invalid_parameters(self):
+        new_router = router.Router()
         with self.assertRaises(ValueError):
-            router.Router(
-                conf.ROUTER_ID, 1, self.shutdown_event_v2, conf.INTERFACE_NAMES, conf.INTERFACE_AREAS, False)
+            new_router.set_up(
+                conf.ROUTER_ID, 1, self.shutdown_event_v2, conf.INTERFACE_NAMES, conf.INTERFACE_AREAS, False,
+                multiprocessing.Queue(), multiprocessing.Event())
         with self.assertRaises(ValueError):
-            router.Router(
-                conf.ROUTER_ID, 4, self.shutdown_event_v2, conf.INTERFACE_NAMES, conf.INTERFACE_AREAS, False)
+            new_router.set_up(
+                conf.ROUTER_ID, 4, self.shutdown_event_v2, conf.INTERFACE_NAMES, conf.INTERFACE_AREAS, False,
+                multiprocessing.Queue(), multiprocessing.Event())
 
     #  Successful run - Instant
     def test_get_unique_values(self):
@@ -141,19 +145,22 @@ class RouterTest(unittest.TestCase):
     #  #  #  #  #  #  #  #
 
     def router_set_up(self):
-        self.shutdown_event_v2 = multiprocessing.Event()
-        self.shutdown_event_v3 = multiprocessing.Event()
-        self.router_v2 = router.Router(conf.ROUTER_ID, conf.VERSION_IPV4, self.shutdown_event_v2, conf.INTERFACE_NAMES,
-                                       conf.INTERFACE_AREAS, False)
-        self.router_v3 = router.Router(conf.ROUTER_ID, conf.VERSION_IPV6, self.shutdown_event_v3, conf.INTERFACE_NAMES,
-                                       conf.INTERFACE_AREAS, False)
-        self.process_v2 = multiprocessing.Process(target=self.router_v2.main_loop)
-        self.process_v3 = multiprocessing.Process(target=self.router_v3.main_loop)
-        self.process_v2.start()
-        self.process_v3.start()
+        self.shutdown_event_v2 = threading.Event()
+        self.shutdown_event_v3 = threading.Event()
+        self.router_v2 = router.Router()
+        self.router_v3 = router.Router()
+        self.thread_v2 = threading.Thread(target=self.router_v2.set_up, args=(
+            conf.ROUTER_ID, conf.VERSION_IPV4, self.shutdown_event_v2, conf.INTERFACE_NAMES, conf.INTERFACE_AREAS,
+            False, multiprocessing.Queue(), multiprocessing.Event()))
+        self.thread_v3 = threading.Thread(target=self.router_v3.set_up, args=(
+            conf.ROUTER_ID, conf.VERSION_IPV6, self.shutdown_event_v3, conf.INTERFACE_NAMES, conf.INTERFACE_AREAS,
+            False, multiprocessing.Queue(), multiprocessing.Event()))
+        self.thread_v2.start()
+        self.thread_v3.start()
+        time.sleep(0.2)
 
     def router_tear_down(self):
         self.shutdown_event_v2.set()
         self.shutdown_event_v3.set()
-        self.process_v2.join()
-        self.process_v3.join()
+        self.thread_v2.join()
+        self.thread_v3.join()

@@ -1,6 +1,7 @@
 import unittest
 import time
 import threading
+import multiprocessing
 
 import router.routing_table as routing_table
 import router.router as router
@@ -635,12 +636,22 @@ class TestRoutingTable(unittest.TestCase):
 
         shutdown_event_v2 = threading.Event()
         shutdown_event_v3 = threading.Event()
-        router_v2 = router.Router(self.router_id_4, conf.VERSION_IPV4, shutdown_event_v2, conf.INTERFACE_NAMES,
-                                  conf.INTERFACE_AREAS, False)
-        router_v3 = router.Router(self.router_id_4, conf.VERSION_IPV6, shutdown_event_v3, conf.INTERFACE_NAMES,
-                                  conf.INTERFACE_AREAS, False)
+        router_v2 = router.Router()
+        router_v3 = router.Router()
+        thread_v2 = threading.Thread(target=router_v2.set_up, args=(
+            self.router_id_4, conf.VERSION_IPV4, shutdown_event_v2, conf.INTERFACE_NAMES, conf.INTERFACE_AREAS, False,
+            multiprocessing.Queue(), multiprocessing.Event()))
+        thread_v3 = threading.Thread(target=router_v3.set_up, args=(
+            self.router_id_4, conf.VERSION_IPV6, shutdown_event_v3, conf.INTERFACE_NAMES, conf.INTERFACE_AREAS, False,
+            multiprocessing.Queue(), multiprocessing.Event()))
+        thread_v2.start()
+        time.sleep(0.1)
+        thread_v3.start()
+        time.sleep(0.1)
         router_v2.shutdown_router()  # Router threads are not necessary for this test, only its data objects
         router_v3.shutdown_router()
+        thread_v2.join()
+        thread_v3.join()
         router_v2.areas[conf.BACKBONE_AREA].database = self.lsdb_v2  # Overwriting the router LSDB
         router_v3.areas[conf.BACKBONE_AREA].database = self.lsdb_v3
 
@@ -879,12 +890,14 @@ class TestRoutingTable(unittest.TestCase):
         kernel_table.KernelTable.delete_all_ospf_routes(0)
         shutdown_event_v2 = threading.Event()
         shutdown_event_v3 = threading.Event()
-        router_v2 = router.Router(conf.ROUTER_ID, conf.VERSION_IPV4, shutdown_event_v2, conf.INTERFACE_NAMES,
-                                  conf.INTERFACE_AREAS, False)
-        router_v3 = router.Router(conf.ROUTER_ID, conf.VERSION_IPV6, shutdown_event_v3, conf.INTERFACE_NAMES,
-                                  conf.INTERFACE_AREAS, False)
-        thread_v2 = threading.Thread(target=router_v2.main_loop)
-        thread_v3 = threading.Thread(target=router_v3.main_loop)
+        router_v2 = router.Router()
+        router_v3 = router.Router()
+        thread_v2 = threading.Thread(target=router_v2.set_up, args=(
+            conf.ROUTER_ID, conf.VERSION_IPV4, shutdown_event_v2, conf.INTERFACE_NAMES, conf.INTERFACE_AREAS, False,
+            multiprocessing.Queue(), multiprocessing.Event()))
+        thread_v3 = threading.Thread(target=router_v3.set_up, args=(
+            conf.ROUTER_ID, conf.VERSION_IPV6, shutdown_event_v3, conf.INTERFACE_NAMES, conf.INTERFACE_AREAS, False,
+            multiprocessing.Queue(), multiprocessing.Event()))
         thread_v2.start()
         thread_v3.start()
         existing_routes = len(kernel_table.KernelTable.get_all_routes())  # Includes 222.222.1.0 and 2001:db8:cafe:1::

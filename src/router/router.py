@@ -20,10 +20,18 @@ import router.kernel_table as kernel_table
 This class contains the top-level OSPF data structures and operations
 '''
 
+SHOW = 1
+SHOW_INTERFACE = 2
+SHOW_NEIGHBOR = 3
+SHOW_LSDB = 4
+SHUTDOWN_INTERFACE = 5
+START_INTERFACE = 6
+
 
 class Router:
 
-    def __init__(self, router_id, ospf_version, router_shutdown_event, interface_ids, area_ids, localhost):
+    def set_up(self, router_id, ospf_version, router_shutdown_event, interface_ids, area_ids, localhost,
+               command_pipeline, output_event):
         if ospf_version not in [conf.VERSION_IPV4, conf.VERSION_IPV6]:
             raise ValueError("Invalid OSPF version")
         self.ospf_version = ospf_version
@@ -80,10 +88,16 @@ class Router:
         self.start_time = datetime.datetime.now()
         self.abr = Router.is_abr(conf.INTERFACE_AREAS)
         self.shortest_path_tree_dictionary = {}  # One tree per area
+        self.command_pipeline = command_pipeline  # User commands
+        self.output_event = output_event  # If has printed desired output, if any
+        self.command_thread = threading.Thread(target=self.execute_commands)
+        self.command_thread.start()
 
         #  Extension LSA list
         self.abr_lsa_list = []
         self.prefix_lsa_list = []
+
+        self.main_loop()
 
     #  #  #  #  #  #
     #  Main method  #
@@ -492,6 +506,30 @@ class Router:
     #  Command-line interface methods  #
     #  #  #  #  #  #  #  #  #  #  #  #  #
 
+    #  Executes commands from user
+    def execute_commands(self):
+        while not self.router_shutdown_event.is_set():
+            if not self.command_pipeline.empty():
+                command_data = self.command_pipeline.get()
+                command = command_data[0]
+                arg = command_data[1]
+
+                if command == SHOW:
+                    self.show_general_data()
+                elif command == SHOW_INTERFACE:
+                    self.show_interface_data()
+                elif command == SHOW_NEIGHBOR:
+                    self.show_neighbor_data()
+                elif command == SHOW_LSDB:
+                    self.show_lsdb_content()
+                elif command == SHUTDOWN_INTERFACE:
+                    self.shutdown_interface(arg)
+                elif command == START_INTERFACE:
+                    self.start_interface(arg)
+                else:
+                    continue
+                self.output_event.set()
+
     #  Prints general protocol information
     def show_general_data(self):
         time_elapsed = datetime.datetime.now() - self.start_time
@@ -602,6 +640,7 @@ class Router:
             self.socket_threads[t].join()
         for a in self.areas:
             self.areas[a].shutdown_area()
+        self.command_thread.join()
 
     #  #  #  #  #  #  #  #
     #  Auxiliary methods  #
