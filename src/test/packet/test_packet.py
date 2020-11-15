@@ -337,3 +337,7 @@ class PacketTest(unittest.TestCase):
         self.assertEqual(100, deep_copy.body.hello_interval)
         self.assertEqual(5, self.packet_v2.header.version)
         self.assertEqual(20, self.packet_v2.body.hello_interval)
+
+
+if __name__ == '__main__':
+    unittest.main()

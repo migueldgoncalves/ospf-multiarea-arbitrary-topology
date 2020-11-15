@@ -648,10 +648,12 @@ class TestRoutingTable(unittest.TestCase):
         time.sleep(0.1)
         thread_v3.start()
         time.sleep(0.1)
-        router_v2.shutdown_router()  # Router threads are not necessary for this test, only its data objects
-        router_v3.shutdown_router()
+        shutdown_event_v2.set()  # Router threads are not necessary for this test, only its data objects
+        shutdown_event_v3.set()
         thread_v2.join()
         thread_v3.join()
+        shutdown_event_v2.clear()  # Event must be clear for routing table computation to complete
+        shutdown_event_v3.clear()
         router_v2.areas[conf.BACKBONE_AREA].database = self.lsdb_v2  # Overwriting the router LSDB
         router_v3.areas[conf.BACKBONE_AREA].database = self.lsdb_v3
 
@@ -1106,3 +1108,7 @@ class TestRoutingTable(unittest.TestCase):
                          self.link_lsa_r2_3, self.link_lsa_r3_6, self.link_lsa_r4_1]:
             link_lsa.body.prefix_number = 0
             link_lsa.body.prefixes = []
+
+
+if __name__ == '__main__':
+    unittest.main()

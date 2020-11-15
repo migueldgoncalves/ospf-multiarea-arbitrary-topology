@@ -427,3 +427,7 @@ class TestHello(unittest.TestCase):
         self.assertEqual((False, "Invalid OSPF version"), self.packet_body_v2.parameter_validation(
             self.network_mask, self.hello_interval, self.options, self.router_priority, self.router_dead_interval,
             self.designated_router, self.backup_designated_router, self.neighbors, 0, 4))
+
+
+if __name__ == '__main__':
+    unittest.main()

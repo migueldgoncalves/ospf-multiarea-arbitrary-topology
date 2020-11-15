@@ -394,3 +394,7 @@ class UtilsTest(unittest.TestCase):
     def test_get_prefix_from_prefix_length(self):
         self.assertEqual('255.255.255.0', utils.Utils.get_prefix_from_prefix_length(24, conf.VERSION_IPV4))
         self.assertEqual('ffff:ffff:ffff:ffff::', utils.Utils.get_prefix_from_prefix_length(64, conf.VERSION_IPV6))
+
+
+if __name__ == '__main__':
+    unittest.main()

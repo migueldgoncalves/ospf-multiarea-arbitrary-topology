@@ -111,3 +111,7 @@ class TestLink(unittest.TestCase):
         self.assertEqual([96, 0, '2001:db8:cafe:13::'], unpacked_body.prefixes[6])
         self.assertEqual([97, 0, '2001:db8:cafe:14::'], unpacked_body.prefixes[7])
         self.assertEqual([128, 2, '2001:db8:cafe:15::1'], unpacked_body.prefixes[8])
+
+
+if __name__ == '__main__':
+    unittest.main()

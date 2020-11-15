@@ -1150,3 +1150,7 @@ class InterfaceTest(unittest.TestCase):
         self.interface_ospfv3.add_link_local_lsa(lsa_2)
         self.interface_ospfv3.clean_link_local_lsa_list()
         self.assertEqual(0, len(self.interface_ospfv3.link_local_lsa_list))
+
+
+if __name__ == '__main__':
+    unittest.main()

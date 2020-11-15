@@ -70,3 +70,7 @@ class TestLSRequest(unittest.TestCase):
              [0x2009, '0.0.20.0', '2.2.2.2'], [0x2009, '0.0.0.0', '3.3.3.3'], [0x2009, '0.0.16.0', '3.3.3.3']],
             packet_body.lsa_identifiers)
         self.assertEqual(conf.VERSION_IPV6, packet_body.version)
+
+
+if __name__ == '__main__':
+    unittest.main()

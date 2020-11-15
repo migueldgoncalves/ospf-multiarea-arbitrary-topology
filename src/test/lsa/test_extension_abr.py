@@ -112,3 +112,7 @@ class TestExtensionAbr(unittest.TestCase):
         self.assertEqual([[10, '1.1.1.1'], [15, '2.2.2.2'], [20, '3.3.3.3']], unpacked_body.abr_list)
         unpacked_body = extension_abr.ExtensionAbr.unpack_lsa_body(TestExtensionAbr.body_bytes_4, 0)
         self.assertEqual([[10, '1.1.1.1'], [15, '2.2.2.2'], [20, '3.3.3.3'], [0, '4.4.4.4']], unpacked_body.abr_list)
+
+
+if __name__ == '__main__':
+    unittest.main()

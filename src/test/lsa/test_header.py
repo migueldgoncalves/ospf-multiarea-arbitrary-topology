@@ -323,3 +323,7 @@ class TestHeader(unittest.TestCase):
         self.assertEqual(header.OSPFV3_FORMAT_STRING, header.Header.get_format_string(conf.VERSION_IPV6))
         with self.assertRaises(ValueError):
             header.Header.get_format_string(1)
+
+
+if __name__ == '__main__':
+    unittest.main()

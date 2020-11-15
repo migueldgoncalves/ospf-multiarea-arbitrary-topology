@@ -407,3 +407,7 @@ class TestLSAcknowledgement(unittest.TestCase):
         self.assertEqual(39510, unpacked_lsa.header.ls_checksum)
         self.assertEqual(56, unpacked_lsa.header.length)
         self.assertEqual(conf.VERSION_IPV6, unpacked_lsa.header.ospf_version)
+
+
+if __name__ == '__main__':
+    unittest.main()

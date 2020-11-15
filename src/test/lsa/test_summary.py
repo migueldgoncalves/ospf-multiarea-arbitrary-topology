@@ -24,3 +24,7 @@ class TestSummary(unittest.TestCase):
         unpacked_body = summary.Summary.unpack_lsa_body(TestSummary.body_bytes, 0)
         self.assertEqual(TestSummary.network_mask, unpacked_body.network_mask)
         self.assertEqual(TestSummary.metric, unpacked_body.metric)
+
+
+if __name__ == '__main__':
+    unittest.main()

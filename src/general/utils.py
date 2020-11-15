@@ -99,12 +99,18 @@ class Utils:
     #  Returns the IPv6 global address of an interface given its name (ex: ens33)
     @staticmethod
     def get_ipv6_global_address_from_interface_name(interface_name):
-        return netifaces.ifaddresses(interface_name)[netifaces.AF_INET6][0]['addr']
+        for i in range(len(netifaces.ifaddresses(interface_name)[netifaces.AF_INET6])):
+            ip_address = netifaces.ifaddresses(interface_name)[netifaces.AF_INET6][i]['addr']
+            if not ip_address.__contains__("fe80"):
+                return ip_address
 
     #  Returns the IPv6 link-local address of an interface given its name (ex: ens33)
     @staticmethod
     def get_ipv6_link_local_address_from_interface_name(interface_name):
-        return netifaces.ifaddresses(interface_name)[netifaces.AF_INET6][1]['addr'].split('%')[0]
+        for i in range(len(netifaces.ifaddresses(interface_name)[netifaces.AF_INET6])):
+            ip_address = netifaces.ifaddresses(interface_name)[netifaces.AF_INET6][i]['addr']
+            if ip_address.__contains__("fe80"):
+                return ip_address.split('%')[0]
 
     #  Returns the IPv4 network mask of an interface given its name (ex: ens33)
     @staticmethod
@@ -124,7 +130,7 @@ class Utils:
     #  Returns the IPv6 network mask of an interface given its name (ex: ens33)
     @staticmethod
     def get_ipv6_network_mask_from_interface_name(interface_name):
-        return netifaces.ifaddresses(interface_name)[netifaces.AF_INET6][0]['netmask']
+        return netifaces.ifaddresses(interface_name)[netifaces.AF_INET6][0]['netmask'].split("/")[0]
 
     #  Returns the IPv6 prefix and respective length of an interface given its name (ex: ens33)
     @staticmethod

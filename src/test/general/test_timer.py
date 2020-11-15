@@ -96,3 +96,7 @@ class TimerTest(unittest.TestCase):
             self.timer.interval_timer(OFFSET, self.timeout, self.shutdown, 0)
         with self.assertRaises(ValueError):
             self.timer.interval_timer(OFFSET, self.timeout, self.shutdown, -1)
+
+
+if __name__ == '__main__':
+    unittest.main()

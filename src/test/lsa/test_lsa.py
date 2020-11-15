@@ -619,3 +619,7 @@ class TestLsa(unittest.TestCase):
         extension_prefix_lsa_v3 = lsa.Lsa.unpack_lsa(TestLsa.extension_prefix_lsa_v3_bytes, conf.VERSION_IPV6)
         sending_packet.add_lsa(extension_prefix_lsa_v3)
         sending_socket.send_ipv6(sending_packet.pack_packet(), conf.ALL_OSPF_ROUTERS_IPV6, interface_name, False)
+
+
+if __name__ == '__main__':
+    unittest.main()

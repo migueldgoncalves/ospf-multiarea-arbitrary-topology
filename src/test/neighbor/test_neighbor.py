@@ -185,3 +185,7 @@ class TestNeighbor(unittest.TestCase):
     def tearDown(self):
         self.neighbor_v2.delete_neighbor()
         self.neighbor_v3.delete_neighbor()
+
+
+if __name__ == '__main__':
+    unittest.main()

@@ -16,9 +16,9 @@ class AreaTest(unittest.TestCase):
         self.area_id = '0.0.0.0'
         self.external_routing_capable = True
         self.area_v2 = area.Area(conf.ROUTER_ID, conf.VERSION_IPV4, self.area_id, self.external_routing_capable,
-                                 conf.INTERFACE_NAMES, conf.INTERFACE_AREAS, False, False)
+                                 conf.INTERFACE_NAMES, False, False)
         self.area_v3 = area.Area(conf.ROUTER_ID, conf.VERSION_IPV6, self.area_id, self.external_routing_capable,
-                                 conf.INTERFACE_NAMES, conf.INTERFACE_AREAS, False, False)
+                                 conf.INTERFACE_NAMES, False, False)
 
     #  Successful run - 1 s
     def test_constructor_successful(self):
@@ -68,39 +68,39 @@ class AreaTest(unittest.TestCase):
     #  Successful run - 1 s
     def test_constructor_invalid_parameters(self):
         with self.assertRaises(ValueError):
-            area.Area(conf.ROUTER_ID, 1, self.area_id, self.external_routing_capable, conf.INTERFACE_NAMES,
-                      conf.INTERFACE_AREAS, False, False)
+            area.Area(
+                conf.ROUTER_ID, 1, self.area_id, self.external_routing_capable, conf.INTERFACE_NAMES, False, False)
         with self.assertRaises(ValueError):
-            area.Area(conf.ROUTER_ID, 4, self.area_id, self.external_routing_capable, conf.INTERFACE_NAMES,
-                      conf.INTERFACE_AREAS, False, False)
+            area.Area(
+                conf.ROUTER_ID, 4, self.area_id, self.external_routing_capable, conf.INTERFACE_NAMES, False, False)
 
         with self.assertRaises(ValueError):
-            area.Area(conf.ROUTER_ID, conf.VERSION_IPV4, '', self.external_routing_capable, conf.INTERFACE_NAMES,
-                      conf.INTERFACE_AREAS, False, False)
+            area.Area(conf.ROUTER_ID, conf.VERSION_IPV4, '', self.external_routing_capable, conf.INTERFACE_NAMES, False,
+                      False)
         with self.assertRaises(ValueError):
             area.Area(conf.ROUTER_ID, conf.VERSION_IPV4, '        ', self.external_routing_capable,
-                      conf.INTERFACE_NAMES, conf.INTERFACE_AREAS, False, False)
+                      conf.INTERFACE_NAMES, False, False)
         with self.assertRaises(ValueError):
             area.Area(conf.ROUTER_ID, conf.VERSION_IPV4, 'An invalid IP address', self.external_routing_capable,
-                      conf.INTERFACE_NAMES, conf.INTERFACE_AREAS, False, False)
+                      conf.INTERFACE_NAMES, False, False)
         with self.assertRaises(ValueError):
             area.Area(conf.ROUTER_ID, conf.VERSION_IPV4, '0', self.external_routing_capable, conf.INTERFACE_NAMES,
-                      conf.INTERFACE_AREAS, False, False)
+                      False, False)
         with self.assertRaises(ValueError):
             area.Area(conf.ROUTER_ID, conf.VERSION_IPV4, '0.', self.external_routing_capable, conf.INTERFACE_NAMES,
-                      conf.INTERFACE_AREAS, False, False)
+                      False, False)
         with self.assertRaises(ValueError):
             area.Area(conf.ROUTER_ID, conf.VERSION_IPV4, '0.0.0', self.external_routing_capable, conf.INTERFACE_NAMES,
-                      conf.INTERFACE_AREAS, False, False)
+                      False, False)
         with self.assertRaises(ValueError):
             area.Area(conf.ROUTER_ID, conf.VERSION_IPV4, '0.0.0.', self.external_routing_capable, conf.INTERFACE_NAMES,
-                      conf.INTERFACE_AREAS, False, False)
+                      False, False)
         with self.assertRaises(ValueError):
             area.Area(conf.ROUTER_ID, conf.VERSION_IPV4, '0.0.0.0.', self.external_routing_capable,
-                      conf.INTERFACE_NAMES, conf.INTERFACE_AREAS, False, False)
+                      conf.INTERFACE_NAMES, False, False)
         with self.assertRaises(ValueError):
             area.Area(conf.ROUTER_ID, conf.VERSION_IPV4, '0.0.0.0.0', self.external_routing_capable,
-                      conf.INTERFACE_NAMES, conf.INTERFACE_AREAS, False, False)
+                      conf.INTERFACE_NAMES, False, False)
 
     #  Successful run - 1 s
     def test_create_interface_twice(self):
@@ -183,3 +183,7 @@ class AreaTest(unittest.TestCase):
         time.sleep(1)  # Required for successful tear down
         self.area_v2.shutdown_area()
         self.area_v3.shutdown_area()
+
+
+if __name__ == '__main__':
+    unittest.main()

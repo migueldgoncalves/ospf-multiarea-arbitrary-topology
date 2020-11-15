@@ -269,3 +269,7 @@ class TestExtensionPrefix(unittest.TestCase):
         self.assertEqual([[10, 0, 0, '::'], [20, 32, 0, '2001:db8::'], [30, 64, 0, '2001:db8:cafe:1::'],
                           [40, 96, 0, '2001:db8:cafe:1::'], [50, 128, 0, '2001:db8:cafe:1::']],
                          unpacked_body.prefix_list)
+
+
+if __name__ == '__main__':
+    unittest.main()

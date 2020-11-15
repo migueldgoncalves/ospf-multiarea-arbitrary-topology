@@ -91,3 +91,7 @@ class TestInterAreaPrefix(unittest.TestCase):
         self.assertEqual(128, unpacked_body.prefix_length)
         self.assertEqual(0, unpacked_body.prefix_options)
         self.assertEqual('2001:db8:cafe:1::1', unpacked_body.address_prefix)
+
+
+if __name__ == '__main__':
+    unittest.main()

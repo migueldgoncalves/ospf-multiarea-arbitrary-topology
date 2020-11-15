@@ -306,3 +306,7 @@ class IntegrationTest(unittest.TestCase):
                         for j in self.entry_pipelines:
                             if j != i:  # Interface is not the sending one
                                 self.entry_pipelines[j].put(data_array)
+
+
+if __name__ == '__main__':
+    unittest.main()

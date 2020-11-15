@@ -15,9 +15,9 @@ class KernelTable:
 
     #  Returns the prefixes associated with the router interfaces
     @staticmethod
-    def get_directly_connected_prefixes():
+    def get_directly_connected_prefixes(interfaces):
         prefixes = []
-        for interface in conf.INTERFACE_NAMES:
+        for interface in interfaces:
             prefixes.append(utils.Utils.get_ipv4_prefix_from_interface_name(interface))
             prefixes.append(utils.Utils.get_ipv6_prefix_from_interface_name(interface))
         return prefixes
@@ -62,14 +62,14 @@ class KernelTable:
 
     #  Adds route to default routing table with provided parameters and OSPF as protocol
     @staticmethod
-    def add_ospf_route(prefix, prefix_length, next_hop, outgoing_interface):
+    def add_ospf_route(prefix, prefix_length, next_hop, outgoing_interface, interfaces):
         if (prefix == '') | (next_hop == '') | (outgoing_interface == ''):
             return
         with KernelTable.lock:
             #  Direct routes are always preferred over OSPF routes
             if (not KernelTable.has_ospf_route(prefix, prefix_length, next_hop)) & (
-                    [prefix, prefix_length] not in KernelTable.get_directly_connected_prefixes()):
-                os.system('sudo ip route add ' + prefix + '/' + str(prefix_length) + ' via ' + next_hop + ' dev ' +
+                    [prefix, prefix_length] not in KernelTable.get_directly_connected_prefixes(interfaces)):
+                os.system('ip route add ' + prefix + '/' + str(prefix_length) + ' via ' + next_hop + ' dev ' +
                           outgoing_interface + ' proto ' + str(conf.OSPF_PROTOCOL_NUMBER))
 
     #  Cleans the default routing table of all routes created by specified version of OSPF
@@ -84,7 +84,7 @@ class KernelTable:
 
                 prefix_version = conf.VERSION_IPV4 if utils.Utils.is_ipv4_address(prefix) else conf.VERSION_IPV6
                 if (prefix_version == ospf_version) | (ospf_version == 0):
-                    os.system('sudo ip route del ' + prefix + '/' + str(prefix_length) + ' via ' + next_hop + ' dev ' +
+                    os.system('ip route del ' + prefix + '/' + str(prefix_length) + ' via ' + next_hop + ' dev ' +
                               outgoing_interface + ' proto ' + str(conf.OSPF_PROTOCOL_NUMBER))
 
     #  Given route information as returned by command 'ip route list', returns its prefix

@@ -459,3 +459,7 @@ class TestLSUpdate(unittest.TestCase):
         self.assertEqual('0.0.0.4', unpacked_body.lsa_list[12].body.referenced_link_state_id)
         self.assertEqual('3.3.3.3', unpacked_body.lsa_list[12].body.referenced_advertising_router)
         self.assertEqual([[64, 0, 0, '2001:db8:cafe:5::']], unpacked_body.lsa_list[12].body.prefixes)
+
+
+if __name__ == '__main__':
+    unittest.main()

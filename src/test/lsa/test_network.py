@@ -32,3 +32,7 @@ class TestNetwork(unittest.TestCase):
         unpacked_body = network.Network.unpack_lsa_body(body_bytes, conf.VERSION_IPV6)
         self.assertEqual(51, unpacked_body.options)
         self.assertEqual(['2.2.2.2', '1.1.1.1'], unpacked_body.attached_routers)
+
+
+if __name__ == '__main__':
+    unittest.main()

@@ -34,7 +34,7 @@ class TestKernelTable(unittest.TestCase):
     #  Successful run - Instant
     def test_get_directly_connected_prefixes(self):
         self.assertEqual([['222.222.1.0', 24], ['2001:db8:cafe:1::', 64]],
-                         kernel_table.KernelTable.get_directly_connected_prefixes())
+                         kernel_table.KernelTable.get_directly_connected_prefixes(conf.INTERFACE_NAMES))
 
     #  Successful run - 0-1 s
     def test_route_management(self):
@@ -49,7 +49,7 @@ class TestKernelTable(unittest.TestCase):
         routes_added = 0
         for data in [TestKernelTable.PREFIX_DATA_1_V2, TestKernelTable.PREFIX_DATA_2_V2,
                      TestKernelTable.PREFIX_DATA_1_V3, TestKernelTable.PREFIX_DATA_2_V3]:
-            kernel_table.KernelTable.add_ospf_route(data[0], data[1], data[2], data[3])
+            kernel_table.KernelTable.add_ospf_route(data[0], data[1], data[2], data[3], conf.INTERFACE_NAMES)
             routes_added += 1
             self.assertEqual(previous_routes + routes_added, len(kernel_table.KernelTable.get_all_routes()))
             self.assertEqual(routes_added, len(kernel_table.KernelTable.get_all_ospf_routes()))
@@ -84,7 +84,8 @@ class TestKernelTable(unittest.TestCase):
             prefix_length = prefix_data[1]
             next_hop = prefix_data[2]
             outgoing_interface = prefix_data[3]
-            kernel_table.KernelTable.add_ospf_route(prefix, prefix_length, next_hop, outgoing_interface)
+            kernel_table.KernelTable.add_ospf_route(
+                prefix, prefix_length, next_hop, outgoing_interface, conf.INTERFACE_NAMES)
             self.assertEqual(previous_routes, len(kernel_table.KernelTable.get_all_routes()))
             self.assertEqual(0, len(kernel_table.KernelTable.get_all_ospf_routes()))
             self.assertFalse(kernel_table.KernelTable.has_ospf_route(prefix, prefix_length, next_hop))
@@ -92,3 +93,7 @@ class TestKernelTable(unittest.TestCase):
 
     def tearDown(self):
         kernel_table.KernelTable.delete_all_ospf_routes(0)
+
+
+if __name__ == '__main__':
+    unittest.main()

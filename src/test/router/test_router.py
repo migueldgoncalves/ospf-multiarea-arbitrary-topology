@@ -164,3 +164,7 @@ class RouterTest(unittest.TestCase):
         self.shutdown_event_v3.set()
         self.thread_v2.join()
         self.thread_v3.join()
+
+
+if __name__ == '__main__':
+    unittest.main()

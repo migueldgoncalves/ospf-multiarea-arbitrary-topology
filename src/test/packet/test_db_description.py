@@ -353,3 +353,7 @@ class TestDBDescription(unittest.TestCase):
         self.assertEqual((False, "Invalid OSPF version"), db_description.DBDescription.parameter_validation(
             self.interface_mtu, self.options, self.i_bit, self.m_bit, self.ms_bit, self.dd_sequence_number,
             (self.lsa_header_1,), 4))
+
+
+if __name__ == '__main__':
+    unittest.main()

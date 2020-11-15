@@ -94,3 +94,7 @@ class TestRouter(unittest.TestCase):
         self.assertFalse(lsa_body.bit_b)
         self.assertEqual(51, lsa_body.options)
         self.assertEqual([[1, 64, 7, 6, '3.3.3.3'], [2, 10, 4, 5, '2.2.2.2']], lsa_body.links)
+
+
+if __name__ == '__main__':
+    unittest.main()
