@@ -48,9 +48,13 @@ class Router:
         self.areas = {}
         external_routing_capable = False
         for area_id in Router.get_unique_values(self.area_ids):
+            area_interfaces = []
+            for i in range(len(self.interface_ids)):
+                if area_ids[i] == area_id:
+                    area_interfaces.append(self.interface_ids[i])
             new_area = area.Area(
-                self.router_id, self.ospf_version, area_id, external_routing_capable, self.interface_ids, self.area_ids,
-                self.localhost, Router.is_abr(conf.INTERFACE_AREAS))
+                self.router_id, self.ospf_version, area_id, external_routing_capable, area_interfaces, self.localhost,
+                Router.is_abr(area_ids))
             self.areas[area_id] = new_area
         self.interfaces = {}
         for area_id in Router.get_unique_values(self.area_ids):
@@ -86,12 +90,13 @@ class Router:
             self.socket_threads[interface_id].start()
         self.router_shutdown_event = router_shutdown_event
         self.start_time = datetime.datetime.now()
-        self.abr = Router.is_abr(conf.INTERFACE_AREAS)
+        self.abr = Router.is_abr(area_ids)
         self.shortest_path_tree_dictionary = {}  # One tree per area
         self.command_pipeline = command_pipeline  # User commands
         self.output_event = output_event  # If has printed desired output, if any
         self.command_thread = threading.Thread(target=self.execute_commands)
         self.command_thread.start()
+        self.table_process_running = multiprocessing.Event()
 
         #  Extension LSA list
         self.abr_lsa_list = []
@@ -213,7 +218,7 @@ class Router:
                             time.sleep(0.1)
 
             #  Sets the Linux kernel default routing table if any LSDB was changed and enough time has passed
-            if not self.localhost:
+            if (not self.localhost) & (not self.table_process_running.is_set()):
                 lsdb_modified = False
                 for area_id in self.areas:
                     query_area = self.areas[area_id]
@@ -477,7 +482,8 @@ class Router:
             for path in entry.paths:
                 outgoing_interface = path.outgoing_interface
                 next_hop_address = path.next_hop_address
-                kernel_table.KernelTable.add_ospf_route(prefix, prefix_length, next_hop_address, outgoing_interface)
+                kernel_table.KernelTable.add_ospf_route(
+                    prefix, prefix_length, next_hop_address, outgoing_interface, self.interface_ids)
 
     #  Sets the Linux kernel default routing table according to the LSDBs content
     def set_kernel_routing_table(self):
@@ -501,6 +507,8 @@ class Router:
 
         with kernel_table.KernelTable.lock:
             self.set_kernel_routing_table_from_ospf_table(self.routing_table)
+
+        self.table_process_running.clear()
 
     #  #  #  #  #  #  #  #  #  #  #  #  #
     #  Command-line interface methods  #
@@ -643,21 +651,8 @@ class Router:
         self.command_thread.join()
 
     #  #  #  #  #  #  #  #
-    #  Auxiliary methods  #
+    #  Extension methods  #
     #  #  #  #  #  #  #  #
-
-    #  Given a list, returns its unique values
-    @staticmethod
-    def get_unique_values(input_list):
-        return list(set(input_list))
-
-    #  Given list of interface areas, returns True if router is ABR, returns False otherwise
-    @staticmethod
-    def is_abr(area_list):
-        if len(Router.get_unique_values(area_list)) > 1:  # Router connected to multiple areas
-            return True
-        else:
-            return False
 
     #  Given OSPF routing table, area ID, router ID, list of existing Network Summary-LSAs / Inter-Area-Prefix-LSAs and
     #  OSPF version, returns Network Summary-LSAs / Inter-Area-Prefix-LSAs to flood in area
@@ -882,3 +877,20 @@ class Router:
         for lsa_list in [self.abr_lsa_list, self.prefix_lsa_list]:
             for query_lsa in lsa_list:
                 existing_extension_lsa_list.append(query_lsa)
+
+    #  #  #  #  #  #  #  #
+    #  Auxiliary methods  #
+    #  #  #  #  #  #  #  #
+
+    #  Given a list, returns its unique values
+    @staticmethod
+    def get_unique_values(input_list):
+        return list(set(input_list))
+
+    #  Given list of interface areas, returns True if router is ABR, returns False otherwise
+    @staticmethod
+    def is_abr(area_list):
+        if len(Router.get_unique_values(area_list)) > 1:  # Router connected to multiple areas
+            return True
+        else:
+            return False
