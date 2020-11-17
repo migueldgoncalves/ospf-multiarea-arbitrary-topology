@@ -3,6 +3,7 @@ import threading
 import time
 import copy
 import multiprocessing
+import os
 
 import router.router as router
 import conf.conf as conf
@@ -14,12 +15,28 @@ import packet.packet as packet
 This class tests integration between 2 router processes running inside the VM
 '''
 
-INTERFACE_1 = 'ens39'
-INTERFACE_2 = 'ens40'
+#  More interfaces and routers can be added as required
+INTERFACES_R1 = [['veth1_1', '111.111.1.1/24', '1001:db8:cafe:1::1/64', 'fe80:1::1/64', conf.BACKBONE_AREA]]
+INTERFACES_R2 = [['veth2_1', '111.111.1.2/24', '1001:db8:cafe:1::2/64', 'fe80:2::1/64', conf.BACKBONE_AREA]]
+INTERFACE_LIST = [INTERFACES_R1, INTERFACES_R2]  # Add new routers here
 
 
 #  Full successful run - 226 s
 class IntegrationTest(unittest.TestCase):
+
+    @classmethod
+    def setUpClass(cls):
+        for interfaces in INTERFACE_LIST:
+            for interface_data in interfaces:
+                interface = interface_data[0]
+                ipv4_address = interface_data[1]
+                ipv6_global_address = interface_data[2]
+                ipv6_link_local_address = interface_data[3]
+                os.system("ip link add " + interface + " type veth")
+                os.system("ip link set " + interface + " up")
+                os.system("ip addr add " + ipv4_address + " dev " + interface)
+                os.system("ip addr add " + ipv6_global_address + " dev " + interface)
+                os.system("ip addr add " + ipv6_link_local_address + " dev " + interface)
 
     #  Successful run - 100 s
     def test_one_router(self):
@@ -28,8 +45,8 @@ class IntegrationTest(unittest.TestCase):
 
     def one_router(self, version):
         router_ids = ['1.1.1.1']
-        interfaces = [[INTERFACE_1]]
-        areas = [[conf.BACKBONE_AREA]]
+        interfaces = [[INTERFACES_R1[0][0]]]
+        areas = [[INTERFACES_R1[0][4]]]
         network = IntegrationTest.create_network(router_ids, interfaces, areas, version)
         router_1 = network[0][0]
         interface_object = router_1.interfaces[interfaces[0][0]][area.INTERFACE_OBJECT]
@@ -123,8 +140,8 @@ class IntegrationTest(unittest.TestCase):
 
     def two_routers(self, version):
         router_ids = ['1.1.1.1', '2.2.2.2']
-        interfaces = [[INTERFACE_1], [INTERFACE_2]]
-        areas = [[conf.BACKBONE_AREA], [conf.BACKBONE_AREA]]  # One element for each router interface
+        interfaces = [[INTERFACES_R1[0][0]], [INTERFACES_R2[0][0]]]
+        areas = [[INTERFACES_R1[0][4]], [INTERFACES_R2[0][4]]]  # One element for each router interface
         network = IntegrationTest.create_network(router_ids, interfaces, areas, version)
         routers = network[0]
         router_1 = routers[0]
@@ -141,15 +158,15 @@ class IntegrationTest(unittest.TestCase):
         self.assertEqual(1, len(router_1.interfaces))
         self.assertEqual(1, len(router_2.interfaces))
         if version == conf.VERSION_IPV4:
-            ip_address_1 = utils.Utils.get_ipv4_address_from_interface_name(INTERFACE_1)
-            ip_address_2 = utils.Utils.get_ipv4_address_from_interface_name(INTERFACE_2)
+            ip_address_1 = utils.Utils.get_ipv4_address_from_interface_name(INTERFACES_R1[0][0])
+            ip_address_2 = utils.Utils.get_ipv4_address_from_interface_name(INTERFACES_R2[0][0])
             self.assertEqual(ip_address_1, interface_object_1.ipv4_address)
             self.assertEqual(ip_address_2, interface_object_2.ipv4_address)
             self.assertEqual(1, len(interface_object_1.lsdb.get_lsdb([interface_object_1], None)))
             self.assertEqual(1, len(interface_object_2.lsdb.get_lsdb([interface_object_2], None)))
         elif version == conf.VERSION_IPV6:
-            ip_address_1 = utils.Utils.get_ipv6_link_local_address_from_interface_name(INTERFACE_1)
-            ip_address_2 = utils.Utils.get_ipv6_link_local_address_from_interface_name(INTERFACE_2)
+            ip_address_1 = utils.Utils.get_ipv6_link_local_address_from_interface_name(INTERFACES_R1[0][0])
+            ip_address_2 = utils.Utils.get_ipv6_link_local_address_from_interface_name(INTERFACES_R2[0][0])
             self.assertEqual(ip_address_1, interface_object_1.ipv6_address)
             self.assertEqual(ip_address_2, interface_object_2.ipv6_address)
             self.assertEqual(3, len(interface_object_1.lsdb.get_lsdb([interface_object_1], None)))
@@ -247,7 +264,7 @@ class IntegrationTest(unittest.TestCase):
                 router_id, version, router_shutdown, router_interfaces, router_areas, True, multiprocessing.Queue(),
                 multiprocessing.Event())))
             threads[i].start()
-            time.sleep(0.2)  # Gives CPU to router thread
+            time.sleep(0.5)  # Gives CPU to router thread
 
         entry_pipelines = {}
         exit_pipelines = {}
@@ -284,6 +301,15 @@ class IntegrationTest(unittest.TestCase):
     def shutdown_networks(networks):
         for i in range(len(networks)):
             IntegrationTest.shutdown_network(networks[i])
+
+    @classmethod
+    def tearDownClass(cls):
+        for interfaces in INTERFACE_LIST:
+            for interface_data in interfaces:
+                interface = interface_data[0]
+                os.system("ip addr flush " + interface)
+                os.system("ip link set " + interface + " down")
+                os.system("ip link delete " + interface)
 
     #  Virtual hub to connect every router in the test network
     class Hub:

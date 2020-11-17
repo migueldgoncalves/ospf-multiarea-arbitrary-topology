@@ -9,25 +9,25 @@ ROUTER_PRIORITY = 1
 INTERFACE_COST = 10
 #  1st element in interface names tuple must match 1st element in interface areas tuple, and so on
 #  Ex: Interface "ens32" belongs to area '0.0.0.0'
-INTERFACE_NAMES = ["ens32"]  # Must match interface names in the machine
+INTERFACE_NAMES = ["eth0"]  # Must match interface names in the machine
 INTERFACE_AREAS = ['0.0.0.0']
 KERNEL_UPDATE_INTERVAL = 3  # Implementation-specific - Time between updates of kernel routing table
 
 #  Only applicable if program is running inside provided GNS3 networks - Replaces default parameters
 
 ROUTER_IDS = ['1.1.1.1', '2.2.2.2', '3.3.3.3', '4.4.4.4', '5.5.5.5', '6.6.6.6']
-INTERFACES_R1 = [[], [], []]  # First list for first GNS3 network, and so on
-INTERFACES_R2 = [[], [], []]
-INTERFACES_R3 = [[], [], []]
+INTERFACES_R1 = [['eth0', 'eth1', 'eth2', 'eth3'], [], []]  # First list for first GNS3 network, and so on
+INTERFACES_R2 = [['eth0', 'eth1', 'eth2'], [], []]
+INTERFACES_R3 = [['eth0', 'eth1'], ['eth0', 'eth1'], []]
 INTERFACES_R4 = [['eth0'], [], []]
-INTERFACES_R5 = [[], [], []]
-INTERFACES_R6 = [[], [], []]
-AREAS_R1 = [[], [], []]
-AREAS_R2 = [[], [], []]
-AREAS_R3 = [[], [], []]
+INTERFACES_R5 = [['eth0'], ['eth0', 'eth1'], []]
+INTERFACES_R6 = [['eth0'], [], []]
+AREAS_R1 = [['0.0.0.0', '0.0.0.0', '0.0.0.0', '0.0.0.0'], [], []]
+AREAS_R2 = [['0.0.0.0', '0.0.0.0', '0.0.0.0'], [], []]
+AREAS_R3 = [['0.0.0.0', '0.0.0.0'], ['1.1.1.1', '0.0.0.0'], []]
 AREAS_R4 = [['0.0.0.0'], [], []]
-AREAS_R5 = [[], [], []]
-AREAS_R6 = [[], [], []]
+AREAS_R5 = [['0.0.0.0'], ['0.0.0.0', '1.1.1.1'], []]
+AREAS_R6 = [['0.0.0.0'], [], []]
 
 #  OSPF-related constants
 

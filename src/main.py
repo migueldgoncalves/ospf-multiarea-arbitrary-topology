@@ -113,6 +113,12 @@ class Main(cmd.Cmd):
         event.clear()
 
     def preloop(self):
+        router_data = Main.get_router_data()
+        Main.router_id = router_data[0]
+        interface_ids = router_data[1]
+        area_ids = router_data[2]
+        print(Main.router_id + ": Starting router...")
+        Main.startup(interface_ids)
         self.option = int(input(
             "Write " + str(BOTH_VERSIONS) + " for running both OSPF versions, " + str(OSPF_V2) +
             " for running just OSPFv2, or " + str(OSPF_V3) + " for running just OSPFv3, then press ENTER:"))
@@ -122,12 +128,6 @@ class Main(cmd.Cmd):
                                             str(OSPF_V3) + ", then press ENTER:")))
             except ValueError:
                 pass
-        router_data = Main.get_router_data()
-        Main.router_id = router_data[0]
-        interface_ids = router_data[1]
-        area_ids = router_data[2]
-        print(Main.router_id + ": Starting router...")
-        Main.startup(interface_ids)
         if self.option in [BOTH_VERSIONS, OSPF_V2]:
             self.router_v2 = router.Router()
             self.command_pipeline_v2 = multiprocessing.Queue()

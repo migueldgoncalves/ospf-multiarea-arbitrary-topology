@@ -1,0 +1,31 @@
+auto eth0
+iface eth0 inet static
+	address 222.222.1.1
+	netmask 255.255.255.0
+iface eth0 inet6 static
+	address 2001:db8:cafe:1::1
+	netmask 64
+
+auto eth1
+iface eth1 inet static
+	address 222.222.2.1
+	netmask 255.255.255.0
+iface eth1 inet6 static
+	address 2001:db8:cafe:2::1
+	netmask 64
+
+auto eth2
+iface eth2 inet static
+	address 222.222.6.1
+	netmask 255.255.255.0
+iface eth2 inet6 static
+	address 2001:db8:cafe:6::1
+	netmask 64
+
+auto eth3
+iface eth3 inet static
+	address 222.222.3.1
+	netmask 255.255.255.0
+iface eth3 inet6 static
+	address 2001:db8:cafe:3::1
+	netmask 64

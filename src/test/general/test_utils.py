@@ -7,7 +7,7 @@ import conf.conf as conf
 This class tests utility functions used throughout the router code
 '''
 
-INTERFACE_NAME = conf.INTERFACE_NAMES[0]
+INTERFACE_NAME = conf.INTERFACES_R4[0][0]  # eth0
 INTERFACE_IPV4 = '222.222.1.2'  # Must be changed if IPv4 address of interface is changed for tests to pass
 INTERFACE_IPV6 = '2001:db8:cafe:1::2'  # Must be changed if IPv6 address of interface is changed for tests to pass
 NETWORK_MASK_IPV4 = '255.255.255.0'  # Must be changed if IPv4 network mask of interface is changed for tests to pass
