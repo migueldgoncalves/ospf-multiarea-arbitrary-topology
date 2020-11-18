@@ -1270,7 +1270,7 @@ class Interface:
                         conf.LSA_TYPE_INTRA_AREA_PREFIX, conf.DEFAULT_DESIGNATED_ROUTER, self.router_id, [self])
                     if router_intra_area_prefix_lsa is None:  # Router is not connected to other stub links
                         router_intra_area_prefix_lsa = self.create_lsa_header(
-                            conf.LSA_TYPE_INTRA_AREA_PREFIX, 0, conf.INITIAL_SEQUENCE_NUMBER)
+                            conf.LSA_TYPE_INTRA_AREA_PREFIX, conf.LSA_TYPE_ROUTER, conf.INITIAL_SEQUENCE_NUMBER)
                         router_intra_area_prefix_lsa.create_intra_area_prefix_lsa_body(
                             conf.LSA_TYPE_ROUTER, conf.DEFAULT_DESIGNATED_ROUTER, self.router_id)
                     router_intra_area_prefix_lsa.add_prefix_info(

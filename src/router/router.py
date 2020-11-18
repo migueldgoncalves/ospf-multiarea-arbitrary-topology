@@ -10,6 +10,7 @@ import general.utils as utils
 import general.sock as sock
 import conf.conf as conf
 import area.area as area
+import area.lsdb as lsdb
 import packet.packet as packet
 import lsa.lsa as lsa
 import lsa.header as header
@@ -229,6 +230,7 @@ class Router:
                             lsdb.reset_modification_time()
                             lsdb_modified = True
                 if lsdb_modified:
+                    self.table_process_running.set()
                     process = multiprocessing.Process(target=self.set_kernel_routing_table)
                     process.start()  # Separate process is required due to slow execution time
 
@@ -491,13 +493,17 @@ class Router:
         prefixes_dictionary = {}
         for area_id in self.areas:
             query_area = self.areas[area_id]
-            with query_area.database.lsdb_lock:
-                data = query_area.database.get_directed_graph(query_area.get_interfaces())
-                directed_graph = data[0]
-                prefixes = data[1]
-                shortest_path_tree = query_area.database.get_shortest_path_tree(directed_graph, self.router_id)
-                shortest_path_tree_dictionary[query_area.area_id] = shortest_path_tree
-                prefixes_dictionary[query_area.area_id] = prefixes
+            lsdb_content = query_area.database.get_lsdb([], None)  # Shared resource
+            #  Copying LSDB is faster than obtaining OSPF routing table from it, reducing time lock is acquired
+            lsdb_copy = lsdb.Lsdb(self.ospf_version, area_id)
+            for query_lsa in lsdb_content:
+                lsdb_copy.add_lsa(query_lsa, None)
+            data = query_area.database.get_directed_graph()
+            directed_graph = data[0]
+            prefixes = data[1]
+            shortest_path_tree = query_area.database.get_shortest_path_tree(directed_graph, self.router_id)
+            shortest_path_tree_dictionary[query_area.area_id] = shortest_path_tree
+            prefixes_dictionary[query_area.area_id] = prefixes
         self.shortest_path_tree_dictionary = shortest_path_tree_dictionary
         self.routing_table = self.get_intra_area_routing_table(shortest_path_tree_dictionary, prefixes_dictionary)
         if self.router_shutdown_event.is_set():  # Shutdown

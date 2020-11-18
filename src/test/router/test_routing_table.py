@@ -379,8 +379,8 @@ class TestRoutingTable(unittest.TestCase):
     def test_get_directed_graph(self):
         #  No LSAs
 
-        self.assertEqual([{}, {}], self.lsdb_v2.get_directed_graph(self.interfaces_r1_v2))
-        self.assertEqual([{}, {}], self.lsdb_v3.get_directed_graph(self.interfaces_r1_v3))
+        self.assertEqual([{}, {}], self.lsdb_v2.get_directed_graph())
+        self.assertEqual([{}, {}], self.lsdb_v3.get_directed_graph())
 
         #  LSAs for single router (1.1.1.1)
 
@@ -388,11 +388,11 @@ class TestRoutingTable(unittest.TestCase):
 
         directed_graph = {self.router_id_1: {}}
         prefixes = {self.router_id_1: [self.prefix_1_v2, self.prefix_2_v2, self.prefix_3_v2, self.prefix_6_v2]}
-        self.assertEqual([directed_graph, prefixes], self.lsdb_v2.get_directed_graph(self.interfaces_r1_v2))
+        self.assertEqual([directed_graph, prefixes], self.lsdb_v2.get_directed_graph())
 
         directed_graph = {self.router_id_1: {}}
         prefixes = {self.router_id_1: [self.prefix_1_v3, self.prefix_2_v3, self.prefix_3_v3, self.prefix_6_v3]}
-        self.assertEqual([directed_graph, prefixes], self.lsdb_v3.get_directed_graph(self.interfaces_r1_v3))
+        self.assertEqual([directed_graph, prefixes], self.lsdb_v3.get_directed_graph())
 
         self.lsdb_v2.clean_lsdb(self.interfaces_r1_v2)
         self.lsdb_v3.clean_lsdb(self.interfaces_r1_v3)
@@ -424,7 +424,7 @@ class TestRoutingTable(unittest.TestCase):
             self.router_id_1: 0, self.router_id_2: 0}, self.router_id_2: {self.r2_f0_1_v2: self.cost_broadcast_link}}
         prefixes = {self.router_id_1: [self.prefix_1_v2, self.prefix_2_v2, self.prefix_6_v2],
                     self.r2_f0_1_v2: [self.prefix_3_v2], self.router_id_2: [self.prefix_4_v2, self.prefix_5_v2]}
-        self.assertEqual([directed_graph, prefixes], self.lsdb_v2.get_directed_graph(self.interfaces_r1_v2))
+        self.assertEqual([directed_graph, prefixes], self.lsdb_v2.get_directed_graph())
 
         for data in [[self.r1_f0_0_id, self.router_lsa_1_v3], [self.r2_f0_1_id, self.router_lsa_2_v3]]:
             data[1].add_link_info_v3(
@@ -459,7 +459,7 @@ class TestRoutingTable(unittest.TestCase):
         prefixes = {self.router_id_1: [self.prefix_1_v3, self.prefix_2_v3, self.prefix_6_v3],
                     self.router_id_2: [self.prefix_4_v3, self.prefix_5_v3],
                     self.network_3_id_v3: [self.prefix_3_v3]}
-        self.assertEqual([directed_graph, prefixes], self.lsdb_v3.get_directed_graph(self.interfaces_r1_v3))
+        self.assertEqual([directed_graph, prefixes], self.lsdb_v3.get_directed_graph())
 
         self.lsdb_v2.clean_lsdb(self.interfaces_r1_v2)
         self.lsdb_v3.clean_lsdb(self.interfaces_r1_v3)
@@ -469,10 +469,10 @@ class TestRoutingTable(unittest.TestCase):
         self.set_lsdb_full_network(self.interfaces_r1_v2, self.interfaces_r1_v3)
 
         directed_graph, prefixes = self.get_directed_graph_prefixes_full_network(conf.VERSION_IPV4)
-        self.assertEqual([directed_graph, prefixes], self.lsdb_v2.get_directed_graph(self.interfaces_r1_v2))
+        self.assertEqual([directed_graph, prefixes], self.lsdb_v2.get_directed_graph())
 
         directed_graph, prefixes = self.get_directed_graph_prefixes_full_network(conf.VERSION_IPV6)
-        self.assertEqual([directed_graph, prefixes], self.lsdb_v3.get_directed_graph(self.interfaces_r1_v3))
+        self.assertEqual([directed_graph, prefixes], self.lsdb_v3.get_directed_graph())
 
         self.lsdb_v2.clean_lsdb(self.interfaces_r1_v2)
         self.lsdb_v3.clean_lsdb(self.interfaces_r1_v3)

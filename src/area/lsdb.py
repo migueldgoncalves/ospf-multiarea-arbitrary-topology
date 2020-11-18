@@ -1,4 +1,4 @@
-import threading
+import multiprocessing
 import time
 
 import conf.conf as conf
@@ -20,10 +20,10 @@ class Lsdb:
         self.intra_area_prefix_lsa_list = []  # Only for OSPFv3
         #  Link-LSAs are stored in the appropriate interface instance
 
-        self.lsdb_lock = threading.RLock()
+        self.lsdb_lock = multiprocessing.RLock()
         self.version = version
         self.area_id = area_id
-        self.is_modified = threading.Event()  # Set if LSDB was changed and change has not yet been processed
+        self.is_modified = multiprocessing.Event()  # Set if LSDB was changed and change has not yet been processed
         self.modification_time = time.perf_counter()  # Current system time
 
         self.clean_lsdb([])
@@ -170,7 +170,7 @@ class Lsdb:
             return self.modification_time
 
     #  Returns the area directed graph as a table
-    def get_directed_graph(self, interfaces):
+    def get_directed_graph(self):
         #  Graph initialization
         directed_graph = {}  # Dictionary of dictionaries - Each dictionary contains destinations for one graph node
         area_routers = []
@@ -192,16 +192,16 @@ class Lsdb:
         #  Point-to-point links
         for router_id_1 in area_routers:
             if self.version == conf.VERSION_IPV4:
-                router_lsa_1 = self.get_lsa(conf.LSA_TYPE_ROUTER, router_id_1, router_id_1, interfaces)
+                router_lsa_1 = self.get_lsa(conf.LSA_TYPE_ROUTER, router_id_1, router_id_1, [])
             else:
-                router_lsa_1 = self.get_lsa(conf.LSA_TYPE_ROUTER, 0, router_id_1, interfaces)
+                router_lsa_1 = self.get_lsa(conf.LSA_TYPE_ROUTER, 0, router_id_1, [])
             for router_id_2 in area_routers:
                 if router_id_1 == router_id_2:
                     continue
                 elif self.version == conf.VERSION_IPV4:
-                    router_lsa_2 = self.get_lsa(conf.LSA_TYPE_ROUTER, router_id_2, router_id_2, interfaces)
+                    router_lsa_2 = self.get_lsa(conf.LSA_TYPE_ROUTER, router_id_2, router_id_2, [])
                 elif self.version == conf.VERSION_IPV6:
-                    router_lsa_2 = self.get_lsa(conf.LSA_TYPE_ROUTER, 0, router_id_2, interfaces)
+                    router_lsa_2 = self.get_lsa(conf.LSA_TYPE_ROUTER, 0, router_id_2, [])
                 else:
                     raise ValueError("Invalid OSPF version")
                 for link_info_1 in router_lsa_1.body.links:
@@ -228,9 +228,9 @@ class Lsdb:
         #  Transit shared links
         for router_id in area_routers:
             if self.version == conf.VERSION_IPV4:
-                router_lsa = self.get_lsa(conf.LSA_TYPE_ROUTER, router_id, router_id, interfaces)
+                router_lsa = self.get_lsa(conf.LSA_TYPE_ROUTER, router_id, router_id, [])
             else:
-                router_lsa = self.get_lsa(conf.LSA_TYPE_ROUTER, 0, router_id, interfaces)
+                router_lsa = self.get_lsa(conf.LSA_TYPE_ROUTER, 0, router_id, [])
             for link_info in router_lsa.body.links:
                 if self.version == conf.VERSION_IPV4:
                     if link_info[2] == conf.LINK_TO_TRANSIT_NETWORK:
@@ -259,13 +259,13 @@ class Lsdb:
             prefixes[network_id] = []
         for router_id in area_routers:
             if self.version == conf.VERSION_IPV4:
-                router_lsa = self.get_lsa(conf.LSA_TYPE_ROUTER, router_id, router_id, interfaces)
+                router_lsa = self.get_lsa(conf.LSA_TYPE_ROUTER, router_id, router_id, [])
                 for link_info in router_lsa.body.links:
                     if link_info[2] in [conf.LINK_TO_STUB_NETWORK]:
                         if link_info[0] not in prefixes[router_id]:
                             prefixes[router_id].append(link_info[0])
             else:
-                intra_area_prefix_lsa = self.get_lsa(conf.LSA_TYPE_INTRA_AREA_PREFIX, 0, router_id, interfaces)
+                intra_area_prefix_lsa = self.get_lsa(conf.LSA_TYPE_INTRA_AREA_PREFIX, 0, router_id, [])
                 if intra_area_prefix_lsa is not None:  # Prefixes associated to point-to-point or stub links
                     for prefix_info in intra_area_prefix_lsa.body.prefixes:
                         if prefix_info[3] not in prefixes[router_id]:
