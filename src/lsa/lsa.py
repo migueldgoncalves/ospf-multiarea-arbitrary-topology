@@ -432,9 +432,22 @@ class Lsa:
                                 conf.LSA_TYPE_INTER_AREA_ROUTER, conf.LSA_TYPE_AS_EXTERNAL, conf.LSA_TYPE_LINK,
                                 conf.LSA_TYPE_INTRA_AREA_PREFIX, conf.LSA_TYPE_EXTENSION_ABR_LSA,
                                 conf.LSA_TYPE_EXTENSION_PREFIX_LSA, conf.LSA_TYPE_EXTENSION_ASBR_LSA]) & (
-                    s1_s2_bits in [conf.LINK_LOCAL_SCOPING, conf.AREA_SCOPING, conf.AS_SCOPING])
+                           s1_s2_bits in [conf.LINK_LOCAL_SCOPING, conf.AREA_SCOPING, conf.AS_SCOPING])
         else:
             return False
+
+    #  Returns True if provided LSA is part of the OSPF extension
+    def is_extension_lsa(self):
+        if self.get_ospf_version() == conf.VERSION_IPV4:
+            if self.get_lsa_type_from_lsa() == conf.LSA_TYPE_OPAQUE_AS:
+                if self.get_opaque_type_from_bytes(self.pack_lsa()) in [
+                        conf.OPAQUE_TYPE_ABR_LSA, conf.OPAQUE_TYPE_PREFIX_LSA, conf.OPAQUE_TYPE_ASBR_LSA]:
+                    return True
+        elif self.get_ospf_version() == conf.VERSION_IPV6:
+            if self.get_lsa_type_from_lsa() in [conf.LSA_TYPE_EXTENSION_ABR_LSA, conf.LSA_TYPE_EXTENSION_PREFIX_LSA,
+                                                conf.LSA_TYPE_EXTENSION_ASBR_LSA]:
+                return True
+        return False
 
     #  Returns True if provided Opaque Type is being used in the OSPF extension
     @staticmethod

@@ -16,6 +16,7 @@ import lsa.lsa as lsa
 import lsa.header as header
 import router.routing_table as routing_table
 import router.kernel_table as kernel_table
+import router.extension_lsdb as extension_lsdb
 
 '''
 This class contains the top-level OSPF data structures and operations
@@ -99,9 +100,8 @@ class Router:
         self.command_thread.start()
         self.table_process_running = multiprocessing.Event()
 
-        #  Extension LSA list
-        self.abr_lsa_list = []
-        self.prefix_lsa_list = []
+        #  Extension LSDB
+        self.extension_database = extension_lsdb.ExtensionLsdb(self.ospf_version)
 
         self.main_loop()
 
@@ -127,6 +127,7 @@ class Router:
             for a in self.areas:
                 area_interfaces = self.areas[a].get_interfaces()
                 self.areas[a].database.increase_lsa_age(area_interfaces)
+            self.extension_database.increase_lsa_age()
 
             #  Searches for LSAs to flood and floods them through the proper interfaces
             for a in self.areas:
@@ -223,11 +224,11 @@ class Router:
                 lsdb_modified = False
                 for area_id in self.areas:
                     query_area = self.areas[area_id]
-                    lsdb = query_area.database
-                    if lsdb.is_modified.is_set():  # LSDB was modified
-                        if time.perf_counter() - lsdb.get_modification_time() > conf.KERNEL_UPDATE_INTERVAL:
-                            lsdb.is_modified.clear()
-                            lsdb.reset_modification_time()
+                    area_lsdb = query_area.database
+                    if area_lsdb.is_modified.is_set():  # LSDB was modified
+                        if time.perf_counter() - area_lsdb.get_modification_time() > conf.KERNEL_UPDATE_INTERVAL:
+                            area_lsdb.is_modified.clear()
+                            area_lsdb.reset_modification_time()
                             lsdb_modified = True
                 if lsdb_modified:
                     self.table_process_running.set()
@@ -244,6 +245,15 @@ class Router:
                     else:
                         socket_is_dr_flag.clear()
 
+            #  Searches for extension LSAs received by the interfaces
+            for interface_id in self.interfaces:
+                extension_lsa_pipeline = self.interfaces[interface_id][area.INTERFACE_OBJECT].extension_lsa_pipeline
+                flooding_pipeline = self.interfaces[interface_id][area.INTERFACE_OBJECT].flooding_pipeline
+                while not extension_lsa_pipeline.empty():
+                    extension_lsa = extension_lsa_pipeline.get()
+                    self.extension_database.add_extension_lsa(extension_lsa)
+                    flooding_pipeline.put(extension_lsa)
+
         #  Router signalled to shutdown
         self.shutdown_router()
 
@@ -258,8 +268,8 @@ class Router:
             #  Initialization
 
             query_area = self.areas[area_id]
-            lsdb = query_area.database
-            lsdb.lsdb_lock.acquire()
+            area_lsdb = query_area.database
+            area_lsdb.lsdb_lock.acquire()
             shortest_path_tree = shortest_path_tree_dictionary[area_id]
             prefixes = prefixes_dictionary[area_id]
             for node_id in copy.deepcopy(prefixes):
@@ -278,7 +288,7 @@ class Router:
             for node_id in prefixes:
                 for prefix in prefixes[node_id]:
                     if self.ospf_version == conf.VERSION_IPV4:
-                        node_lsa = lsdb.get_lsa(conf.LSA_TYPE_ROUTER, node_id, node_id, interface_array)
+                        node_lsa = area_lsdb.get_lsa(conf.LSA_TYPE_ROUTER, node_id, node_id, interface_array)
                         if node_lsa is not None:  # Router node
                             for link_info in node_lsa.body.links:
                                 if (link_info[2] == conf.LINK_TO_STUB_NETWORK) & (link_info[0] == prefix):
@@ -290,7 +300,7 @@ class Router:
                                     cost = shortest_path_tree[node_id][0] + link_info[4]
                                     prefixes_with_costs[node_id][prefix] = [cost]
                         else:  # Transit network node
-                            for network_lsa in lsdb.network_lsa_list:
+                            for network_lsa in area_lsdb.network_lsa_list:
                                 if network_lsa.header.link_state_id == node_id:
                                     prefix_length = utils.Utils.get_prefix_length_from_prefix(
                                         network_lsa.body.network_mask)
@@ -300,10 +310,10 @@ class Router:
                                     cost = shortest_path_tree[node_id][0]  # Root to network
                                     prefixes_with_costs[node_id][prefix] = [cost]
                     elif self.ospf_version == conf.VERSION_IPV6:
-                        node_lsa = lsdb.get_lsa(conf.LSA_TYPE_ROUTER, 0, node_id, interface_array)
+                        node_lsa = area_lsdb.get_lsa(conf.LSA_TYPE_ROUTER, 0, node_id, interface_array)
                         if node_lsa is not None:  # Router node
                             options = node_lsa.body.options
-                            intra_area_prefix_lsa = lsdb.get_lsa(
+                            intra_area_prefix_lsa = area_lsdb.get_lsa(
                                 conf.LSA_TYPE_INTRA_AREA_PREFIX, 0, node_id, interface_array)
                             for prefix_info in intra_area_prefix_lsa.body.prefixes:
                                 if prefix_info[3] == prefix:
@@ -316,10 +326,11 @@ class Router:
                         else:  # Transit network node
                             router_id = node_id.split("|")[0]
                             interface_id = node_id.split("|")[1]
-                            network_lsa = lsdb.get_lsa(conf.LSA_TYPE_NETWORK, interface_id, router_id, interface_array)
+                            network_lsa = area_lsdb.get_lsa(
+                                conf.LSA_TYPE_NETWORK, interface_id, router_id, interface_array)
                             options = network_lsa.body.options
                             intra_area_prefix_lsa = None
-                            for query_lsa in lsdb.intra_area_prefix_lsa_list:
+                            for query_lsa in area_lsdb.intra_area_prefix_lsa_list:
                                 if (query_lsa.header.advertising_router == router_id) & (
                                         query_lsa.body.referenced_link_state_id == utils.Utils.decimal_to_ipv4(
                                         interface_id)):
@@ -332,7 +343,7 @@ class Router:
                                     cost = shortest_path_tree[node_id][0]  # Root to network
                                     prefixes_with_costs[node_id][prefix] = [cost]
                     else:
-                        lsdb.lsdb_lock.release()
+                        area_lsdb.lsdb_lock.release()
                         raise ValueError("Invalid OSPF version")
 
             #  Finding the next hop information to reach nodes in the same links as the root node
@@ -344,9 +355,9 @@ class Router:
             for node_id in shortest_path_tree:
                 if (shortest_path_tree[node_id][1] == root_id) & (node_id != root_id):  # Node with root as parent node
                     if self.ospf_version == conf.VERSION_IPV4:
-                        node_lsa = lsdb.get_lsa(conf.LSA_TYPE_ROUTER, node_id, node_id, interface_array)
+                        node_lsa = area_lsdb.get_lsa(conf.LSA_TYPE_ROUTER, node_id, node_id, interface_array)
                         if node_lsa is not None:  # Node is a router - Root is connected through point-to-point link
-                            root_lsa = lsdb.get_lsa(conf.LSA_TYPE_ROUTER, root_id, root_id, interface_array)
+                            root_lsa = area_lsdb.get_lsa(conf.LSA_TYPE_ROUTER, root_id, root_id, interface_array)
                             for link_info in root_lsa.body.links:
                                 if link_info[0] == node_id:
                                     outgoing_interface_ip = link_info[1]
@@ -356,7 +367,7 @@ class Router:
                                             next_hop_address = ''
                                             next_hop_info[node_id] = [outgoing_interface, next_hop_address]
                         else:  # Node is a transit network directly connected to root
-                            for network_lsa in lsdb.network_lsa_list:
+                            for network_lsa in area_lsdb.network_lsa_list:
                                 if node_id == network_lsa.header.link_state_id:
                                     network_prefix = utils.Utils.ip_address_to_prefix(
                                         network_lsa.header.link_state_id, network_lsa.body.network_mask)
@@ -370,7 +381,7 @@ class Router:
                                             #  Routers in the shortest path tree having this network as parent node
                                             for destination in shortest_path_tree:
                                                 if shortest_path_tree[destination][1] == node_id:
-                                                    destination_lsa = lsdb.get_lsa(
+                                                    destination_lsa = area_lsdb.get_lsa(
                                                         conf.LSA_TYPE_ROUTER, destination, destination, interface_array)
                                                     for link_info in destination_lsa.body.links:
                                                         if link_info[0] == node_id:
@@ -378,8 +389,8 @@ class Router:
                                                             next_hop_info[destination] = [
                                                                 outgoing_interface, next_hop_address]
                     else:
-                        node_lsa = lsdb.get_lsa(conf.LSA_TYPE_ROUTER, 0, node_id, interface_array)
-                        root_lsa = lsdb.get_lsa(conf.LSA_TYPE_ROUTER, 0, root_id, interface_array)
+                        node_lsa = area_lsdb.get_lsa(conf.LSA_TYPE_ROUTER, 0, node_id, interface_array)
+                        root_lsa = area_lsdb.get_lsa(conf.LSA_TYPE_ROUTER, 0, root_id, interface_array)
                         if node_lsa is not None:  # Node is a router - Root is connected through point-to-point link
                             for link_info in root_lsa.body.links:
                                 if link_info[4] == node_id:
@@ -403,19 +414,19 @@ class Router:
                                             #  Routers in the shortest path tree having this network as parent node
                                             for destination in shortest_path_tree:
                                                 if shortest_path_tree[destination][1] == node_id:
-                                                    destination_lsa = lsdb.get_lsa(
+                                                    destination_lsa = area_lsdb.get_lsa(
                                                         conf.LSA_TYPE_ROUTER, 0, destination, interface_array)
                                                     for destination_link_info in destination_lsa.body.links:
                                                         if (destination_link_info[3] == dr_interface_id) & (
                                                                 destination_link_info[4] == dr_id):
                                                             destination_interface_id = destination_link_info[2]
-                                                            destination_lsa = lsdb.get_lsa(
+                                                            destination_lsa = area_lsdb.get_lsa(
                                                                 conf.LSA_TYPE_LINK, destination_interface_id,
                                                                 destination, interface_array)
                                                             next_hop_address = destination_lsa.body.link_local_address
                                                             next_hop_info[destination] = [
                                                                 outgoing_interface, next_hop_address]
-            lsdb.lsdb_lock.release()
+            area_lsdb.lsdb_lock.release()
 
             #  Finding the next hop information to reach the remaining nodes
 
@@ -767,22 +778,14 @@ class Router:
                     query_interface.flooding_pipeline.put([query_lsa, self.router_id])
                     time.sleep(0.1)
 
-    #  TODO: Age extension LSAs
-
-    #  Given OSPF routing table, shortest path trees, router ID, existing extensions LSAs and OSPF version, returns
-    #  extension LSAs to flood
+    #  Given OSPF routing table, shortest path trees, router ID, existing extension LSDB, list of ABRs in router areas,
+    #  list of prefixes in router areas and OSPF version, returns extension LSAs to flood and updated extension LSDB
     @staticmethod
     def get_extension_lsa_list_to_flood(
-            table, shortest_path_tree_dictionary, router_id, existing_abr_lsa_list, existing_prefix_lsa_list, version):
+            table, shortest_path_tree_dictionary, router_id, extension_database, abr_list, prefix_list, version):
         lsa_list = []
-        own_abr_lsa = None
-        own_prefix_lsa = None
-        for query_lsa in existing_abr_lsa_list:
-            if query_lsa.header.advertising_router == router_id:
-                own_abr_lsa = query_lsa
-        for query_lsa in existing_prefix_lsa_list:
-            if query_lsa.header.advertising_router == router_id:
-                own_prefix_lsa = query_lsa
+        own_abr_lsa = extension_database.get_extension_lsa(conf.LSA_TYPE_EXTENSION_ABR_LSA, router_id)
+        own_prefix_lsa = extension_database.get_extension_lsa(conf.LSA_TYPE_EXTENSION_PREFIX_LSA, router_id)
 
         #  Removing and updating ABR info
         if own_abr_lsa is not None:
@@ -805,12 +808,16 @@ class Router:
                     own_abr_lsa.add_abr_info(new_metric, abr)
                     has_changed = True
             if has_changed:
-                own_abr_lsa.header.ls_age = conf.INITIAL_LS_AGE
-                own_abr_lsa.header.ls_sequence_number = lsa.Lsa.get_next_ls_sequence_number(
-                    own_abr_lsa.header.ls_sequence_number)
+                if len(own_abr_lsa.pack_lsa()) == conf.LSA_HEADER_LENGTH:  # LSA no longer has content
+                    own_abr_lsa.header.ls_age = conf.MAX_AGE
+                else:
+                    own_abr_lsa.header.ls_age = conf.INITIAL_LS_AGE
+                    own_abr_lsa.header.ls_sequence_number = lsa.Lsa.get_next_ls_sequence_number(
+                        own_abr_lsa.header.ls_sequence_number)
                 own_abr_lsa.set_lsa_length()
                 own_abr_lsa.set_lsa_checksum()
                 lsa_list.append(own_abr_lsa)
+                extension_database.add_extension_lsa(own_abr_lsa)
 
         #  Removing and updating prefix info
         if own_prefix_lsa is not None:
@@ -852,37 +859,82 @@ class Router:
             else:
                 raise ValueError("Invalid OSPF version")
             if has_changed:
-                own_prefix_lsa.header.ls_age = conf.INITIAL_LS_AGE
-                own_prefix_lsa.header.ls_sequence_number = lsa.Lsa.get_next_ls_sequence_number(
-                    own_prefix_lsa.header.ls_sequence_number)
+                if len(own_prefix_lsa.pack_lsa()) == conf.LSA_HEADER_LENGTH:  # LSA no longer has content
+                    own_abr_lsa.header.ls_age = conf.MAX_AGE
+                else:
+                    own_prefix_lsa.header.ls_age = conf.INITIAL_LS_AGE
+                    own_prefix_lsa.header.ls_sequence_number = lsa.Lsa.get_next_ls_sequence_number(
+                        own_prefix_lsa.header.ls_sequence_number)
                 own_prefix_lsa.set_lsa_length()
                 own_prefix_lsa.set_lsa_checksum()
                 own_prefix_lsa.append(own_prefix_lsa)
+                extension_database.add_extension_lsa(own_prefix_lsa)
 
         #  Adding ABR info
-        has_own_lsa = False
-        for query_lsa in existing_abr_lsa_list:
-            if query_lsa.header.advertising_router == router_id:
-                has_own_lsa = True
-
         for shortest_path_tree in shortest_path_tree_dictionary:
             for node in shortest_path_tree:
-                is_advertised = False
-                for query_lsa in existing_abr_lsa_list:
-                    if query_lsa.body.has_abr_info(node):
-                        is_advertised = True
-                if not has_own_lsa:
-                    #  TODO
-                    pass
+                if node in abr_list:
+                    is_present = False
+                    created_now = False
+                    if own_abr_lsa is None:
+                        own_abr_lsa = lsa.Lsa()
+                        if version == conf.VERSION_IPV4:
+                            own_abr_lsa.create_extension_header(
+                                conf.INITIAL_LS_AGE, conf.OPTIONS, conf.OPAQUE_TYPE_ABR_LSA, conf.LSA_TYPE_OPAQUE_AS,
+                                router_id, conf.INITIAL_SEQUENCE_NUMBER, version)
+                        else:
+                            own_abr_lsa.create_extension_header(
+                                conf.INITIAL_LS_AGE, conf.OPTIONS, 0, conf.LSA_TYPE_EXTENSION_ABR_LSA, router_id,
+                                conf.INITIAL_SEQUENCE_NUMBER, version)
+                        own_abr_lsa.create_extension_abr_lsa_body()
+                        created_now = True
+                    else:
+                        is_present = own_abr_lsa.has_abr_info(node)
+                    if not is_present:
+                        own_abr_lsa.header.ls_age = conf.INITIAL_LS_AGE
+                        if not created_now:
+                            own_abr_lsa.header.ls_sequence_number = lsa.Lsa.get_next_ls_sequence_number(
+                                own_abr_lsa.header.ls_sequence_number)
+                        own_abr_lsa.set_lsa_length()
+                        own_abr_lsa.set_lsa_checksum()
+                        lsa_list.append(own_abr_lsa)
+                        extension_database.add_extension_lsa(own_abr_lsa)
 
-        return lsa_list
+        #  Adding prefix info
+        for shortest_path_tree in shortest_path_tree_dictionary:
+            for node in shortest_path_tree:
+                if node in prefix_list:
+                    is_present = False
+                    created_now = False
+                    if own_prefix_lsa is None:
+                        own_prefix_lsa = lsa.Lsa()
+                        if version == conf.VERSION_IPV4:
+                            own_prefix_lsa.create_extension_header(
+                                conf.INITIAL_LS_AGE, conf.OPTIONS, conf.OPAQUE_TYPE_PREFIX_LSA, conf.LSA_TYPE_OPAQUE_AS,
+                                router_id, conf.INITIAL_SEQUENCE_NUMBER, version)
+                        else:
+                            own_prefix_lsa.create_extension_header(
+                                conf.INITIAL_LS_AGE, conf.OPTIONS, 0, conf.LSA_TYPE_EXTENSION_PREFIX_LSA, router_id,
+                                conf.INITIAL_SEQUENCE_NUMBER, version)
+                        own_prefix_lsa.create_extension_abr_lsa_body()
+                        created_now = True
+                    else:
+                        is_present = own_prefix_lsa.has_abr_info(node)
+                    if not is_present:
+                        own_prefix_lsa.header.ls_age = conf.INITIAL_LS_AGE
+                        if not created_now:
+                            own_prefix_lsa.header.ls_sequence_number = lsa.Lsa.get_next_ls_sequence_number(
+                                own_prefix_lsa.header.ls_sequence_number)
+                        own_prefix_lsa.set_lsa_length()
+                        own_prefix_lsa.set_lsa_checksum()
+                        lsa_list.append(own_prefix_lsa)
+                        extension_database.add_extension_lsa(own_prefix_lsa)
+
+        return [lsa_list, extension_database]
 
     #  Updates extension LSA list and floods required LSAs
     def update_extension_lsa_list(self):
-        existing_extension_lsa_list = []
-        for lsa_list in [self.abr_lsa_list, self.prefix_lsa_list]:
-            for query_lsa in lsa_list:
-                existing_extension_lsa_list.append(query_lsa)
+        existing_extension_lsa_list = self.extension_database.get_extension_lsdb()
 
     #  #  #  #  #  #  #  #
     #  Auxiliary methods  #

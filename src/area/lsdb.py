@@ -106,7 +106,12 @@ class Lsdb:
                 interfaces = [interface]
             #  Deletes previous instance of LSA, if present
             lsa_identifier = lsa_to_add.get_lsa_identifier()
-            self.delete_lsa(lsa_identifier[0], lsa_identifier[1], lsa_identifier[2], interfaces)
+            existing_lsa = self.get_lsa(lsa_identifier[0], lsa_identifier[1], lsa_identifier[2], interfaces)
+            if existing_lsa is not None:
+                if lsa_to_add.pack_lsa()[conf.LSA_HEADER_LENGTH:] == existing_lsa.pack_lsa()[conf.LSA_HEADER_LENGTH]:
+                    return  # Same body content
+                else:  # Different instance
+                    self.delete_lsa(lsa_identifier[0], lsa_identifier[1], lsa_identifier[2], interfaces)
 
             lsa_to_add.installation_time = time.perf_counter()
             flooding_scope = lsa_to_add.header.get_s1_s2_bits(lsa_to_add.header.ls_type)

@@ -78,6 +78,7 @@ class Interface:
         self.flooded_pipeline = queue.Queue()  # Content states whether provided LSA was flooded or not
         self.lsa_list_to_ack = queue.Queue()  # Stores LSA headers to be flooded in same LS Acknowledgement packet
         self.is_abr = is_abr  # True if router is ABR
+        self.extension_lsa_pipeline = queue.Queue()  # Allows router class to fetch received extension LSAs
 
         self.hello_thread = None
         self.hello_timer = timer.Timer()
@@ -381,6 +382,10 @@ class Interface:
                             continue
                         if not received_lsa.is_ls_type_valid(received_lsa.header.ls_type, self.version):
                             continue
+
+                        if received_lsa.is_extension_lsa():
+                            self.extension_lsa_pipeline.put(received_lsa)
+                            continue  # Is not inserted in area LSDB
 
                         local_copy = self.lsdb.get_lsa(received_lsa.header.ls_type, received_lsa.header.link_state_id,
                                                        received_lsa.header.advertising_router, [self])

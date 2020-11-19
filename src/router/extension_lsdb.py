@@ -1,7 +1,8 @@
-import threading
+import multiprocessing
 import time
 
 import conf.conf as conf
+import area.lsdb as lsdb
 
 '''
 This class represents the Link State Database for the OSPF extension and contains its data and operations
@@ -15,9 +16,9 @@ class ExtensionLsdb:
         self.prefix_lsa_list = []
         self.asbr_lsa_list = []
 
-        self.lsdb_lock = threading.RLock()
+        self.lsdb_lock = multiprocessing.RLock()
         self.version = version
-        self.is_modified = threading.Event()  # Set if LSDB was changed and change has not yet been processed
+        self.is_modified = multiprocessing.Event()  # Set if LSDB was changed and change has not yet been processed
         self.modification_time = time.perf_counter()  # Current system time
 
         self.clean_extension_lsdb()
@@ -147,37 +148,4 @@ class ExtensionLsdb:
     #  Returns the shortest path tree for the overlay by running the Dijkstra algorithm
     @staticmethod
     def get_shortest_path_tree(directed_graph, source_router_id):
-        #  Initialization
-        infinite = conf.MAX_VALUE_24_BITS + 1  # Replacement for infinite cost - Infinite has no value in OSPF
-        shortest_path_tree = {source_router_id: [0, source_router_id]}
-        nodes_to_analyse = {}
-        for destination in directed_graph:
-            if destination != source_router_id:
-                if directed_graph[source_router_id].get(destination) is not None:
-                    cost = directed_graph[source_router_id][destination]  # Source directly connected to destination
-                else:
-                    cost = infinite
-                nodes_to_analyse[destination] = [cost, source_router_id]
-
-        while True:
-            #  Finding closest node
-            if len(nodes_to_analyse) == 0:
-                return shortest_path_tree  # No further nodes to analyse - Shortest path tree completed
-            shortest_cost = infinite
-            closest_node = ''
-            for node in nodes_to_analyse:
-                if nodes_to_analyse[node][0] < shortest_cost:
-                    shortest_cost = nodes_to_analyse[node][0]
-                    closest_node = node
-            if closest_node == '':  # All remaining nodes to analyse are in isolated network islands
-                return shortest_path_tree
-            shortest_path_tree[closest_node] = nodes_to_analyse[closest_node]
-            nodes_to_analyse.pop(closest_node)
-
-            #  Updating labels and parent nodes
-            for destination in directed_graph[closest_node]:
-                if destination not in shortest_path_tree:
-                    potential_new_cost = shortest_path_tree[closest_node][0] + directed_graph[closest_node][destination]
-                    if potential_new_cost < nodes_to_analyse[destination][0]:
-                        nodes_to_analyse[destination][0] = potential_new_cost
-                        nodes_to_analyse[destination][1] = closest_node
+        lsdb.Lsdb.get_shortest_path_tree(directed_graph, source_router_id)
