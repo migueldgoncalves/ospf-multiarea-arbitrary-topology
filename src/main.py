@@ -2,6 +2,7 @@ import cmd
 import multiprocessing
 import os
 import netifaces
+from datetime import datetime
 
 import router.router as router
 import conf.conf as conf
@@ -117,7 +118,7 @@ class Main(cmd.Cmd):
         Main.router_id = router_data[0]
         interface_ids = router_data[1]
         area_ids = router_data[2]
-        print(Main.router_id + ": Starting router...")
+        print(datetime.now().time(), Main.router_id + ": Starting router...")
         Main.startup(interface_ids)
         self.option = int(input(
             "Write " + str(BOTH_VERSIONS) + " for running both OSPF versions, " + str(OSPF_V2) +
@@ -146,17 +147,17 @@ class Main(cmd.Cmd):
                 Main.router_id, conf.VERSION_IPV6, self.shutdown_event_v3, interface_ids, area_ids, False,
                 self.command_pipeline_v3, self.output_event_v3))
             self.process_v3.start()
-        print(Main.router_id + ": Router started")
+        print(datetime.now().time(), Main.router_id + ": Router started")
 
     def postloop(self):
-        print(Main.router_id + ": Shutting down router...")
+        print(datetime.now().time(), Main.router_id + ": Shutting down router...")
         if self.option in [BOTH_VERSIONS, OSPF_V2]:
             self.shutdown_event_v2.set()
             self.process_v2.join()
         if self.option in [BOTH_VERSIONS, OSPF_V3]:
             self.shutdown_event_v3.set()
             self.process_v3.join()
-        print(Main.router_id + ": Router down")
+        print(datetime.now().time(), Main.router_id + ": Router down")
 
     #  If program is running inside a provided GNS3 network, returns router data according to router ID
     @staticmethod
@@ -192,7 +193,7 @@ class Main(cmd.Cmd):
     def startup(interfaces):
         os.system("sysctl net.ipv4.ip_forward=1")
         os.system("sysctl net.ipv6.conf.all.forwarding=1")
-        print(Main.router_id + ": Packet forwarding enabled")
+        print(datetime.now().time(), Main.router_id + ": Packet forwarding enabled")
         os.system("sysctl net.ipv6.conf.all.autoconf=0")  # Router will not configure IPv6 address by itself
         os.system("sysctl net.ipv6.conf.all.accept_ra=0")
         #  Ensures any IPv6 address automatically configured will be removed
@@ -201,7 +202,7 @@ class Main(cmd.Cmd):
                 address = netifaces.ifaddresses(interface)[netifaces.AF_INET6][0]['addr']
                 prefix_length = str(utils.Utils.get_ipv6_prefix_from_interface_name(interface)[1])
                 os.system("ip -6 addr del " + address + "/" + prefix_length + " dev " + interface)
-        print(Main.router_id + ": Address autoconfiguration disabled")
+        print(datetime.now().time(), Main.router_id + ": Address autoconfiguration disabled")
 
 
 if __name__ == '__main__':

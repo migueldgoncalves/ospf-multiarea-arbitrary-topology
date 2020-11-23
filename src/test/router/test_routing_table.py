@@ -17,7 +17,7 @@ This class tests the OSPF routing table classes and their operations
 '''
 
 
-#  Full successful run - 42-43 s
+#  Full successful run - 21-22 s
 class TestRoutingTable(unittest.TestCase):
 
     #  Setup based on the GNS3 Network 1 at https://github.com/migueldgoncalves/ospf-multiarea-arbitrary-topology
@@ -886,25 +886,25 @@ class TestRoutingTable(unittest.TestCase):
         self.lsdb_v2.clean_lsdb(self.interfaces_r1_v2)
         self.lsdb_v3.clean_lsdb(self.interfaces_r1_v3)
 
-    #  Successful run - 42 s
+    #  Successful run - 21 s
     def test_update_kernel_routing_table(self):
         # Setup
         kernel_table.KernelTable.delete_all_ospf_routes(0)
-        shutdown_event_v2 = threading.Event()
-        shutdown_event_v3 = threading.Event()
+        shutdown_event_v2 = multiprocessing.Event()
+        shutdown_event_v3 = multiprocessing.Event()
         router_v2 = router.Router()
         router_v3 = router.Router()
-        thread_v2 = threading.Thread(target=router_v2.set_up, args=(
+        process_v2 = multiprocessing.Process(target=router_v2.set_up, args=(
             conf.ROUTER_ID, conf.VERSION_IPV4, shutdown_event_v2, conf.INTERFACE_NAMES, conf.INTERFACE_AREAS, False,
             multiprocessing.Queue(), multiprocessing.Event()))
-        thread_v3 = threading.Thread(target=router_v3.set_up, args=(
+        process_v3 = multiprocessing.Process(target=router_v3.set_up, args=(
             conf.ROUTER_ID, conf.VERSION_IPV6, shutdown_event_v3, conf.INTERFACE_NAMES, conf.INTERFACE_AREAS, False,
             multiprocessing.Queue(), multiprocessing.Event()))
-        thread_v2.start()
-        thread_v3.start()
+        process_v2.start()
+        process_v3.start()
         existing_routes = len(kernel_table.KernelTable.get_all_routes())  # Includes 222.222.1.0 and 2001:db8:cafe:1::
 
-        time.sleep(40)
+        time.sleep(20)
         network_prefixes = 10  # 222.222.2.0 to 222.222.6.0 and 2001:db8:cafe:2:: to 2001:db8:cafe:6::
         self.assertEqual(network_prefixes, len(kernel_table.KernelTable.get_all_ospf_routes()))
         self.assertEqual(existing_routes + network_prefixes, len(kernel_table.KernelTable.get_all_routes()))
@@ -912,8 +912,8 @@ class TestRoutingTable(unittest.TestCase):
         # Tear down
         shutdown_event_v2.set()
         shutdown_event_v3.set()
-        thread_v2.join()
-        thread_v3.join()
+        process_v2.join()
+        process_v3.join()
         self.assertEqual(0, len(kernel_table.KernelTable.get_all_ospf_routes()))
         self.assertEqual(existing_routes, len(kernel_table.KernelTable.get_all_routes()))
 

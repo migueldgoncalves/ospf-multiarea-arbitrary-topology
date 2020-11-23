@@ -1,7 +1,7 @@
 import socket
 import struct
 import queue
-import threading
+import multiprocessing
 
 import conf.conf as conf
 import general.utils as utils
@@ -21,7 +21,7 @@ class Socket:
 
     def __init__(self):
         #  Test parameters
-        self.is_dr = threading.Event()  # Set if router is DR/BDR
+        self.is_dr = multiprocessing.Event()  # Set if router is DR/BDR
         self.exit_pipeline_v2 = queue.Queue()
         self.exit_pipeline_v3 = queue.Queue()
 

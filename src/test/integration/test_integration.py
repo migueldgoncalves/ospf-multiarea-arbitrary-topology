@@ -4,6 +4,7 @@ import time
 import copy
 import multiprocessing
 import os
+from datetime import datetime
 
 import router.router as router
 import conf.conf as conf
@@ -327,7 +328,7 @@ class IntegrationTest(unittest.TestCase):
                     if not pipeline.empty():
                         data_array = pipeline.get().copy()
                         if self.packet_log:
-                            print("Source:", data_array[1], "Destination:", data_array[2],
+                            print(datetime.now().time(), "Source:", data_array[1], "Destination:", data_array[2],
                                   packet.Packet.unpack_packet(data_array[0]))
                         for j in self.entry_pipelines:
                             if j != i:  # Interface is not the sending one

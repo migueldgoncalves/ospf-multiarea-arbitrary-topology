@@ -1,5 +1,6 @@
 import threading
 import queue
+from datetime import datetime
 
 import interface.interface as interface
 import conf.conf as conf
@@ -86,7 +87,8 @@ class Area:
     #  Creates and starts an interface associated with this area
     def create_interface(self, interface_id):
         if interface_id in self.interfaces:
-            print(self.router_id + ": OSPFv" + str(self.ospf_version), "interface", interface_id, "is already created")
+            print(datetime.now().time(), self.router_id + ": OSPFv" + str(self.ospf_version), "interface", interface_id,
+                  "is already created")
             return
 
         pipeline = queue.Queue()
@@ -121,9 +123,10 @@ class Area:
             interface_data[PIPELINE].queue.clear()  # Clears interface thread pipeline
             interface_data[SHUTDOWN_EVENT].clear()  # Resets shutdown event of interface thread
             interface_data[INTERFACE_THREAD].start()
-            print(self.router_id + ": OSPFv" + str(self.ospf_version), "interface", interface_id, "started")
+            print(datetime.now().time(), self.router_id + ": OSPFv" + str(self.ospf_version), "interface", interface_id,
+                  "started")
         else:
-            print(self.router_id + ": OSPFv" + str(self.ospf_version), "interface", interface_id,
+            print(datetime.now().time(), self.router_id + ": OSPFv" + str(self.ospf_version), "interface", interface_id,
                   "is already operating")
 
     #  Performs shutdown of a specified interface
@@ -133,10 +136,11 @@ class Area:
             interface_data[SHUTDOWN_EVENT].set()  # Signals interface thread to shutdown
             interface_data[INTERFACE_THREAD].join()
             interface_data[PIPELINE].queue.clear()
-            print(self.router_id + ": OSPFv" + str(self.ospf_version), "interface", interface_id,
+            print(datetime.now().time(), self.router_id + ": OSPFv" + str(self.ospf_version), "interface", interface_id,
                   "successfully shutdown")
         else:
-            print(self.router_id + ": OSPFv" + str(self.ospf_version), "interface", interface_id, "is already down")
+            print(datetime.now().time(), self.router_id + ": OSPFv" + str(self.ospf_version), "interface", interface_id,
+                  "is already down")
 
     #  Shutdown event is set when interface should stop operating
     def is_interface_operating(self, interface_id):

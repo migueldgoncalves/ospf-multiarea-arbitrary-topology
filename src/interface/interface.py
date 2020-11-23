@@ -3,6 +3,7 @@ import time
 import queue
 import copy
 import warnings
+from datetime import datetime
 
 import neighbor.neighbor as neighbor
 import packet.packet as packet
@@ -802,8 +803,8 @@ class Interface:
     def set_interface_state(self, new_state):
         old_state = self.state
         if new_state != old_state:
-            print(self.router_id + ": OSPFv" + str(self.version), "interface", self.physical_identifier,
-                  "changed state from", old_state, "to", new_state)
+            print(datetime.now().time(), self.router_id + ": OSPFv" + str(self.version), "interface",
+                  self.physical_identifier, "changed state from", old_state, "to", new_state)
             self.state = new_state
             self.event_interface_state_change(old_state, new_state)  # Updates Router-LSA if needed
 
@@ -814,13 +815,13 @@ class Interface:
         else:
             prefix = utils.Utils.get_ipv6_prefix_from_interface_name(self.physical_identifier)[0]
         if (value_name == Interface.DR) & (new_value != self.designated_router):
-            print(self.router_id + ": OSPFv" + str(self.version), value_name, "changed from", self.designated_router,
-                  "to", new_value, "at network", prefix)
+            print(datetime.now().time(), self.router_id + ": OSPFv" + str(self.version), value_name, "changed from",
+                  self.designated_router, "to", new_value, "at network", prefix)
             old_value = self.designated_router
             self.designated_router = new_value
             self.event_network_dr_change(old_value, new_value)
         elif (value_name == Interface.BDR) & (new_value != self.backup_designated_router):
-            print(self.router_id + ": OSPFv" + str(self.version), value_name, "changed from",
+            print(datetime.now().time(), self.router_id + ": OSPFv" + str(self.version), value_name, "changed from",
                   self.backup_designated_router, "to", new_value, "at network", prefix)
             self.backup_designated_router = new_value
         else:

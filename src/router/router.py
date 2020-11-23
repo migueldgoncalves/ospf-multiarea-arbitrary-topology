@@ -1,4 +1,3 @@
-import queue
 import threading
 import datetime
 import time
@@ -71,25 +70,25 @@ class Router:
         self.packet_pipelines = {}
         for interface_id in self.interfaces:
             self.packet_sockets[interface_id] = sock.Socket()
-            self.packet_pipelines[interface_id] = queue.Queue()
+            self.packet_pipelines[interface_id] = multiprocessing.Queue()
         self.socket_shutdown_events = {}
         for interface_id in self.interfaces:
-            self.socket_shutdown_events[interface_id] = threading.Event()
-        self.socket_threads = {}
+            self.socket_shutdown_events[interface_id] = multiprocessing.Event()
+        self.socket_processes = {}
         accept_self_packets = False
-        is_dr = threading.Event()  # Event is clear on creation - Router on startup is never DR/BDR
+        is_dr = multiprocessing.Event()  # Event is clear on creation - Router on startup is never DR/BDR
         for interface_id in self.interfaces:
             if self.ospf_version == conf.VERSION_IPV4:
-                self.socket_threads[interface_id] = threading.Thread(
+                self.socket_processes[interface_id] = multiprocessing.Process(
                     target=self.packet_sockets[interface_id].receive_ipv4,
                     args=(self.packet_pipelines[interface_id], self.socket_shutdown_events[interface_id], interface_id,
                           accept_self_packets, is_dr, localhost))
             else:
-                self.socket_threads[interface_id] = threading.Thread(
+                self.socket_processes[interface_id] = multiprocessing.Process(
                     target=self.packet_sockets[interface_id].receive_ipv6,
                     args=(self.packet_pipelines[interface_id], self.socket_shutdown_events[interface_id], interface_id,
                           accept_self_packets, is_dr, localhost))
-            self.socket_threads[interface_id].start()
+            self.socket_processes[interface_id].start()
         self.router_shutdown_event = router_shutdown_event
         self.start_time = datetime.datetime.now()
         self.abr = Router.is_abr(area_ids)
@@ -661,8 +660,8 @@ class Router:
         kernel_table.KernelTable.delete_all_ospf_routes(self.ospf_version)
         for s in self.socket_shutdown_events:
             self.socket_shutdown_events[s].set()
-        for t in self.socket_threads:
-            self.socket_threads[t].join()
+        for t in self.socket_processes:
+            self.socket_processes[t].join()
         for a in self.areas:
             self.areas[a].shutdown_area()
         self.command_thread.join()

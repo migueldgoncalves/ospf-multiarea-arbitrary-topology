@@ -1,5 +1,6 @@
 import threading
 import random
+from datetime import datetime
 
 import general.timer as timer
 import conf.conf as conf
@@ -30,8 +31,8 @@ class Neighbor:
         self.neighbor_state = conf.NEIGHBOR_STATE_DOWN  # Initial state
         self.neighbor_dr = neighbor_dr  # 0.0.0.0 means no DR is known by the neighbor
         self.neighbor_bdr = neighbor_bdr
-        print(router_id + ": OSPFv" + str(utils.Utils.get_ospf_version(self.neighbor_ip_address)),
-              "neighbor found with ID", self.neighbor_id)
+        print(datetime.now().time(), router_id + ": OSPFv" + str(utils.Utils.get_ospf_version(
+            self.neighbor_ip_address)), "neighbor found with ID", self.neighbor_id)
         self.master_slave = False  # True -> This router is master
         self.dd_sequence = 0
         self.last_dd_packet = []  # [I-bit, M-bit, MS-bit, options, dd_sequence] from last DD packet from neighbor
@@ -167,8 +168,9 @@ class Neighbor:
         old_state = self.neighbor_state
         if new_state != old_state:
             if old_state != conf.NEIGHBOR_STATE_DOWN:
-                print(self.router_id + ": OSPFv" + str(utils.Utils.get_ospf_version(self.neighbor_ip_address)),
-                      "neighbor", self.neighbor_id, "changed state from", old_state, "to", new_state)
+                print(datetime.now().time(), self.router_id + ": OSPFv" + str(utils.Utils.get_ospf_version(
+                    self.neighbor_ip_address)), "neighbor", self.neighbor_id, "changed state from", old_state, "to",
+                      new_state)
             self.neighbor_state = new_state
 
     #  Increments DD Sequence Number, or generates a random number if set for first time
