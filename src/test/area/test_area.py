@@ -34,10 +34,13 @@ class AreaTest(unittest.TestCase):
         self.assertEqual(self.external_routing_capable, self.area_v2.external_routing_capable)
         self.assertEqual(self.external_routing_capable, self.area_v3.external_routing_capable)
         self.assertEqual(1, len(self.area_v2.database.get_lsdb(self.area_v2.get_interfaces(), None)))
-        self.assertEqual(2, len(self.area_v3.database.get_lsdb(self.area_v3.get_interfaces(), None)))
+        #  Area interface may or may not have time to be started and create Link-LSA
+        self.assertTrue(len(self.area_v3.database.get_lsdb(self.area_v3.get_interfaces(), None)) in [2, 3])
         self.assertEqual(1, self.area_v2.database.get_lsdb(self.area_v2.get_interfaces(), None)[0].header.ls_type)
         self.assertEqual(0x2001, self.area_v3.database.get_lsdb(self.area_v3.get_interfaces(), None)[0].header.ls_type)
         self.assertEqual(0x2009, self.area_v3.database.get_lsdb(self.area_v3.get_interfaces(), None)[1].header.ls_type)
+        if len(self.area_v3.database.get_lsdb(self.area_v3.get_interfaces(), None)) == 3:
+            self.assertEqual(8, self.area_v3.database.get_lsdb(self.area_v3.get_interfaces(), None)[1].header.ls_type)
 
         interfaces_v2 = self.area_v2.interfaces
         interfaces_v3 = self.area_v3.interfaces

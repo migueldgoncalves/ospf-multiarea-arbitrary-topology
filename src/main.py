@@ -84,6 +84,19 @@ class Main(cmd.Cmd):
             self.command_pipeline_v3.put([router.SHOW_LSDB, None])
             Main.wait_for_output(self.output_event_v3)
 
+    def do_show_ip_route(self, arg):
+        'Prints routing table content: SHOW_IP_ROUTE'
+        if self.option in [BOTH_VERSIONS, OSPF_V2]:
+            print("IPv4")
+            os.system("ip route")
+        if self.option in [BOTH_VERSIONS, OSPF_V3]:
+            print("IPv6")
+            os.system("ip -6 route")
+
+    def do_show_ip_address(self, arg):
+        'Prints addresses of all router interfaces: SHOW_IP_ADDRESS'
+        os.system("ip addr")
+
     def do_shutdown_interface(self, arg):
         'Performs shutdown of specified interface: SHUTDOWN_INTERFACE ens33'
         if self.option in [BOTH_VERSIONS, OSPF_V2]:
@@ -105,6 +118,11 @@ class Main(cmd.Cmd):
     def do_shutdown(self, arg):
         'Performs the router shutdown: SHUTDOWN'
         return True
+
+    def do_ping(self, arg):
+        'Sends 5 pings to the specified address: PING 222.222.1.1'
+        command = "ping -c 5 -i 0 " + arg  # No interval between pings
+        os.system(command)
 
     #  Waits for router process to signal printing of desired output
     @staticmethod

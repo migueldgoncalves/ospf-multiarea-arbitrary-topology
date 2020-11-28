@@ -9,7 +9,6 @@ import general.utils as utils
 import general.sock as sock
 import conf.conf as conf
 import area.area as area
-import area.lsdb as lsdb
 import packet.packet as packet
 import lsa.lsa as lsa
 import lsa.header as header
@@ -31,22 +30,52 @@ START_INTERFACE = 6
 
 class Router:
 
+    def __init__(self):
+        self.ospf_version = 0
+
+        #  Localhost operation parameters - Only for test purposes
+
+        self.localhost = False
+        self.interface_ids = []
+        self.area_ids = []
+
+        #  OSPF top-level parameters
+
+        self.router_id = ''
+        self.areas = {}
+        self.interfaces = {}
+        self.max_ip_datagram = 0
+        self.routing_table = routing_table.RoutingTable()
+
+        #  Implementation-specific parameters
+
+        self.packet_sockets = {}
+        self.packet_pipelines = {}
+        self.socket_shutdown_events = {}
+        self.socket_processes = {}
+        self.router_shutdown_event = None
+        self.start_time = datetime.datetime.now()
+        self.abr = False
+        self.command_pipeline = None
+        self.output_event = None
+        self.command_thread = None
+        self.kernel_table_process = None
+
+        #  Extension LSDB
+
+        self.extension_database = extension_lsdb.ExtensionLsdb(self.ospf_version)
+
     def set_up(self, router_id, ospf_version, router_shutdown_event, interface_ids, area_ids, localhost,
                command_pipeline, output_event):
         if ospf_version not in [conf.VERSION_IPV4, conf.VERSION_IPV6]:
             raise ValueError("Invalid OSPF version")
         self.ospf_version = ospf_version
 
-        #  Localhost operation parameters - Only for test purposes
-
         self.localhost = localhost  # If router is operating on localhost or not - If False router operates normally
         self.interface_ids = interface_ids  # Interfaces in this machine
         self.area_ids = area_ids  # OSPF areas of the interfaces
 
-        #  OSPF top-level parameters
-
         self.router_id = router_id
-        self.areas = {}
         external_routing_capable = False
         for area_id in Router.get_unique_values(self.area_ids):
             area_interfaces = []
@@ -57,24 +86,16 @@ class Router:
                 self.router_id, self.ospf_version, area_id, external_routing_capable, area_interfaces, self.localhost,
                 Router.is_abr(area_ids))
             self.areas[area_id] = new_area
-        self.interfaces = {}
         for area_id in Router.get_unique_values(self.area_ids):
             for interface_id in self.areas[area_id].interfaces:
                 self.interfaces[interface_id] = self.areas[area_id].interfaces[interface_id]
         self.max_ip_datagram = conf.MTU
-        self.routing_table = routing_table.RoutingTable()
 
-        #  Implementation-specific parameters
-
-        self.packet_sockets = {}
-        self.packet_pipelines = {}
         for interface_id in self.interfaces:
             self.packet_sockets[interface_id] = sock.Socket()
             self.packet_pipelines[interface_id] = multiprocessing.Queue()
-        self.socket_shutdown_events = {}
         for interface_id in self.interfaces:
             self.socket_shutdown_events[interface_id] = multiprocessing.Event()
-        self.socket_processes = {}
         accept_self_packets = False
         is_dr = multiprocessing.Event()  # Event is clear on creation - Router on startup is never DR/BDR
         for interface_id in self.interfaces:
@@ -90,17 +111,11 @@ class Router:
                           accept_self_packets, is_dr, localhost))
             self.socket_processes[interface_id].start()
         self.router_shutdown_event = router_shutdown_event
-        self.start_time = datetime.datetime.now()
         self.abr = Router.is_abr(area_ids)
-        self.shortest_path_tree_dictionary = {}  # One tree per area
         self.command_pipeline = command_pipeline  # User commands
         self.output_event = output_event  # If has printed desired output, if any
         self.command_thread = threading.Thread(target=self.execute_commands)
         self.command_thread.start()
-        self.table_process_running = multiprocessing.Event()
-
-        #  Extension LSDB
-        self.extension_database = extension_lsdb.ExtensionLsdb(self.ospf_version)
 
         self.main_loop()
 
@@ -219,7 +234,7 @@ class Router:
                             time.sleep(0.1)
 
             #  Sets the Linux kernel default routing table if any LSDB was changed and enough time has passed
-            if (not self.localhost) & (not self.table_process_running.is_set()):
+            if not self.localhost:
                 lsdb_modified = False
                 for area_id in self.areas:
                     query_area = self.areas[area_id]
@@ -230,9 +245,7 @@ class Router:
                             area_lsdb.reset_modification_time()
                             lsdb_modified = True
                 if lsdb_modified:
-                    self.table_process_running.set()
-                    process = multiprocessing.Process(target=self.set_kernel_routing_table)
-                    process.start()  # Separate process is required due to slow execution time
+                    self.set_kernel_routing_table()
 
             #  Tells receiving socket whether respective interface is DR/BDR or not, if state changed
             for interface_id in self.interfaces:
@@ -261,14 +274,13 @@ class Router:
     #  #  #  #  #  #  #  #  #  #
 
     #  Returns a routing table with intra-area routers given a shortest path tree and the corresponding prefixes
-    def get_intra_area_routing_table(self, shortest_path_tree_dictionary, prefixes_dictionary):
+    def get_intra_area_routing_table(self, shortest_path_tree_dictionary, prefixes_dictionary, lsdb_dict):
         table = routing_table.RoutingTable()
         for area_id in self.areas:
             #  Initialization
 
             query_area = self.areas[area_id]
-            area_lsdb = query_area.database
-            area_lsdb.lsdb_lock.acquire()
+            area_lsdb = lsdb_dict[area_id]  # Cache
             shortest_path_tree = shortest_path_tree_dictionary[area_id]
             prefixes = prefixes_dictionary[area_id]
             for node_id in copy.deepcopy(prefixes):
@@ -287,7 +299,7 @@ class Router:
             for node_id in prefixes:
                 for prefix in prefixes[node_id]:
                     if self.ospf_version == conf.VERSION_IPV4:
-                        node_lsa = area_lsdb.get_lsa(conf.LSA_TYPE_ROUTER, node_id, node_id, interface_array)
+                        node_lsa = area_lsdb.get_lsa(conf.LSA_TYPE_ROUTER, node_id, node_id, [])
                         if node_lsa is not None:  # Router node
                             for link_info in node_lsa.body.links:
                                 if (link_info[2] == conf.LINK_TO_STUB_NETWORK) & (link_info[0] == prefix):
@@ -309,11 +321,10 @@ class Router:
                                     cost = shortest_path_tree[node_id][0]  # Root to network
                                     prefixes_with_costs[node_id][prefix] = [cost]
                     elif self.ospf_version == conf.VERSION_IPV6:
-                        node_lsa = area_lsdb.get_lsa(conf.LSA_TYPE_ROUTER, 0, node_id, interface_array)
+                        node_lsa = area_lsdb.get_lsa(conf.LSA_TYPE_ROUTER, 0, node_id, [])
                         if node_lsa is not None:  # Router node
                             options = node_lsa.body.options
-                            intra_area_prefix_lsa = area_lsdb.get_lsa(
-                                conf.LSA_TYPE_INTRA_AREA_PREFIX, 0, node_id, interface_array)
+                            intra_area_prefix_lsa = area_lsdb.get_lsa(conf.LSA_TYPE_INTRA_AREA_PREFIX, 0, node_id, [])
                             for prefix_info in intra_area_prefix_lsa.body.prefixes:
                                 if prefix_info[3] == prefix:
                                     prefix_length = prefix_info[0]
@@ -325,8 +336,7 @@ class Router:
                         else:  # Transit network node
                             router_id = node_id.split("|")[0]
                             interface_id = node_id.split("|")[1]
-                            network_lsa = area_lsdb.get_lsa(
-                                conf.LSA_TYPE_NETWORK, interface_id, router_id, interface_array)
+                            network_lsa = area_lsdb.get_lsa(conf.LSA_TYPE_NETWORK, interface_id, router_id, [])
                             options = network_lsa.body.options
                             intra_area_prefix_lsa = None
                             for query_lsa in area_lsdb.intra_area_prefix_lsa_list:
@@ -342,7 +352,6 @@ class Router:
                                     cost = shortest_path_tree[node_id][0]  # Root to network
                                     prefixes_with_costs[node_id][prefix] = [cost]
                     else:
-                        area_lsdb.lsdb_lock.release()
                         raise ValueError("Invalid OSPF version")
 
             #  Finding the next hop information to reach nodes in the same links as the root node
@@ -354,9 +363,9 @@ class Router:
             for node_id in shortest_path_tree:
                 if (shortest_path_tree[node_id][1] == root_id) & (node_id != root_id):  # Node with root as parent node
                     if self.ospf_version == conf.VERSION_IPV4:
-                        node_lsa = area_lsdb.get_lsa(conf.LSA_TYPE_ROUTER, node_id, node_id, interface_array)
+                        node_lsa = area_lsdb.get_lsa(conf.LSA_TYPE_ROUTER, node_id, node_id, [])
                         if node_lsa is not None:  # Node is a router - Root is connected through point-to-point link
-                            root_lsa = area_lsdb.get_lsa(conf.LSA_TYPE_ROUTER, root_id, root_id, interface_array)
+                            root_lsa = area_lsdb.get_lsa(conf.LSA_TYPE_ROUTER, root_id, root_id, [])
                             for link_info in root_lsa.body.links:
                                 if link_info[0] == node_id:
                                     outgoing_interface_ip = link_info[1]
@@ -381,15 +390,15 @@ class Router:
                                             for destination in shortest_path_tree:
                                                 if shortest_path_tree[destination][1] == node_id:
                                                     destination_lsa = area_lsdb.get_lsa(
-                                                        conf.LSA_TYPE_ROUTER, destination, destination, interface_array)
+                                                        conf.LSA_TYPE_ROUTER, destination, destination, [])
                                                     for link_info in destination_lsa.body.links:
                                                         if link_info[0] == node_id:
                                                             next_hop_address = link_info[1]
                                                             next_hop_info[destination] = [
                                                                 outgoing_interface, next_hop_address]
                     else:
-                        node_lsa = area_lsdb.get_lsa(conf.LSA_TYPE_ROUTER, 0, node_id, interface_array)
-                        root_lsa = area_lsdb.get_lsa(conf.LSA_TYPE_ROUTER, 0, root_id, interface_array)
+                        node_lsa = area_lsdb.get_lsa(conf.LSA_TYPE_ROUTER, 0, node_id, [])
+                        root_lsa = area_lsdb.get_lsa(conf.LSA_TYPE_ROUTER, 0, root_id, [])
                         if node_lsa is not None:  # Node is a router - Root is connected through point-to-point link
                             for link_info in root_lsa.body.links:
                                 if link_info[4] == node_id:
@@ -414,7 +423,7 @@ class Router:
                                             for destination in shortest_path_tree:
                                                 if shortest_path_tree[destination][1] == node_id:
                                                     destination_lsa = area_lsdb.get_lsa(
-                                                        conf.LSA_TYPE_ROUTER, 0, destination, interface_array)
+                                                        conf.LSA_TYPE_ROUTER, 0, destination, [])
                                                     for destination_link_info in destination_lsa.body.links:
                                                         if (destination_link_info[3] == dr_interface_id) & (
                                                                 destination_link_info[4] == dr_id):
@@ -425,7 +434,6 @@ class Router:
                                                             next_hop_address = destination_lsa.body.link_local_address
                                                             next_hop_info[destination] = [
                                                                 outgoing_interface, next_hop_address]
-            area_lsdb.lsdb_lock.release()
 
             #  Finding the next hop information to reach the remaining nodes
 
@@ -486,8 +494,9 @@ class Router:
         return table
 
     #  Sets the Linux kernel default routing table according to the supplied OSPF routing table
-    def set_kernel_routing_table_from_ospf_table(self, ospf_routing_table):
-        kernel_table.KernelTable.delete_all_ospf_routes(self.ospf_version)
+    @staticmethod
+    def set_kernel_routing_table_from_ospf_table(ospf_version, ospf_routing_table, interface_ids):
+        kernel_table.KernelTable.delete_all_ospf_routes(ospf_version)
         for entry in ospf_routing_table.entries:
             prefix = entry.destination_id
             prefix_length = entry.prefix_length
@@ -495,36 +504,38 @@ class Router:
                 outgoing_interface = path.outgoing_interface
                 next_hop_address = path.next_hop_address
                 kernel_table.KernelTable.add_ospf_route(
-                    prefix, prefix_length, next_hop_address, outgoing_interface, self.interface_ids)
+                    prefix, prefix_length, next_hop_address, outgoing_interface, interface_ids)
 
     #  Sets the Linux kernel default routing table according to the LSDBs content
     def set_kernel_routing_table(self):
+        #  Set OSPF routing table
         shortest_path_tree_dictionary = {}
         prefixes_dictionary = {}
+        lsdb_dict = {}  # Cache
         for area_id in self.areas:
-            query_area = self.areas[area_id]
-            lsdb_content = query_area.database.get_lsdb([], None)  # Shared resource
             #  Copying LSDB is faster than obtaining OSPF routing table from it, reducing time lock is acquired
-            lsdb_copy = lsdb.Lsdb(self.ospf_version, area_id)
-            for query_lsa in lsdb_content:
-                lsdb_copy.add_lsa(query_lsa, None)
-            data = query_area.database.get_directed_graph()
+            lsdb_copy = copy.deepcopy(self.areas[area_id].database)
+            lsdb_dict[area_id] = lsdb_copy
+            data = lsdb_copy.get_directed_graph()
             directed_graph = data[0]
             prefixes = data[1]
-            shortest_path_tree = query_area.database.get_shortest_path_tree(directed_graph, self.router_id)
-            shortest_path_tree_dictionary[query_area.area_id] = shortest_path_tree
-            prefixes_dictionary[query_area.area_id] = prefixes
-        self.shortest_path_tree_dictionary = shortest_path_tree_dictionary
-        self.routing_table = self.get_intra_area_routing_table(shortest_path_tree_dictionary, prefixes_dictionary)
+            shortest_path_tree = lsdb_copy.get_shortest_path_tree(directed_graph, self.router_id)
+            shortest_path_tree_dictionary[area_id] = shortest_path_tree
+            prefixes_dictionary[area_id] = prefixes
+        self.routing_table = self.get_intra_area_routing_table(
+            shortest_path_tree_dictionary, prefixes_dictionary, lsdb_dict)
         if self.router_shutdown_event.is_set():  # Shutdown
             return
         elif self.abr:
             self.update_inter_area_lsa_list()
 
-        with kernel_table.KernelTable.lock:
-            self.set_kernel_routing_table_from_ospf_table(self.routing_table)
-
-        self.table_process_running.clear()
+        #  Set kernel routing table
+        if self.kernel_table_process is not None:
+            if self.kernel_table_process.is_alive():
+                self.kernel_table_process.terminate()
+        self.kernel_table_process = multiprocessing.Process(target=self.set_kernel_routing_table_from_ospf_table, args=(
+            self.ospf_version, self.routing_table, self.interface_ids))
+        self.kernel_table_process.start()
 
     #  #  #  #  #  #  #  #  #  #  #  #  #
     #  Command-line interface methods  #

@@ -74,8 +74,9 @@ class InterfaceTest(unittest.TestCase):
         thread_interface_v3 = threading.Thread(target=self.interface_ospfv3.interface_loop)
         thread_interface_v2.start()
         thread_interface_v3.start()
-        self.assertEqual(conf.INTERFACE_STATE_DOWN, self.interface_ospfv2.state)
-        self.assertEqual(conf.INTERFACE_STATE_DOWN, self.interface_ospfv3.state)
+        #  Interfaces might have time to reach Waiting state
+        self.assertTrue(self.interface_ospfv2.state in [conf.INTERFACE_STATE_DOWN, conf.INTERFACE_STATE_WAITING])
+        self.assertTrue(self.interface_ospfv3.state in [conf.INTERFACE_STATE_DOWN, conf.INTERFACE_STATE_WAITING])
         self.assertEqual(conf.DEFAULT_DESIGNATED_ROUTER, self.interface_ospfv2.designated_router)
         self.assertEqual(conf.DEFAULT_DESIGNATED_ROUTER, self.interface_ospfv3.designated_router)
         self.assertEqual(conf.DEFAULT_DESIGNATED_ROUTER, self.interface_ospfv2.backup_designated_router)
@@ -146,8 +147,9 @@ class InterfaceTest(unittest.TestCase):
             conf.DEFAULT_DESIGNATED_ROUTER, ())
         self.assertEqual(0, len(self.interface_ospfv2.neighbors))
         self.assertEqual(0, len(self.interface_ospfv3.neighbors))
-        self.assertEqual(conf.INTERFACE_STATE_DOWN, self.interface_ospfv2.state)
-        self.assertEqual(conf.INTERFACE_STATE_DOWN, self.interface_ospfv3.state)
+        #  Interfaces might have time to reach Waiting state
+        self.assertTrue(self.interface_ospfv2.state in [conf.INTERFACE_STATE_DOWN, conf.INTERFACE_STATE_WAITING])
+        self.assertTrue(self.interface_ospfv3.state in [conf.INTERFACE_STATE_DOWN, conf.INTERFACE_STATE_WAITING])
         self.assertEqual(conf.DEFAULT_DESIGNATED_ROUTER, self.interface_ospfv2.designated_router)
         self.assertEqual(conf.DEFAULT_DESIGNATED_ROUTER, self.interface_ospfv3.designated_router)
         self.assertEqual(conf.DEFAULT_DESIGNATED_ROUTER, self.interface_ospfv2.backup_designated_router)

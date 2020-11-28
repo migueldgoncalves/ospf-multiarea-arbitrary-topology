@@ -1522,16 +1522,16 @@ class Interface:
     #  Atomically gets all link-local LSAs from interface
     def get_link_local_lsa_list(self):
         with self.lsa_lock:
-            return self.link_local_lsa_list
+            return copy.deepcopy(self.link_local_lsa_list)
 
     #  Atomically gets all Link-LSAs from interface
     def get_link_lsa_list(self):
-        with self.lsa_lock:
-            link_lsa_list = []
-            for query_lsa in self.link_local_lsa_list:
-                if query_lsa.get_lsa_type_from_lsa() == conf.LSA_TYPE_LINK:
-                    link_lsa_list.append(query_lsa)
-            return link_lsa_list
+        full_list = self.get_link_local_lsa_list()
+        link_lsa_list = []
+        for query_lsa in full_list:
+            if query_lsa.get_lsa_type_from_lsa() == conf.LSA_TYPE_LINK:
+                link_lsa_list.append(query_lsa)
+        return link_lsa_list
 
     #  Atomically gets a link-local LSA from interface
     def get_link_local_lsa(self, ls_type, link_state_id, advertising_router):
@@ -1540,7 +1540,7 @@ class Interface:
         with self.lsa_lock:
             for local_lsa in self.link_local_lsa_list:
                 if local_lsa.is_lsa_identifier_equal(ls_type, link_state_id, advertising_router):
-                    return local_lsa
+                    return copy.deepcopy(local_lsa)
             return None
 
     #  Atomically deletes link-local LSA from interface
@@ -1566,3 +1566,9 @@ class Interface:
 
             new_lsa.installation_time = time.perf_counter()
             self.link_local_lsa_list.append(new_lsa)
+
+    #  For each LSA, increases LS Age field if enough time has passed
+    def increase_link_local_lsa_age(self):
+        with self.lsa_lock:
+            for query_lsa in self.link_local_lsa_list:
+                query_lsa.increase_lsa_age()
