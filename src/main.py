@@ -84,8 +84,8 @@ class Main(cmd.Cmd):
             self.command_pipeline_v3.put([router.SHOW_LSDB, None])
             Main.wait_for_output(self.output_event_v3)
 
-    def do_show_ip_route(self, arg):
-        'Prints routing table content: SHOW_IP_ROUTE'
+    def do_show_route(self, arg):
+        'Prints routing table content: SHOW_ROUTE'
         if self.option in [BOTH_VERSIONS, OSPF_V2]:
             print("IPv4")
             os.system("ip route")
@@ -93,8 +93,8 @@ class Main(cmd.Cmd):
             print("IPv6")
             os.system("ip -6 route")
 
-    def do_show_ip_address(self, arg):
-        'Prints addresses of all router interfaces: SHOW_IP_ADDRESS'
+    def do_show_address(self, arg):
+        'Prints addresses of all router interfaces: SHOW_ADDRESS'
         os.system("ip addr")
 
     def do_shutdown_interface(self, arg):
@@ -218,7 +218,7 @@ class Main(cmd.Cmd):
         for interface in interfaces:
             if len(netifaces.ifaddresses(interface)[netifaces.AF_INET6]) > 2:
                 address = netifaces.ifaddresses(interface)[netifaces.AF_INET6][0]['addr']
-                prefix_length = str(utils.Utils.get_ipv6_prefix_from_interface_name(interface)[1])
+                prefix_length = str(utils.Utils.interface_name_to_ipv6_prefix_and_length(interface)[1])
                 os.system("ip -6 addr del " + address + "/" + prefix_length + " dev " + interface)
         print(datetime.now().time(), Main.router_id + ": Address autoconfiguration disabled")
 

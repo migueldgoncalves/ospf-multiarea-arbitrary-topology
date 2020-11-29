@@ -156,38 +156,38 @@ class UtilsTest(unittest.TestCase):
         self.assertEqual(19299, utils.Utils.create_fletcher_checksum(byte_stream))
 
     #  Successful run - Instant
-    def test_get_ipv4_address_from_interface_name(self):
-        self.assertEqual(INTERFACE_IPV4, utils.Utils.get_ipv4_address_from_interface_name(INTERFACE_NAME))
+    def test_interface_name_to_ipv4_address(self):
+        self.assertEqual(INTERFACE_IPV4, utils.Utils.interface_name_to_ipv4_address(INTERFACE_NAME))
 
     #  Successful run - Instant
-    def test_get_ipv6_global_address_from_interface_name(self):
-        self.assertEqual(INTERFACE_IPV6, utils.Utils.get_ipv6_global_address_from_interface_name(INTERFACE_NAME))
+    def test_interface_name_to_ipv6_global_address(self):
+        self.assertEqual(INTERFACE_IPV6, utils.Utils.interface_name_to_ipv6_global_address(INTERFACE_NAME))
 
     #  Successful run - Instant
-    def test_get_ipv6_link_local_address_from_interface_name(self):
-        link_local_address = utils.Utils.get_ipv6_link_local_address_from_interface_name(INTERFACE_NAME)
+    def test_interface_name_to_ipv6_link_local_address(self):
+        link_local_address = utils.Utils.interface_name_to_ipv6_link_local_address(INTERFACE_NAME)
         self.assertEqual("fe80", link_local_address[0:4])
         self.assertFalse('%' in link_local_address)
         self.assertFalse(INTERFACE_NAME in link_local_address)
         self.assertTrue(utils.Utils.is_ipv6_address(link_local_address))
 
     #  Successful run - Instant
-    def test_get_ipv4_network_mask_from_interface_name(self):
-        self.assertEqual(NETWORK_MASK_IPV4, utils.Utils.get_ipv4_network_mask_from_interface_name(INTERFACE_NAME))
+    def test_interface_name_to_ipv4_network_mask(self):
+        self.assertEqual(NETWORK_MASK_IPV4, utils.Utils.interface_name_to_ipv4_network_mask(INTERFACE_NAME))
 
     #  Successful run - Instant
-    def test_get_ipv4_prefix_from_interface_name(self):
+    def test_interface_name_to_ipv4_prefix_and_length(self):
         self.assertEqual(
-            [PREFIX_IPV4, PREFIX_IPV4_LENGTH], utils.Utils.get_ipv4_prefix_from_interface_name(INTERFACE_NAME))
+            [PREFIX_IPV4, PREFIX_IPV4_LENGTH], utils.Utils.interface_name_to_ipv4_prefix_and_length(INTERFACE_NAME))
 
     #  Successful run - Instant
-    def test_get_ipv6_network_mask_from_interface_name(self):
-        self.assertEqual(NETWORK_MASK_IPV6, utils.Utils.get_ipv6_network_mask_from_interface_name(INTERFACE_NAME))
+    def test_interface_name_to_ipv6_network_mask(self):
+        self.assertEqual(NETWORK_MASK_IPV6, utils.Utils.interface_name_to_ipv6_network_mask(INTERFACE_NAME))
 
     #  Successful run - Instant
-    def test_get_ipv6_prefix_from_interface_name(self):
+    def test_interface_name_to_ipv6_prefix_and_length(self):
         self.assertEqual(
-            [PREFIX_IPV6, PREFIX_IPV6_LENGTH], utils.Utils.get_ipv6_prefix_from_interface_name(INTERFACE_NAME))
+            [PREFIX_IPV6, PREFIX_IPV6_LENGTH], utils.Utils.interface_name_to_ipv6_prefix_and_length(INTERFACE_NAME))
 
     #  Successful run - Instant
     def test_is_ipv4_address_successful(self):
@@ -344,35 +344,38 @@ class UtilsTest(unittest.TestCase):
         self.assertFalse(utils.Utils.is_ipv6_network_mask('4000::'))
 
     #  Successful run - Instant
-    def test_is_ip_in_network(self):
-        self.assertTrue(utils.Utils.is_ip_in_network(INTERFACE_IPV4, INTERFACE_NAME))
+    def test_is_ip_in_directly_connected_network(self):
+        self.assertTrue(utils.Utils.is_ip_in_directly_connected_network(INTERFACE_IPV4, INTERFACE_NAME))
         next_address = utils.Utils.decimal_to_ipv4(utils.Utils.ipv4_to_decimal(INTERFACE_IPV4) + 1)
-        self.assertTrue(utils.Utils.is_ip_in_network(next_address, INTERFACE_NAME))
+        self.assertTrue(utils.Utils.is_ip_in_directly_connected_network(next_address, INTERFACE_NAME))
         next_address = utils.Utils.decimal_to_ipv4(utils.Utils.ipv4_to_decimal(INTERFACE_IPV4) + 2)
-        self.assertTrue(utils.Utils.is_ip_in_network(next_address, INTERFACE_NAME))
+        self.assertTrue(utils.Utils.is_ip_in_directly_connected_network(next_address, INTERFACE_NAME))
 
-        self.assertTrue(utils.Utils.is_ip_in_network(INTERFACE_IPV6, INTERFACE_NAME))
+        self.assertTrue(utils.Utils.is_ip_in_directly_connected_network(INTERFACE_IPV6, INTERFACE_NAME))
         next_address = utils.Utils.decimal_to_ipv6(utils.Utils.ipv6_to_decimal(INTERFACE_IPV6) + 1)
-        self.assertTrue(utils.Utils.is_ip_in_network(next_address, INTERFACE_NAME))
+        self.assertTrue(utils.Utils.is_ip_in_directly_connected_network(next_address, INTERFACE_NAME))
         next_address = utils.Utils.decimal_to_ipv6(utils.Utils.ipv6_to_decimal(INTERFACE_IPV6) + 2)
-        self.assertTrue(utils.Utils.is_ip_in_network(next_address, INTERFACE_NAME))
+        self.assertTrue(utils.Utils.is_ip_in_directly_connected_network(next_address, INTERFACE_NAME))
 
-        self.assertFalse(utils.Utils.is_ip_in_network('-1.-1.-1.-1', INTERFACE_NAME))
-        self.assertFalse(utils.Utils.is_ip_in_network('::-1', INTERFACE_NAME))
-        self.assertFalse(utils.Utils.is_ip_in_network('0.0.0.0', INTERFACE_NAME))
-        self.assertFalse(utils.Utils.is_ip_in_network('::', INTERFACE_NAME))
-        self.assertFalse(utils.Utils.is_ip_in_network('0.0.0.1', INTERFACE_NAME))
-        self.assertFalse(utils.Utils.is_ip_in_network('::1', INTERFACE_NAME))
-        self.assertFalse(utils.Utils.is_ip_in_network('255.255.255.254', INTERFACE_NAME))
-        self.assertFalse(utils.Utils.is_ip_in_network('ffff:ffff:ffff:ffff:ffff:ffff:ffff:fffe', INTERFACE_NAME))
-        self.assertFalse(utils.Utils.is_ip_in_network('255.255.255.255', INTERFACE_NAME))
-        self.assertFalse(utils.Utils.is_ip_in_network('ffff:ffff:ffff:ffff:ffff:ffff:ffff:ffff', INTERFACE_NAME))
-        self.assertFalse(utils.Utils.is_ip_in_network('256.256.256.256', INTERFACE_NAME))
-        self.assertFalse(utils.Utils.is_ip_in_network('gggg:gggg:gggg:gggg:gggg:gggg:gggg:gggg', INTERFACE_NAME))
-        self.assertFalse(utils.Utils.is_ip_in_network('', INTERFACE_NAME))
-        self.assertFalse(utils.Utils.is_ip_in_network('Invalid address', INTERFACE_NAME))
-        self.assertFalse(utils.Utils.is_ip_in_network(0, INTERFACE_NAME))
-        self.assertFalse(utils.Utils.is_ip_in_network(None, INTERFACE_NAME))
+        self.assertFalse(utils.Utils.is_ip_in_directly_connected_network('-1.-1.-1.-1', INTERFACE_NAME))
+        self.assertFalse(utils.Utils.is_ip_in_directly_connected_network('::-1', INTERFACE_NAME))
+        self.assertFalse(utils.Utils.is_ip_in_directly_connected_network('0.0.0.0', INTERFACE_NAME))
+        self.assertFalse(utils.Utils.is_ip_in_directly_connected_network('::', INTERFACE_NAME))
+        self.assertFalse(utils.Utils.is_ip_in_directly_connected_network('0.0.0.1', INTERFACE_NAME))
+        self.assertFalse(utils.Utils.is_ip_in_directly_connected_network('::1', INTERFACE_NAME))
+        self.assertFalse(utils.Utils.is_ip_in_directly_connected_network('255.255.255.254', INTERFACE_NAME))
+        self.assertFalse(
+            utils.Utils.is_ip_in_directly_connected_network('ffff:ffff:ffff:ffff:ffff:ffff:ffff:fffe', INTERFACE_NAME))
+        self.assertFalse(utils.Utils.is_ip_in_directly_connected_network('255.255.255.255', INTERFACE_NAME))
+        self.assertFalse(utils.Utils.is_ip_in_directly_connected_network(
+            'ffff:ffff:ffff:ffff:ffff:ffff:ffff:ffff', INTERFACE_NAME))
+        self.assertFalse(utils.Utils.is_ip_in_directly_connected_network('256.256.256.256', INTERFACE_NAME))
+        self.assertFalse(utils.Utils.is_ip_in_directly_connected_network(
+            'gggg:gggg:gggg:gggg:gggg:gggg:gggg:gggg', INTERFACE_NAME))
+        self.assertFalse(utils.Utils.is_ip_in_directly_connected_network('', INTERFACE_NAME))
+        self.assertFalse(utils.Utils.is_ip_in_directly_connected_network('Invalid address', INTERFACE_NAME))
+        self.assertFalse(utils.Utils.is_ip_in_directly_connected_network(0, INTERFACE_NAME))
+        self.assertFalse(utils.Utils.is_ip_in_directly_connected_network(None, INTERFACE_NAME))
 
     #  Successful run - Instant
     def test_ip_address_to_prefix(self):
@@ -381,19 +384,14 @@ class UtilsTest(unittest.TestCase):
         self.assertEqual('2001:db8:cafe:1::', utils.Utils.ip_address_to_prefix('2001:db8:cafe:1::1', 64))
 
     #  Successful run - Instant
-    def test_prefix_lenght_to_network_mask(self):
+    def test_prefix_length_to_network_mask(self):
         self.assertEqual('255.255.255.0', utils.Utils.prefix_length_to_network_mask(24, conf.VERSION_IPV4))
         self.assertEqual('ffff:ffff:ffff:ffff::', utils.Utils.prefix_length_to_network_mask(64, conf.VERSION_IPV6))
 
     #  Successful run - Instant
-    def test_get_prefix_length_from_prefix(self):
-        self.assertEqual(24, utils.Utils.get_prefix_length_from_prefix('222.222.1.0'))
-        self.assertEqual(64, utils.Utils.get_prefix_length_from_prefix('2001:db8:cafe:1::'))
-
-    #  Successful run - Instant
-    def test_get_prefix_from_prefix_length(self):
-        self.assertEqual('255.255.255.0', utils.Utils.get_prefix_from_prefix_length(24, conf.VERSION_IPV4))
-        self.assertEqual('ffff:ffff:ffff:ffff::', utils.Utils.get_prefix_from_prefix_length(64, conf.VERSION_IPV6))
+    def test_prefix_to_prefix_length(self):
+        self.assertEqual(24, utils.Utils.prefix_to_prefix_length('222.222.1.0'))
+        self.assertEqual(64, utils.Utils.prefix_to_prefix_length('2001:db8:cafe:1::'))
 
 
 if __name__ == '__main__':

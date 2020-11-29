@@ -18,8 +18,8 @@ class KernelTable:
     def get_directly_connected_prefixes(interfaces):
         prefixes = []
         for interface in interfaces:
-            prefixes.append(utils.Utils.get_ipv4_prefix_from_interface_name(interface))
-            prefixes.append(utils.Utils.get_ipv6_prefix_from_interface_name(interface))
+            prefixes.append(utils.Utils.interface_name_to_ipv4_prefix_and_length(interface))
+            prefixes.append(utils.Utils.interface_name_to_ipv6_prefix_and_length(interface))
         return prefixes
 
     #  Returns True if there is route created by OSPF in default routing table with provided parameters

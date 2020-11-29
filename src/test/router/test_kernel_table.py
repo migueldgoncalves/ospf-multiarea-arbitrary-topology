@@ -72,10 +72,10 @@ class TestKernelTable(unittest.TestCase):
 
     #  Successful run - Instant
     def test_add_connected_prefixes(self):
-        prefix_data_v2 = utils.Utils.get_ipv4_prefix_from_interface_name(conf.INTERFACE_NAMES[0])
+        prefix_data_v2 = utils.Utils.interface_name_to_ipv4_prefix_and_length(conf.INTERFACE_NAMES[0])
         prefix_data_v2.append(TestKernelTable.NEXT_HOP_1_V2)
         prefix_data_v2.append(TestKernelTable.OUTGOING_INTERFACE)
-        prefix_data_v3 = utils.Utils.get_ipv6_prefix_from_interface_name(conf.INTERFACE_NAMES[0])
+        prefix_data_v3 = utils.Utils.interface_name_to_ipv6_prefix_and_length(conf.INTERFACE_NAMES[0])
         prefix_data_v3.append(TestKernelTable.NEXT_HOP_1_V3)
         prefix_data_v3.append(TestKernelTable.OUTGOING_INTERFACE)
         previous_routes = len(kernel_table.KernelTable.get_all_routes())

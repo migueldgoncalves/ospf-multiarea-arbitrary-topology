@@ -81,7 +81,7 @@ class SocketTest(unittest.TestCase):
         self.assertEqual(conf.VERSION_IPV6, received_packet.header.version)
         self.assertEqual(conf.PACKET_TYPE_HELLO, received_packet.header.packet_type)
         self.assertEqual(OTHER_ROUTER_ID, received_packet.body.designated_router)
-        link_local_address = utils.Utils.get_ipv6_link_local_address_from_interface_name(INTERFACE)
+        link_local_address = utils.Utils.interface_name_to_ipv6_link_local_address(INTERFACE)
         self.assertNotEqual(link_local_address, source_ip_address)
 
         self.shutdown.set()
@@ -112,7 +112,7 @@ class SocketTest(unittest.TestCase):
         data_array = self.pipeline.get()
         self.assertEqual(2, len(data_array))
         self.assertEqual(DATA_TO_SEND_OSPFV2, data_array[0])
-        self.assertEqual(utils.Utils.get_ipv4_address_from_interface_name(interface_name), data_array[1])
+        self.assertEqual(utils.Utils.interface_name_to_ipv4_address(interface_name), data_array[1])
 
         self.shutdown.set()
         thread.join()
@@ -145,7 +145,7 @@ class SocketTest(unittest.TestCase):
         after_checksum = DATA_TO_SEND_OSPFV3[14:]
         self.assertTrue(before_checksum in data_array[0])  # Checksum depends on interface link-local address
         self.assertTrue(after_checksum in data_array[0])
-        self.assertEqual(utils.Utils.get_ipv6_link_local_address_from_interface_name(interface_name), data_array[1])
+        self.assertEqual(utils.Utils.interface_name_to_ipv6_link_local_address(interface_name), data_array[1])
 
         self.shutdown.set()
         thread.join()
@@ -202,7 +202,7 @@ class SocketTest(unittest.TestCase):
         self.assertTrue(self.pipeline.qsize() > 1)  # Hello packets from other router will appear while waiting
 
         packets_data = []
-        interface_ip_address = utils.Utils.get_ipv4_address_from_interface_name(INTERFACE)
+        interface_ip_address = utils.Utils.interface_name_to_ipv4_address(INTERFACE)
         while not self.pipeline.empty():
             packets_data.append(self.pipeline.get())
         self_packet_data = []
@@ -238,7 +238,7 @@ class SocketTest(unittest.TestCase):
         self.assertTrue(self.pipeline.qsize() > 1)
 
         packets_data = []
-        interface_ip_address = utils.Utils.get_ipv6_link_local_address_from_interface_name(INTERFACE)
+        interface_ip_address = utils.Utils.interface_name_to_ipv6_link_local_address(INTERFACE)
         while not self.pipeline.empty():
             packets_data.append(self.pipeline.get())
         self_packet_data = []

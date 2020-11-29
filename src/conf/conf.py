@@ -11,7 +11,7 @@ INTERFACE_COST = 10
 #  Ex: Interface "ens32" belongs to area '0.0.0.0'
 INTERFACE_NAMES = ["eth0"]  # Must match interface names in the machine
 INTERFACE_AREAS = ['0.0.0.0']
-KERNEL_UPDATE_INTERVAL = 3  # Implementation-specific - Time between updates of kernel routing table
+KERNEL_UPDATE_INTERVAL = 0  # Implementation-specific - Time between updates of kernel routing table
 
 #  Only applicable if program is running inside provided GNS3 networks - Replaces default parameters
 
@@ -34,6 +34,7 @@ AREAS_R6 = [['0.0.0.0'], [], []]
 OPTIONS = 2  # External Routing enabled - For compatibility with Cisco routers used
 PREFIX_OPTIONS = 0
 DEFAULT_DESIGNATED_ROUTER = '0.0.0.0'
+DEFAULT_LINK_STATE_ID = '0.0.0.0'
 DEFAULT_AUTH = 0
 MTU = 1500  # Maximum transmission unit - In bytes
 OSPF_PROTOCOL_NUMBER = 89

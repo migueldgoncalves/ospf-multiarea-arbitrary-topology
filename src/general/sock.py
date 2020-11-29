@@ -63,7 +63,7 @@ class Socket:
                 data = s.recvfrom(conf.MTU)  # Includes IP header
                 array = Socket.process_ipv4_data(data[0])  # [packet_byte_stream, source_ip_address]
                 #  If packet is not from itself OR if packets from itself are allowed
-                if (array[1] != utils.Utils.get_ipv4_address_from_interface_name(interface)) | accept_self_packets:
+                if (array[1] != utils.Utils.interface_name_to_ipv4_address(interface)) | accept_self_packets:
                     pipeline.put(array)
             except socket.timeout:
                 pass  # Required since program will block until packet is received
@@ -103,8 +103,8 @@ class Socket:
                 data = s.recvfrom(conf.MTU)  # Does not include IP header
                 packet_bytes = data[0]
                 source_ip_address = data[1][0].split('%')[0]
-                link_local_address = utils.Utils.get_ipv6_link_local_address_from_interface_name(interface)
-                global_address = utils.Utils.get_ipv6_global_address_from_interface_name(interface)
+                link_local_address = utils.Utils.interface_name_to_ipv6_link_local_address(interface)
+                global_address = utils.Utils.interface_name_to_ipv6_global_address(interface)
                 #  If packet is not from itself OR if packets from itself are allowed
                 if (source_ip_address not in [link_local_address, global_address]) | accept_self_packets:
                     pipeline.put([packet_bytes, source_ip_address])
@@ -129,7 +129,7 @@ class Socket:
         packet_bytes = self.is_packet_checksum_valid(packet_bytes, conf.VERSION_IPV4, '', '')
 
         if localhost:  # Socket will not be used in integration tests
-            source_address = utils.Utils.get_ipv4_address_from_interface_name(interface)
+            source_address = utils.Utils.interface_name_to_ipv4_address(interface)
             data = [packet_bytes, source_address, destination_address]
             self.exit_pipeline_v2.put(data)
             return
@@ -156,7 +156,7 @@ class Socket:
             raise ValueError("No interface to bind provided")
         if interface.strip() == '':
             raise ValueError("Empty interface to bind provided")
-        source_address = utils.Utils.get_ipv6_link_local_address_from_interface_name(interface)
+        source_address = utils.Utils.interface_name_to_ipv6_link_local_address(interface)
         packet_bytes = self.is_packet_checksum_valid(
             packet_bytes, conf.VERSION_IPV6, source_address, destination_address)
 

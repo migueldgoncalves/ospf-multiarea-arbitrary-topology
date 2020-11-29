@@ -93,12 +93,12 @@ class Utils:
 
     #  Returns the IPv4 address of an interface given its name (ex: ens33)
     @staticmethod
-    def get_ipv4_address_from_interface_name(interface_name):
+    def interface_name_to_ipv4_address(interface_name):
         return netifaces.ifaddresses(interface_name)[netifaces.AF_INET][0]['addr']
 
     #  Returns the IPv6 global address of an interface given its name (ex: ens33)
     @staticmethod
-    def get_ipv6_global_address_from_interface_name(interface_name):
+    def interface_name_to_ipv6_global_address(interface_name):
         for i in range(len(netifaces.ifaddresses(interface_name)[netifaces.AF_INET6])):
             ip_address = netifaces.ifaddresses(interface_name)[netifaces.AF_INET6][i]['addr']
             if not ip_address.__contains__("fe80"):
@@ -106,7 +106,7 @@ class Utils:
 
     #  Returns the IPv6 link-local address of an interface given its name (ex: ens33)
     @staticmethod
-    def get_ipv6_link_local_address_from_interface_name(interface_name):
+    def interface_name_to_ipv6_link_local_address(interface_name):
         for i in range(len(netifaces.ifaddresses(interface_name)[netifaces.AF_INET6])):
             ip_address = netifaces.ifaddresses(interface_name)[netifaces.AF_INET6][i]['addr']
             if ip_address.__contains__("fe80"):
@@ -114,14 +114,14 @@ class Utils:
 
     #  Returns the IPv4 network mask of an interface given its name (ex: ens33)
     @staticmethod
-    def get_ipv4_network_mask_from_interface_name(interface_name):
+    def interface_name_to_ipv4_network_mask(interface_name):
         return netifaces.ifaddresses(interface_name)[netifaces.AF_INET][0]['netmask']
 
     #  Returns the IPv4 prefix and respective length of an interface given its name (ex: ens33)
     @staticmethod
-    def get_ipv4_prefix_from_interface_name(interface_name):
-        ipv4_address = Utils.get_ipv4_address_from_interface_name(interface_name)
-        network_mask = Utils.get_ipv4_network_mask_from_interface_name(interface_name)
+    def interface_name_to_ipv4_prefix_and_length(interface_name):
+        ipv4_address = Utils.interface_name_to_ipv4_address(interface_name)
+        network_mask = Utils.interface_name_to_ipv4_network_mask(interface_name)
         prefix_length = bin(int(ipaddress.IPv4Address(network_mask)))[2:].count('1')  # '0b1111'[2:] -> '1111'
         prefix = str(ipaddress.IPv4Interface((ipv4_address, prefix_length)).network).split("/")[0]
         return [prefix, prefix_length]
@@ -129,14 +129,14 @@ class Utils:
     #  TODO: Consider the case where more than one IPv6 prefix is configured
     #  Returns the IPv6 network mask of an interface given its name (ex: ens33)
     @staticmethod
-    def get_ipv6_network_mask_from_interface_name(interface_name):
+    def interface_name_to_ipv6_network_mask(interface_name):
         return netifaces.ifaddresses(interface_name)[netifaces.AF_INET6][0]['netmask'].split("/")[0]
 
     #  Returns the IPv6 prefix and respective length of an interface given its name (ex: ens33)
     @staticmethod
-    def get_ipv6_prefix_from_interface_name(interface_name):
-        global_ipv6_address = Utils.get_ipv6_global_address_from_interface_name(interface_name)
-        network_mask = Utils.get_ipv6_network_mask_from_interface_name(interface_name)
+    def interface_name_to_ipv6_prefix_and_length(interface_name):
+        global_ipv6_address = Utils.interface_name_to_ipv6_global_address(interface_name)
+        network_mask = Utils.interface_name_to_ipv6_network_mask(interface_name)
         prefix_length = bin(int(ipaddress.IPv6Address(network_mask)))[2:].count('1')  # '0b1111'[2:] -> '1111'
         prefix = str(ipaddress.IPv6Interface((global_ipv6_address, prefix_length)).network).split("/")[0]
         return [prefix, prefix_length]
@@ -213,18 +213,18 @@ class Utils:
             return False  # Bits to the left include 0's
         return True
 
-    #  Given an IP address and a network mask, return True if the address is part of the network
+    #  Given IP address and network mask, return True if address is part of directly connected network
     @staticmethod
-    def is_ip_in_network(ip_address, interface_name):
+    def is_ip_in_directly_connected_network(ip_address, interface_name):
         if not (Utils.is_ipv4_address(ip_address) | Utils.is_ipv6_address(ip_address)):
             return False
         elif Utils.is_ipv4_address(ip_address):
-            network_prefix = Utils.get_ipv4_prefix_from_interface_name(interface_name)
+            network_prefix = Utils.interface_name_to_ipv4_prefix_and_length(interface_name)
             decimal_network_prefix = Utils.ipv4_to_decimal(network_prefix[0])
             decimal_ip_address = Utils.ipv4_to_decimal(ip_address) >> (32 - network_prefix[1])
             return decimal_ip_address == (decimal_network_prefix >> (32 - network_prefix[1]))
         elif Utils.is_ipv6_address(ip_address):
-            network_prefix = Utils.get_ipv6_prefix_from_interface_name(interface_name)
+            network_prefix = Utils.interface_name_to_ipv6_prefix_and_length(interface_name)
             decimal_network_prefix = Utils.ipv6_to_decimal(network_prefix[0])
             decimal_ip_address = Utils.ipv6_to_decimal(ip_address) >> (128 - network_prefix[1])
             return decimal_ip_address == (decimal_network_prefix >> (128 - network_prefix[1]))
@@ -257,7 +257,7 @@ class Utils:
 
     #  Given a prefix, returns its length
     @staticmethod
-    def get_prefix_length_from_prefix(prefix):
+    def prefix_to_prefix_length(prefix):
         if Utils.is_ipv4_address(prefix):
             prefix = Utils.ipv4_to_decimal(prefix)
             prefix_length = 4 * conf.BYTE_SIZE
@@ -271,17 +271,3 @@ class Utils:
             if prefix & (2 ** host_bits) != 0:
                 return prefix_length - host_bits
             host_bits += 1
-
-    #  Given a prefix length and a OSPF version, returns the prefix
-    @staticmethod
-    def get_prefix_from_prefix_length(prefix_length, version):
-        if version == conf.VERSION_IPV4:
-            bits_to_clear = 4 * conf.BYTE_SIZE - prefix_length
-            decimal_prefix = (conf.MAX_VALUE_32_BITS >> bits_to_clear) << bits_to_clear
-            return Utils.decimal_to_ipv4(decimal_prefix)
-        elif version == conf.VERSION_IPV6:
-            bits_to_clear = 16 * conf.BYTE_SIZE - prefix_length
-            decimal_prefix = (conf.MAX_VALUE_128_BITS >> bits_to_clear) << bits_to_clear
-            return Utils.decimal_to_ipv6(decimal_prefix)
-        else:
-            raise ValueError("Invalid OSPF version")

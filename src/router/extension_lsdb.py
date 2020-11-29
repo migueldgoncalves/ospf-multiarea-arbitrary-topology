@@ -1,8 +1,10 @@
-import multiprocessing
+import threading
 import time
+import copy
 
 import conf.conf as conf
 import area.lsdb as lsdb
+import lsa.header as header
 
 '''
 This class represents the Link State Database for the OSPF extension and contains its data and operations
@@ -16,92 +18,153 @@ class ExtensionLsdb:
         self.prefix_lsa_list = []
         self.asbr_lsa_list = []
 
-        self.lsdb_lock = multiprocessing.RLock()
+        self.lsdb_lock = threading.RLock()
+        self.abr_lock = threading.RLock()
+        self.prefix_lock = threading.RLock()
+        self.asbr_lock = threading.RLock()
+        self.time_lock = threading.RLock()
         self.version = version
-        self.is_modified = multiprocessing.Event()  # Set if LSDB was changed and change has not yet been processed
+        self.is_modified = threading.Event()  # Set if LSDB was changed and change has not yet been processed
         self.modification_time = time.perf_counter()  # Current system time
 
         self.clean_extension_lsdb()
         self.is_modified.clear()
 
-    #  Atomically returns full extension LSDB or part of it as a single list
+    #  Atomically returns full extension LSDB as a list
     def get_extension_lsdb(self):
-        with self.lsdb_lock:
-            lsa_list = []
-            lsa_list.extend(self.abr_lsa_list)
-            lsa_list.extend(self.prefix_lsa_list)
-            lsa_list.extend(self.asbr_lsa_list)
-            return lsa_list
+        self.acquire_all_locks()
+        lsa_list = []
+        lsa_list.extend(self.abr_lsa_list)
+        lsa_list.extend(self.prefix_lsa_list)
+        lsa_list.extend(self.asbr_lsa_list)
+        list_copy = copy.deepcopy(lsa_list)
+        self.release_all_locks()
+        return list_copy
 
     #  Atomically returns an extension LSA given its identifier, if present
-    def get_extension_lsa(self, ls_type, advertising_router):
-        with self.lsdb_lock:
-            lsa_list = self.get_extension_lsdb()
-            for query_lsa in lsa_list:
-                if query_lsa.is_lsa_identifier_equal(ls_type, '0.0.0.0', advertising_router):
-                    return query_lsa
-            return None
+    def get_extension_lsa(self, ls_type, opaque_type, advertising_router):
+        ls_type = header.Header.get_ls_type(ls_type)  # Removes S1, S2 and U bits in OSPFv3 LS Type
+        list_to_search = []
+        if ((self.version == conf.VERSION_IPV4) & (ls_type == conf.LSA_TYPE_OPAQUE_AS) & (
+                opaque_type == conf.OPAQUE_TYPE_ABR_LSA)) | ((self.version == conf.VERSION_IPV6) & (
+                ls_type == conf.LSA_TYPE_EXTENSION_ABR_LSA)):
+            self.abr_lock.acquire()
+            list_to_search = copy.deepcopy(self.abr_lsa_list)
+            self.abr_lock.release()
+        elif ((self.version == conf.VERSION_IPV4) & (ls_type == conf.LSA_TYPE_OPAQUE_AS) & (
+                opaque_type == conf.OPAQUE_TYPE_PREFIX_LSA)) | ((self.version == conf.VERSION_IPV6) & (
+                ls_type == conf.LSA_TYPE_EXTENSION_PREFIX_LSA)):
+            self.abr_lock.acquire()
+            list_to_search = copy.deepcopy(self.prefix_lsa_list)
+            self.abr_lock.release()
+        elif ((self.version == conf.VERSION_IPV4) & (ls_type == conf.LSA_TYPE_OPAQUE_AS) & (
+                opaque_type == conf.OPAQUE_TYPE_ASBR_LSA)) | ((self.version == conf.VERSION_IPV6) & (
+                ls_type == conf.LSA_TYPE_EXTENSION_ASBR_LSA)):
+            self.abr_lock.acquire()
+            list_to_search = copy.deepcopy(self.asbr_lsa_list)
+            self.abr_lock.release()
+        else:
+            pass
+        for query_lsa in list_to_search:
+            if query_lsa.is_extension_lsa_identifier_equal(ls_type, opaque_type, advertising_router):
+                return query_lsa
+        return None
 
-    #  Atomically returns headers of full extension LSDB or part of it as a single list
+    #  Atomically returns headers of full extension LSDB
     def get_extension_lsa_headers(self):
-        with self.lsdb_lock:
-            lsa_list = self.get_extension_lsdb()
-            lsa_headers = []
-            for query_lsa in lsa_list:
-                lsa_headers.append(query_lsa.header)
-            return lsa_headers
+        lsa_list = self.get_extension_lsdb()
+        lsa_headers = []
+        for query_lsa in lsa_list:
+            lsa_headers.append(query_lsa.header)
+        return lsa_headers
 
     #  Atomically returns an extension LSA header given its identifier, if present
-    def get_extension_lsa_header(self, ls_type, advertising_router):
-        with self.lsdb_lock:
-            query_lsa = self.get_extension_lsa(ls_type, advertising_router)
-            if query_lsa is not None:
-                return query_lsa.header
-            return None
+    def get_extension_lsa_header(self, ls_type, opaque_type, advertising_router):
+        query_lsa = self.get_extension_lsa(ls_type, opaque_type, advertising_router)
+        if query_lsa is not None:
+            return query_lsa.header
+        return None
 
     #  Atomically deletes an extension LSA from the LSDB, if present
-    def delete_extension_lsa(self, ls_type, advertising_router):
-        with self.lsdb_lock:
-            for lsa_list in [self.abr_lsa_list, self.prefix_lsa_list, self.asbr_lsa_list]:
-                for query_lsa in lsa_list:
-                    if query_lsa.is_lsa_identifier_equal(ls_type, '0.0.0.0', advertising_router):
-                        lsa_list.remove(query_lsa)
-                        self.extension_lsdb_modified()
-                        return
+    def delete_extension_lsa(self, ls_type, opaque_type, advertising_router):
+        ls_type = header.Header.get_ls_type(ls_type)  # Removes S1, S2 and U bits in OSPFv3 LS Type
+        if ((self.version == conf.VERSION_IPV4) & (ls_type == conf.LSA_TYPE_OPAQUE_AS) & (
+                opaque_type == conf.OPAQUE_TYPE_ABR_LSA)) | ((self.version == conf.VERSION_IPV6) & (
+                ls_type == conf.LSA_TYPE_EXTENSION_ABR_LSA)):
+            lock = self.abr_lock
+            lock.acquire()
+            list_to_search = self.abr_lsa_list
+        elif ((self.version == conf.VERSION_IPV4) & (ls_type == conf.LSA_TYPE_OPAQUE_AS) & (
+                opaque_type == conf.OPAQUE_TYPE_PREFIX_LSA)) | ((self.version == conf.VERSION_IPV6) & (
+                ls_type == conf.LSA_TYPE_EXTENSION_PREFIX_LSA)):
+            lock = self.prefix_lock
+            lock.acquire()
+            list_to_search = self.prefix_lsa_list
+        elif ((self.version == conf.VERSION_IPV4) & (ls_type == conf.LSA_TYPE_OPAQUE_AS) & (
+                opaque_type == conf.OPAQUE_TYPE_ASBR_LSA)) | ((self.version == conf.VERSION_IPV6) & (
+                ls_type == conf.LSA_TYPE_EXTENSION_ASBR_LSA)):
+            lock = self.asbr_lock
+            lock.acquire()
+            list_to_search = self.asbr_lsa_list
+        else:
+            return
+        for query_lsa in list_to_search:
+            if query_lsa.is_lsa_identifier_equal(ls_type, opaque_type, advertising_router):
+                list_to_search.remove(query_lsa)
+                self.extension_lsdb_modified()
+        lock.release()
 
     #  Atomically adds an extension LSA to the adequate list according to its type
     def add_extension_lsa(self, lsa_to_add):
-        with self.lsdb_lock:
-            #  Deletes previous instance of LSA, if present
-            lsa_identifier = lsa_to_add.get_lsa_identifier()
-            self.delete_extension_lsa(lsa_identifier[0], lsa_identifier[2])
+        lsa_to_add.installation_time = time.perf_counter()
+        ls_type = lsa_to_add.get_lsa_type_from_lsa()
+        opaque_type = lsa_to_add.header.get_opaque_type(lsa_to_add.header.link_state_id)
+        if ((self.version == conf.VERSION_IPV4) & (ls_type == conf.LSA_TYPE_OPAQUE_AS) & (
+                opaque_type == conf.OPAQUE_TYPE_ABR_LSA)) | ((self.version == conf.VERSION_IPV6) & (
+                ls_type == conf.LSA_TYPE_EXTENSION_ABR_LSA)):
+            lock = self.abr_lock
+            lock.acquire()
+            list_to_search = self.abr_lsa_list
+        elif ((self.version == conf.VERSION_IPV4) & (ls_type == conf.LSA_TYPE_OPAQUE_AS) & (
+                opaque_type == conf.OPAQUE_TYPE_PREFIX_LSA)) | ((self.version == conf.VERSION_IPV6) & (
+                ls_type == conf.LSA_TYPE_EXTENSION_PREFIX_LSA)):
+            lock = self.prefix_lock
+            lock.acquire()
+            list_to_search = self.prefix_lsa_list
+        elif ((self.version == conf.VERSION_IPV4) & (ls_type == conf.LSA_TYPE_OPAQUE_AS) & (
+                opaque_type == conf.OPAQUE_TYPE_ASBR_LSA)) | ((self.version == conf.VERSION_IPV6) & (
+                ls_type == conf.LSA_TYPE_EXTENSION_ASBR_LSA)):
+            lock = self.asbr_lock
+            lock.acquire()
+            list_to_search = self.asbr_lsa_list
+        else:
+            return
 
-            lsa_to_add.installation_time = time.perf_counter()
-            ls_type = lsa_to_add.get_lsa_type_from_lsa()
-            if ls_type == conf.LSA_TYPE_EXTENSION_ABR_LSA:
-                self.abr_lsa_list.append(lsa_to_add)
-                self.extension_lsdb_modified()
-            elif ls_type == conf.LSA_TYPE_EXTENSION_PREFIX_LSA:
-                self.prefix_lsa_list.append(lsa_to_add)
-                self.extension_lsdb_modified()
-            elif ls_type == conf.LSA_TYPE_EXTENSION_ASBR_LSA:
-                self.asbr_lsa_list.append(lsa_to_add)
-                self.extension_lsdb_modified()
-            else:
-                pass
+        #  Deletes previous instance of LSA, if present
+        self.delete_extension_lsa(ls_type, opaque_type, lsa_to_add.header.advertising_router)
+
+        list_to_search.append(lsa_to_add)
+        self.extension_lsdb_modified()
+        lock.release()
 
     def clean_extension_lsdb(self):
-        with self.lsdb_lock:
-            self.abr_lsa_list = []
-            self.prefix_lsa_list = []
-            self.asbr_lsa_list = []
-            self.is_modified.set()
+        self.acquire_all_locks()
+        self.abr_lsa_list = []
+        self.prefix_lsa_list = []
+        self.asbr_lsa_list = []
+        self.release_all_locks()
+        self.is_modified.set()
 
     #  For each extension LSA, increases LS Age field if enough time has passed
     def increase_lsa_age(self):
-        with self.lsdb_lock:
-            lsa_list = self.get_extension_lsdb()
-            for query_lsa in lsa_list:
+        with self.abr_lock:
+            for query_lsa in self.abr_lsa_list:
+                query_lsa.increase_lsa_age()
+        with self.prefix_lock:
+            for query_lsa in self.prefix_lsa_list:
+                query_lsa.increase_lsa_age()
+        with self.asbr_lock:
+            for query_lsa in self.asbr_lsa_list:
                 query_lsa.increase_lsa_age()
 
     #  Signals router main thread of new extension LSDB modification
@@ -111,19 +174,26 @@ class ExtensionLsdb:
 
     #  Atomically resets modification time to current time
     def reset_modification_time(self):
-        with self.lsdb_lock:
+        with self.time_lock:
             self.modification_time = time.perf_counter()
 
     #  Atomically returns value of modification time
     def get_modification_time(self):
-        with self.lsdb_lock:
+        with self.time_lock:
             return self.modification_time
 
     #  Returns the overlay directed graph as a table
     def get_overlay_directed_graph(self):
+        self.abr_lock.acquire()
+        abr_lsa_list = copy.deepcopy(self.abr_lsa_list)
+        self.abr_lock.release()
+        self.prefix_lock.acquire()
+        prefix_lsa_list = copy.deepcopy(self.prefix_lsa_list)
+        self.prefix_lock.release()
+
         #  Graph initialization
         directed_graph = {}  # Dictionary of dictionaries - Each dictionary contains destinations for one graph node
-        for query_lsa in self.abr_lsa_list:  # Each ABR creates one extension LSA of each type, at most
+        for query_lsa in abr_lsa_list:  # Each ABR creates one extension LSA of each type, at most
             directed_graph[query_lsa.advertising_router] = {}
             for neighbor_abr in query_lsa.abr_list:
                 metric = neighbor_abr[0]
@@ -132,7 +202,7 @@ class ExtensionLsdb:
 
         #  Address prefixes
         prefixes = {}
-        for query_lsa in self.prefix_lsa_list:
+        for query_lsa in prefix_lsa_list:
             prefixes[query_lsa.advertising_router] = []
             if self.version == conf.VERSION_IPV4:
                 for subnet_info in query_lsa.subnet_list:
@@ -149,3 +219,22 @@ class ExtensionLsdb:
     @staticmethod
     def get_shortest_path_tree(directed_graph, source_router_id):
         lsdb.Lsdb.get_shortest_path_tree(directed_graph, source_router_id)
+
+    def acquire_all_locks(self):
+        self.abr_lock.acquire()
+        self.prefix_lock.acquire()
+        self.asbr_lock.acquire()
+
+    def release_all_locks(self):
+        self.abr_lock.release()
+        self.prefix_lock.release()
+        self.asbr_lock.release()
+
+    def __deepcopy__(self, memodict=None):
+        if memodict is None:
+            memodict = {}
+        lsdb_copy = ExtensionLsdb(self.version)
+        lsdb_copy.abr_lsa_list = copy.deepcopy(self.abr_lsa_list)
+        lsdb_copy.prefix_lsa_list = copy.deepcopy(self.prefix_lsa_list)
+        lsdb_copy.asbr_lsa_type_3_list = copy.deepcopy(self.asbr_lsa_list)
+        return lsdb_copy

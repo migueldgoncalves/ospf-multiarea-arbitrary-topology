@@ -68,7 +68,7 @@ class Interface:
             self.hello_packet_to_send.create_header_v2(
                 conf.PACKET_TYPE_HELLO, self.router_id, area_id, conf.NULL_AUTHENTICATION, conf.DEFAULT_AUTH)
         else:  # Running OSPFv3 protocol
-            source_address = utils.Utils.get_ipv6_link_local_address_from_interface_name(self.physical_identifier)
+            source_address = utils.Utils.interface_name_to_ipv6_link_local_address(self.physical_identifier)
             destination_address = conf.ALL_OSPF_ROUTERS_IPV6
             self.hello_packet_to_send.create_header_v3(
                 conf.PACKET_TYPE_HELLO, self.router_id, area_id, self.instance_id, source_address, destination_address)
@@ -811,9 +811,9 @@ class Interface:
     #  Changes DR or BDR value and prints a message
     def set_dr_bdr(self, value_name, new_value):
         if self.version == conf.VERSION_IPV4:
-            prefix = utils.Utils.get_ipv4_prefix_from_interface_name(self.physical_identifier)[0]
+            prefix = utils.Utils.interface_name_to_ipv4_prefix_and_length(self.physical_identifier)[0]
         else:
-            prefix = utils.Utils.get_ipv6_prefix_from_interface_name(self.physical_identifier)[0]
+            prefix = utils.Utils.interface_name_to_ipv6_prefix_and_length(self.physical_identifier)[0]
         if (value_name == Interface.DR) & (new_value != self.designated_router):
             print(datetime.now().time(), self.router_id + ": OSPFv" + str(self.version), value_name, "changed from",
                   self.designated_router, "to", new_value, "at network", prefix)
@@ -1042,7 +1042,7 @@ class Interface:
             router_lsa.body.delete_interface_link_info(self.ipv4_address, self.network_mask, self.ospf_identifier)
             self.generate_lsa_instance(router_lsa, self.router_id)
         elif self.version == conf.VERSION_IPV4:
-            link_id = utils.Utils.get_ipv4_prefix_from_interface_name(self.physical_identifier)[0]
+            link_id = utils.Utils.interface_name_to_ipv4_prefix_and_length(self.physical_identifier)[0]
             link_data = self.network_mask
             link_type = conf.LINK_TO_STUB_NETWORK
             tos_number = conf.DEFAULT_TOS
@@ -1110,7 +1110,7 @@ class Interface:
                 else:
                     dr_id = self.get_router_id_by_interface_ip(self.designated_router)
                     link_id = self.neighbors[dr_id].neighbor_ip_address
-                network_prefix = utils.Utils.get_ipv4_prefix_from_interface_name(self.physical_identifier)[0]
+                network_prefix = utils.Utils.interface_name_to_ipv4_prefix_and_length(self.physical_identifier)[0]
                 router_lsa.delete_interface_link_info(self.ipv4_address, network_prefix, self.ospf_identifier)
                 if self.is_transit_network(new_dr):
                     router_lsa.add_link_info_v2(
@@ -1152,10 +1152,10 @@ class Interface:
             #  Intra-Area-Prefix LSA
             if ((self.router_id in [old_dr, new_dr]) | (self.ipv4_address in [old_dr, new_dr])) & (
                     old_dr != new_dr) & (self.version == conf.VERSION_IPV6):
-                prefix_length = utils.Utils.get_ipv6_prefix_from_interface_name(self.physical_identifier)[1]
+                prefix_length = utils.Utils.interface_name_to_ipv6_prefix_and_length(self.physical_identifier)[1]
                 prefix_options = conf.PREFIX_OPTIONS
                 metric = self.cost
-                prefix = utils.Utils.get_ipv6_prefix_from_interface_name(self.physical_identifier)[0]
+                prefix = utils.Utils.interface_name_to_ipv6_prefix_and_length(self.physical_identifier)[0]
                 #  TODO: Correct?
                 if old_dr in [self.router_id, self.ipv4_address]:
                     network_intra_area_prefix_lsa = copy.deepcopy(self.lsdb.get_lsa(
@@ -1245,10 +1245,10 @@ class Interface:
 
         #  Intra-Area-Prefix-LSA
         if (self.designated_router in [self.router_id, neighbor_id]) & (self.version == conf.VERSION_IPV6):
-            prefix_length = utils.Utils.get_ipv6_prefix_from_interface_name(self.physical_identifier)[1]
+            prefix_length = utils.Utils.interface_name_to_ipv6_prefix_and_length(self.physical_identifier)[1]
             prefix_options = conf.PREFIX_OPTIONS
             metric = self.cost
-            prefix = utils.Utils.get_ipv6_prefix_from_interface_name(self.physical_identifier)[0]
+            prefix = utils.Utils.interface_name_to_ipv6_prefix_and_length(self.physical_identifier)[0]
             if new_state == conf.NEIGHBOR_STATE_FULL:
                 if self.is_transit_network(self.designated_router):
                     router_intra_area_prefix_lsa = copy.deepcopy(self.lsdb.get_lsa(
@@ -1356,9 +1356,9 @@ class Interface:
         link_lsa = self.create_lsa_header(conf.LSA_TYPE_LINK, 0, ls_sequence_number)
         link_lsa.create_link_lsa_body(self.router_priority, conf.OPTIONS, self.ipv6_address)
         #  TODO: Consider the case where there are multiple link prefixes
-        prefix_length = utils.Utils.get_ipv6_prefix_from_interface_name(self.physical_identifier)[1]
+        prefix_length = utils.Utils.interface_name_to_ipv6_prefix_and_length(self.physical_identifier)[1]
         prefix_options = conf.PREFIX_OPTIONS
-        prefix = utils.Utils.get_ipv6_prefix_from_interface_name(self.physical_identifier)[0]
+        prefix = utils.Utils.interface_name_to_ipv6_prefix_and_length(self.physical_identifier)[0]
         link_lsa.add_prefix_info(prefix_length, prefix_options, 0, prefix, conf.LSA_TYPE_LINK)
         return link_lsa
 

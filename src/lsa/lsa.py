@@ -380,6 +380,14 @@ class Lsa:
         return (self.header.get_ls_type(ls_type) == self.header.get_ls_type(lsa_identifier[0])) & \
                (link_state_id == lsa_identifier[1]) & (advertising_router == lsa_identifier[2])
 
+    #  Returns True if extension LSA identifier matches current LSA
+    def is_extension_lsa_identifier_equal(self, ls_type, opaque_type, advertising_router):
+        if self.get_ospf_version() == conf.VERSION_IPV4:
+            link_state_id = opaque_type << 3 * conf.BYTE_SIZE
+        else:
+            link_state_id = conf.DEFAULT_LINK_STATE_ID
+        return self.is_lsa_identifier_equal(ls_type, link_state_id, advertising_router)
+
     #  Increases LS Age field, if enough time has passed
     def increase_lsa_age(self):
         if self.header.ls_age < conf.MAX_AGE:

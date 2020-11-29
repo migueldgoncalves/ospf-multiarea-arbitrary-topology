@@ -56,10 +56,10 @@ class IntegrationTest(unittest.TestCase):
         self.assertEqual(router_ids[0], router_1.router_id)
         self.assertEqual(1, len(router_1.interfaces))
         if version == conf.VERSION_IPV4:
-            ip_address = utils.Utils.get_ipv4_address_from_interface_name(interfaces[0][0])
+            ip_address = utils.Utils.interface_name_to_ipv4_address(interfaces[0][0])
             self.assertEqual(ip_address, interface_object.ipv4_address)
         elif version == conf.VERSION_IPV6:
-            ip_address = utils.Utils.get_ipv6_link_local_address_from_interface_name(interfaces[0][0])
+            ip_address = utils.Utils.interface_name_to_ipv6_link_local_address(interfaces[0][0])
             self.assertEqual(ip_address, interface_object.ipv6_address)
         else:
             raise ValueError("Invalid OSPF version")
@@ -73,8 +73,8 @@ class IntegrationTest(unittest.TestCase):
             self.assertEqual(1, router_lsa.body.link_number)
             self.assertEqual(1, len(router_lsa.body.links))
             self.assertEqual(
-                [utils.Utils.get_ipv4_prefix_from_interface_name(interfaces[0][0])[0],
-                 utils.Utils.get_ipv4_network_mask_from_interface_name(interfaces[0][0]),
+                [utils.Utils.interface_name_to_ipv4_prefix_and_length(interfaces[0][0])[0],
+                 utils.Utils.interface_name_to_ipv4_network_mask(interfaces[0][0]),
                  conf.LINK_TO_STUB_NETWORK, conf.DEFAULT_TOS, interface_object.cost], router_lsa.body.links[0])
         else:
             self.assertTrue(3, len(interface_object.lsdb.get_lsdb([interface_object], None)))
@@ -95,7 +95,7 @@ class IntegrationTest(unittest.TestCase):
             self.assertEqual(interface_object.ipv6_address, link_lsa.body.link_local_address)
             self.assertEqual(1, link_lsa.body.prefix_number)
             self.assertEqual(1, len(link_lsa.body.prefixes))
-            prefix_data = utils.Utils.get_ipv6_prefix_from_interface_name(interfaces[0][0])
+            prefix_data = utils.Utils.interface_name_to_ipv6_prefix_and_length(interfaces[0][0])
             self.assertEqual([prefix_data[1], conf.PREFIX_OPTIONS, prefix_data[0]], link_lsa.body.prefixes[0])
             intra_area_prefix_lsa = interface_object.lsdb.get_lsa(
                 conf.LSA_TYPE_INTRA_AREA_PREFIX, 0, router_ids[0], [interface_object])
@@ -159,15 +159,15 @@ class IntegrationTest(unittest.TestCase):
         self.assertEqual(1, len(router_1.interfaces))
         self.assertEqual(1, len(router_2.interfaces))
         if version == conf.VERSION_IPV4:
-            ip_address_1 = utils.Utils.get_ipv4_address_from_interface_name(INTERFACES_R1[0][0])
-            ip_address_2 = utils.Utils.get_ipv4_address_from_interface_name(INTERFACES_R2[0][0])
+            ip_address_1 = utils.Utils.interface_name_to_ipv4_address(INTERFACES_R1[0][0])
+            ip_address_2 = utils.Utils.interface_name_to_ipv4_address(INTERFACES_R2[0][0])
             self.assertEqual(ip_address_1, interface_object_1.ipv4_address)
             self.assertEqual(ip_address_2, interface_object_2.ipv4_address)
             self.assertEqual(1, len(interface_object_1.lsdb.get_lsdb([interface_object_1], None)))
             self.assertEqual(1, len(interface_object_2.lsdb.get_lsdb([interface_object_2], None)))
         elif version == conf.VERSION_IPV6:
-            ip_address_1 = utils.Utils.get_ipv6_link_local_address_from_interface_name(INTERFACES_R1[0][0])
-            ip_address_2 = utils.Utils.get_ipv6_link_local_address_from_interface_name(INTERFACES_R2[0][0])
+            ip_address_1 = utils.Utils.interface_name_to_ipv6_link_local_address(INTERFACES_R1[0][0])
+            ip_address_2 = utils.Utils.interface_name_to_ipv6_link_local_address(INTERFACES_R2[0][0])
             self.assertEqual(ip_address_1, interface_object_1.ipv6_address)
             self.assertEqual(ip_address_2, interface_object_2.ipv6_address)
             self.assertEqual(3, len(interface_object_1.lsdb.get_lsdb([interface_object_1], None)))
@@ -205,12 +205,12 @@ class IntegrationTest(unittest.TestCase):
                 for link_lsa in interface_obj.link_local_lsa_list:
                     for interface_obj_2 in interface_array:
                         if link_lsa.header.advertising_router == interface_obj_2.router_id:
-                            link_local_address = utils.Utils.get_ipv6_link_local_address_from_interface_name(
+                            link_local_address = utils.Utils.interface_name_to_ipv6_link_local_address(
                                 interface_obj_2.physical_identifier)
                             self.assertEqual(link_local_address, link_lsa.body.link_local_address)
                             self.assertEqual(1, link_lsa.body.prefix_number)
                             self.assertEqual(1, len(link_lsa.body.prefixes))
-                            prefix_data = utils.Utils.get_ipv6_prefix_from_interface_name(
+                            prefix_data = utils.Utils.interface_name_to_ipv6_prefix_and_length(
                                 interface_obj_2.physical_identifier)
                             self.assertEqual([prefix_data[1], conf.PREFIX_OPTIONS, prefix_data[0]],
                                              link_lsa.body.prefixes[0])
@@ -221,7 +221,7 @@ class IntegrationTest(unittest.TestCase):
                 self.assertEqual(interface_object_2.router_id, intra_area_prefix_lsa.header.advertising_router)
                 self.assertEqual(1, intra_area_prefix_lsa.body.prefix_number)
                 self.assertEqual(1, len(intra_area_prefix_lsa.body.prefixes))
-                prefix_data = utils.Utils.get_ipv6_prefix_from_interface_name(interface_obj.physical_identifier)
+                prefix_data = utils.Utils.interface_name_to_ipv6_prefix_and_length(interface_obj.physical_identifier)
                 self.assertEqual([prefix_data[1], conf.PREFIX_OPTIONS, conf.INTERFACE_COST, prefix_data[0]],
                                  intra_area_prefix_lsa.body.prefixes[0])
             remaining_router_ids = copy.deepcopy(router_ids)

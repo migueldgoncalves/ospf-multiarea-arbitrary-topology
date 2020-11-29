@@ -57,8 +57,8 @@ class Area:
         router_lsa.create_router_lsa_body(False, False, is_abr, options, version)
         if version == conf.VERSION_IPV4:
             for identifier in physical_ids:
-                prefix = utils.Utils.get_ipv4_prefix_from_interface_name(identifier)[0]
-                netmask = utils.Utils.get_ipv4_network_mask_from_interface_name(identifier)
+                prefix = utils.Utils.interface_name_to_ipv4_prefix_and_length(identifier)[0]
+                netmask = utils.Utils.interface_name_to_ipv4_network_mask(identifier)
                 cost = conf.INTERFACE_COST
                 router_lsa.add_link_info_v2(prefix, netmask, conf.LINK_TO_STUB_NETWORK, conf.DEFAULT_TOS, cost)
         database.add_lsa(router_lsa, None)
@@ -74,7 +74,7 @@ class Area:
             intra_area_prefix_lsa.create_intra_area_prefix_lsa_body(referenced_ls_type, referenced_link_state_id,
                                                                     referenced_advertising_router)
             for identifier in physical_ids:
-                prefix_data = utils.Utils.get_ipv6_prefix_from_interface_name(identifier)
+                prefix_data = utils.Utils.interface_name_to_ipv6_prefix_and_length(identifier)
                 prefix_length = prefix_data[1]
                 prefix_options = conf.PREFIX_OPTIONS
                 metric = conf.INTERFACE_COST
@@ -94,14 +94,14 @@ class Area:
         pipeline = queue.Queue()
         shutdown = threading.Event()
         if self.ospf_version == conf.VERSION_IPV4:
-            ip_address = utils.Utils.get_ipv4_address_from_interface_name(interface_id)
-            network_mask = utils.Utils.get_ipv4_network_mask_from_interface_name(interface_id)
+            ip_address = utils.Utils.interface_name_to_ipv4_address(interface_id)
+            network_mask = utils.Utils.interface_name_to_ipv4_network_mask(interface_id)
             new_interface = interface.Interface(
                 self.router_id, interface_id, ip_address, '', network_mask, [], self.area_id, pipeline, shutdown,
                 self.ospf_version, self.database, self.localhost, self.is_abr)
         else:
-            ip_address = utils.Utils.get_ipv6_link_local_address_from_interface_name(interface_id)
-            link_prefix = utils.Utils.get_ipv6_prefix_from_interface_name(interface_id)
+            ip_address = utils.Utils.interface_name_to_ipv6_link_local_address(interface_id)
+            link_prefix = utils.Utils.interface_name_to_ipv6_prefix_and_length(interface_id)
             new_interface = interface.Interface(
                 self.router_id, interface_id, '', ip_address, '', [link_prefix], self.area_id, pipeline, shutdown,
                 self.ospf_version, self.database, self.localhost, self.is_abr)

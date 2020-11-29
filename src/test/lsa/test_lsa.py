@@ -366,6 +366,97 @@ class TestLsa(unittest.TestCase):
         self.assertTrue(new_lsa.is_lsa_checksum_valid())
 
     #  Successful run - Instant
+    def test_is_lsa_identifier_equal(self):
+        first, second = self.reset_lsa_instances()
+        first_id = first.get_lsa_identifier()
+        second_id = second.get_lsa_identifier()
+        self.assertTrue(first.is_lsa_identifier_equal(second_id[0], second_id[1], second_id[2]))
+        self.assertTrue(second.is_lsa_identifier_equal(first_id[0], first_id[1], first_id[2]))
+
+        first.header.ls_type = conf.LSA_TYPE_NETWORK
+        first_id = first.get_lsa_identifier()
+        self.assertFalse(first.is_lsa_identifier_equal(second_id[0], second_id[1], second_id[2]))
+        self.assertFalse(second.is_lsa_identifier_equal(first_id[0], first_id[1], first_id[2]))
+
+        first.header.ls_type = conf.LSA_TYPE_ROUTER
+        first.header.link_state_id = '255.255.255.255'
+        first_id = first.get_lsa_identifier()
+        self.assertFalse(first.is_lsa_identifier_equal(second_id[0], second_id[1], second_id[2]))
+        self.assertFalse(second.is_lsa_identifier_equal(first_id[0], first_id[1], first_id[2]))
+
+        first.header.link_state_id = '0.0.0.0'
+        first.header.advertising_router = '255.255.255.255'
+        first_id = first.get_lsa_identifier()
+        self.assertFalse(first.is_lsa_identifier_equal(second_id[0], second_id[1], second_id[2]))
+        self.assertFalse(second.is_lsa_identifier_equal(first_id[0], first_id[1], first_id[2]))
+
+    #  Successful run - Instant
+    def test_is_extension_lsa_identifier_equal(self):
+        #  OSPFv2
+
+        initial_opaque_type = conf.OPAQUE_TYPE_ABR_LSA
+        initial_ls_type = conf.LSA_TYPE_EXTENSION_ABR_LSA
+        initial_advertising_router = '1.1.1.1'
+
+        first = lsa.Lsa()
+        first.create_extension_header(
+            conf.INITIAL_LS_AGE, conf.OPTIONS, conf.OPAQUE_TYPE_ABR_LSA, initial_opaque_type,
+            initial_advertising_router, conf.INITIAL_SEQUENCE_NUMBER, conf.VERSION_IPV4)
+        second = lsa.Lsa()
+        second.create_extension_header(
+            conf.INITIAL_LS_AGE + 1, conf.OPTIONS + 1, conf.OPAQUE_TYPE_ABR_LSA, initial_opaque_type,
+            initial_advertising_router, conf.INITIAL_SEQUENCE_NUMBER + 1, conf.VERSION_IPV4)
+        self.assertTrue(first.is_lsa_identifier_equal(
+            second.header.ls_type, second.header.link_state_id, second.header.advertising_router))
+        self.assertTrue(second.is_lsa_identifier_equal(
+            first.header.ls_type, first.header.link_state_id, first.header.advertising_router))
+
+        first.create_extension_header(
+            conf.INITIAL_LS_AGE, conf.OPTIONS, conf.OPAQUE_TYPE_PREFIX_LSA, conf.LSA_TYPE_OPAQUE_AS,
+            initial_advertising_router, conf.INITIAL_SEQUENCE_NUMBER, conf.VERSION_IPV4)
+        self.assertFalse(first.is_lsa_identifier_equal(
+            second.header.ls_type, second.header.link_state_id, second.header.advertising_router))
+        self.assertFalse(second.is_lsa_identifier_equal(
+            first.header.ls_type, first.header.link_state_id, first.header.advertising_router))
+
+        first.create_extension_header(
+            conf.INITIAL_LS_AGE, conf.OPTIONS, initial_opaque_type, conf.LSA_TYPE_OPAQUE_AS, '2.2.2.2',
+            conf.INITIAL_SEQUENCE_NUMBER, conf.VERSION_IPV4)
+        self.assertFalse(first.is_lsa_identifier_equal(
+            second.header.ls_type, second.header.link_state_id, second.header.advertising_router))
+        self.assertFalse(second.is_lsa_identifier_equal(
+            first.header.ls_type, first.header.link_state_id, first.header.advertising_router))
+
+        #  OSPFv3
+
+        first.create_extension_header(
+            conf.INITIAL_LS_AGE, conf.OPTIONS, 0, initial_ls_type, initial_advertising_router,
+            conf.INITIAL_SEQUENCE_NUMBER, conf.VERSION_IPV6)
+        second.create_extension_header(
+            conf.INITIAL_LS_AGE + 1, conf.OPTIONS + 1, 0, initial_ls_type, initial_advertising_router,
+            conf.INITIAL_SEQUENCE_NUMBER + 1, conf.VERSION_IPV6)
+        self.assertTrue(first.is_lsa_identifier_equal(
+            second.header.ls_type, second.header.link_state_id, second.header.advertising_router))
+        self.assertTrue(second.is_lsa_identifier_equal(
+            first.header.ls_type, first.header.link_state_id, first.header.advertising_router))
+
+        first.create_extension_header(
+            conf.INITIAL_LS_AGE, conf.OPTIONS, 0, conf.LSA_TYPE_EXTENSION_PREFIX_LSA, initial_advertising_router,
+            conf.INITIAL_SEQUENCE_NUMBER, conf.VERSION_IPV6)
+        self.assertFalse(first.is_lsa_identifier_equal(
+            second.header.ls_type, second.header.link_state_id, second.header.advertising_router))
+        self.assertFalse(second.is_lsa_identifier_equal(
+            first.header.ls_type, first.header.link_state_id, first.header.advertising_router))
+
+        first.create_extension_header(
+            conf.INITIAL_LS_AGE, conf.OPTIONS, 0, initial_ls_type, '2.2.2.2', conf.INITIAL_SEQUENCE_NUMBER,
+            conf.VERSION_IPV6)
+        self.assertFalse(first.is_lsa_identifier_equal(
+            second.header.ls_type, second.header.link_state_id, second.header.advertising_router))
+        self.assertFalse(second.is_lsa_identifier_equal(
+            first.header.ls_type, first.header.link_state_id, first.header.advertising_router))
+
+    #  Successful run - Instant
     def test_get_fresher_lsa_successful(self):
         first, second = self.reset_lsa_instances()
         #  One of the provided LSA instances is None
@@ -602,7 +693,7 @@ class TestLsa(unittest.TestCase):
         sending_packet = packet.Packet()
         sending_packet.create_header_v3(
             conf.PACKET_TYPE_LS_UPDATE, conf.ROUTER_ID, conf.BACKBONE_AREA, 0,
-            utils.Utils.get_ipv6_link_local_address_from_interface_name(interface_name), conf.ALL_OSPF_ROUTERS_IPV6)
+            utils.Utils.interface_name_to_ipv6_link_local_address(interface_name), conf.ALL_OSPF_ROUTERS_IPV6)
         sending_packet.create_ls_update_packet_body(conf.VERSION_IPV6)
         router_lsa_v3 = lsa.Lsa.unpack_lsa(TestLsa.router_lsa_v3_bytes, conf.VERSION_IPV6)
         sending_packet.add_lsa(router_lsa_v3)

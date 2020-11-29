@@ -303,7 +303,7 @@ class Router:
                         if node_lsa is not None:  # Router node
                             for link_info in node_lsa.body.links:
                                 if (link_info[2] == conf.LINK_TO_STUB_NETWORK) & (link_info[0] == prefix):
-                                    prefix_length = utils.Utils.get_prefix_length_from_prefix(link_info[1])
+                                    prefix_length = utils.Utils.prefix_to_prefix_length(link_info[1])
                                     options = node_lsa.header.options
                                     table.add_entry(
                                         conf.DESTINATION_TYPE_NETWORK, prefix, prefix_length, options, area_id)
@@ -313,7 +313,7 @@ class Router:
                         else:  # Transit network node
                             for network_lsa in area_lsdb.network_lsa_list:
                                 if network_lsa.header.link_state_id == node_id:
-                                    prefix_length = utils.Utils.get_prefix_length_from_prefix(
+                                    prefix_length = utils.Utils.prefix_to_prefix_length(
                                         network_lsa.body.network_mask)
                                     options = network_lsa.header.options
                                     table.add_entry(
@@ -528,6 +528,7 @@ class Router:
             return
         elif self.abr:
             self.update_inter_area_lsa_list()
+            self.update_extension_lsa_list(shortest_path_tree_dictionary)
 
         #  Set kernel routing table
         if self.kernel_table_process is not None:
@@ -590,13 +591,13 @@ class Router:
                     print("Interface", i, "is up, line protocol is down")
 
                 if self.ospf_version == conf.VERSION_IPV4:
-                    ip_address = utils.Utils.get_ipv4_address_from_interface_name(i)
-                    prefix_length = str(utils.Utils.get_ipv4_prefix_from_interface_name(i)[1])
+                    ip_address = utils.Utils.interface_name_to_ipv4_address(i)
+                    prefix_length = str(utils.Utils.interface_name_to_ipv4_prefix_and_length(i)[1])
                     print("\tInternet Address", ip_address + "/" + prefix_length + ", Area", a)
                     cost = self.interfaces[i][0].cost
                     print("\tProcess ID 1, Router ID", self.router_id + ", Network Type BROADCAST, Cost:", cost)
                 else:
-                    link_local_address = utils.Utils.get_ipv6_link_local_address_from_interface_name(i)
+                    link_local_address = utils.Utils.interface_name_to_ipv6_link_local_address(i)
                     interface_id = self.interfaces[i][0].ospf_identifier
                     print("\tLink Local Address", link_local_address + ", Interface ID", interface_id)
                     print("\tArea", a + ", Process ID 1, Instance ID 0, Router ID", self.router_id)
@@ -791,11 +792,17 @@ class Router:
     #  Given OSPF routing table, shortest path trees, router ID, existing extension LSDB, list of ABRs in router areas,
     #  list of prefixes in router areas and OSPF version, returns extension LSAs to flood and updated extension LSDB
     @staticmethod
-    def get_extension_lsa_list_to_flood(
-            table, shortest_path_tree_dictionary, router_id, extension_database, abr_list, prefix_list, version):
+    def get_extension_lsa_list_to_flood(table, shortest_path_tree_dictionary, router_id, extension_database,
+                                        same_areas_abr_list, same_areas_prefix_list, version):
         lsa_list = []
-        own_abr_lsa = extension_database.get_extension_lsa(conf.LSA_TYPE_EXTENSION_ABR_LSA, router_id)
-        own_prefix_lsa = extension_database.get_extension_lsa(conf.LSA_TYPE_EXTENSION_PREFIX_LSA, router_id)
+        if version == conf.VERSION_IPV4:
+            own_abr_lsa = extension_database.get_extension_lsa(
+                conf.LSA_TYPE_OPAQUE_AS, conf.OPAQUE_TYPE_ABR_LSA, router_id)
+            own_prefix_lsa = extension_database.get_extension_lsa(
+                conf.LSA_TYPE_OPAQUE_AS, conf.OPAQUE_TYPE_PREFIX_LSA, router_id)
+        else:
+            own_abr_lsa = extension_database.get_extension_lsa(conf.LSA_TYPE_EXTENSION_ABR_LSA, 0, router_id)
+            own_prefix_lsa = extension_database.get_extension_lsa(conf.LSA_TYPE_EXTENSION_PREFIX_LSA, 0, router_id)
 
         #  Removing and updating ABR info
         if own_abr_lsa is not None:
@@ -836,7 +843,7 @@ class Router:
                 for subnet_info in own_prefix_lsa.body.subnet_list:
                     is_present = False
                     subnet_address = subnet_info[2]
-                    netmask_length = utils.Utils.get_prefix_length_from_prefix(subnet_info[1])
+                    netmask_length = utils.Utils.prefix_to_prefix_length(subnet_info[1])
                     advertised_metric = subnet_info[0]
                     new_metric = 0
                     for entry in table.entries:
@@ -883,7 +890,7 @@ class Router:
         #  Adding ABR info
         for shortest_path_tree in shortest_path_tree_dictionary:
             for node in shortest_path_tree:
-                if node in abr_list:
+                if node in same_areas_abr_list:
                     is_present = False
                     created_now = False
                     if own_abr_lsa is None:
@@ -913,7 +920,7 @@ class Router:
         #  Adding prefix info
         for shortest_path_tree in shortest_path_tree_dictionary:
             for node in shortest_path_tree:
-                if node in prefix_list:
+                if node in same_areas_prefix_list:
                     is_present = False
                     created_now = False
                     if own_prefix_lsa is None:
@@ -943,8 +950,22 @@ class Router:
         return [lsa_list, extension_database]
 
     #  Updates extension LSA list and floods required LSAs
-    def update_extension_lsa_list(self):
-        existing_extension_lsa_list = self.extension_database.get_extension_lsdb()
+    def update_extension_lsa_list(self, shortest_path_tree_dictionary):
+        self.extension_database.acquire_all_locks()
+        extension_lsdb_copy = copy.deepcopy(self.extension_database)
+        self.extension_database.release_all_locks()
+        lsa_list, extension_lsdb_copy = Router.get_extension_lsa_list_to_flood(
+            self.routing_table, shortest_path_tree_dictionary, self.router_id, extension_lsdb_copy,
+            self.get_abr_list_in_directly_connected_areas(), self.get_prefixes_in_directly_connected_areas(),
+            self.ospf_version)
+        self.extension_database = extension_lsdb_copy
+        for area_id in self.areas:
+            for query_lsa in lsa_list:
+                self.extension_database.add_extension_lsa(query_lsa)
+                for interface_id in self.areas[area_id].interfaces:
+                    query_interface = self.areas[area_id].interfaces[interface_id][area.INTERFACE_OBJECT]
+                    query_interface.flooding_pipeline.put([query_lsa, self.router_id])
+                    time.sleep(0.1)
 
     #  #  #  #  #  #  #  #
     #  Auxiliary methods  #
@@ -962,3 +983,53 @@ class Router:
             return True
         else:
             return False
+
+    #  Returns list of all ABRs in directly connected areas
+    def get_abr_list_in_directly_connected_areas(self):
+        routers = []
+        for area_id in self.areas:
+            database = self.areas[area_id].database
+            database.router_lock.acquire()
+            router_lsa_list = copy.deepcopy(database.router_lsa_list)
+            database.router_lock.release()
+            for router_lsa in router_lsa_list:
+                if router_lsa.body.bit_b:  # ABR
+                    if router_lsa.header.advertising_router not in routers:
+                        routers.append(router_lsa.header.advertising_router)
+        return routers
+
+    #  Returns list of all prefixes in directly connected areas
+    def get_prefixes_in_directly_connected_areas(self):
+        prefixes = []
+        for area_id in self.areas:
+            database = self.areas[area_id].database
+            if self.ospf_version == conf.VERSION_IPV4:
+                database.router_lock.acquire()
+                router_lsa_list = copy.deepcopy(database.router_lsa_list)
+                database.router_lock.release()
+                database.network_lock.acquire()
+                network_lsa_list = copy.deepcopy(database.network_lsa_list)
+                database.network_lock.release()
+                for router_lsa in router_lsa_list:
+                    for link in router_lsa.body.links:
+                        if link[2] == conf.LINK_TO_STUB_NETWORK:  # Link type
+                            if [link[0], link[2]] not in prefixes:  # Subnet address and subnet mask
+                                prefixes.append([link[0], link[2]])
+                        elif link[2] == conf.LINK_TO_TRANSIT_NETWORK:
+                            ip_address = link[0]
+                            for network_lsa in network_lsa_list:
+                                prefix_length = utils.Utils.prefix_to_prefix_length(network_lsa.body.network_mask)
+                                prefix = utils.Utils.ip_address_to_prefix(ip_address, prefix_length)
+                                if [prefix, network_lsa.body.network_mask] not in prefixes:
+                                    prefixes.append([prefix, network_lsa.body.network_mask])
+            elif self.ospf_version == conf.VERSION_IPV6:
+                database.intra_area_lock.acquire()
+                intra_area_prefix_lsa_list = copy.deepcopy(database.intra_area_prefix_lsa_list)
+                database.intra_area_lock.release()
+                for intra_area_prefix_lsa in intra_area_prefix_lsa_list:
+                    for prefix_data in intra_area_prefix_lsa.body.prefixes:
+                        if [prefix_data[3], prefix_data[0]] not in prefixes:
+                            prefixes.append([prefix_data[3], prefix_data[0]])
+            else:
+                raise ValueError("Invalid OSPF version")
+            return prefixes

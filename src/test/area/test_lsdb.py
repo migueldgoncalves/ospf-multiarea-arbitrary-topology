@@ -19,10 +19,10 @@ class TestLsdb(unittest.TestCase):
     
     def setUp(self):
         interface_identifier = conf.INTERFACE_NAMES[0]
-        ipv4_address = utils.Utils.get_ipv4_address_from_interface_name(conf.INTERFACE_NAMES[0])
-        ipv6_address = utils.Utils.get_ipv6_link_local_address_from_interface_name(conf.INTERFACE_NAMES[0])
-        network_mask = utils.Utils.get_ipv4_network_mask_from_interface_name(conf.INTERFACE_NAMES[0])
-        link_prefixes = utils.Utils.get_ipv6_prefix_from_interface_name(conf.INTERFACE_NAMES[0])
+        ipv4_address = utils.Utils.interface_name_to_ipv4_address(conf.INTERFACE_NAMES[0])
+        ipv6_address = utils.Utils.interface_name_to_ipv6_link_local_address(conf.INTERFACE_NAMES[0])
+        network_mask = utils.Utils.interface_name_to_ipv4_network_mask(conf.INTERFACE_NAMES[0])
+        link_prefixes = utils.Utils.interface_name_to_ipv6_prefix_and_length(conf.INTERFACE_NAMES[0])
         area_id = conf.INTERFACE_AREAS[0]
         interface_pipeline_v2 = queue.Queue()
         interface_pipeline_v3 = queue.Queue()
