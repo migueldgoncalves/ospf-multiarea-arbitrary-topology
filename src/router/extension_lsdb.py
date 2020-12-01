@@ -30,8 +30,8 @@ class ExtensionLsdb:
         self.clean_extension_lsdb()
         self.is_modified.clear()
 
-    #  Atomically returns full extension LSDB as a list
-    def get_extension_lsdb(self):
+    #  Atomically returns full extension LSDB or part of it as a list
+    def get_extension_lsdb(self, identifiers):
         self.acquire_all_locks()
         lsa_list = []
         lsa_list.extend(self.abr_lsa_list)
@@ -39,7 +39,14 @@ class ExtensionLsdb:
         lsa_list.extend(self.asbr_lsa_list)
         list_copy = copy.deepcopy(lsa_list)
         self.release_all_locks()
-        return list_copy
+        requested_lsa_list = []
+        for query_lsa in list_copy:
+            #  If no identifier list is provided, all LSAs are returned
+            if identifiers is None:
+                requested_lsa_list.append(query_lsa)
+            elif query_lsa.get_lsa_identifier() in identifiers:
+                requested_lsa_list.append(query_lsa)
+        return requested_lsa_list
 
     #  Atomically returns an extension LSA given its identifier, if present
     def get_extension_lsa(self, ls_type, opaque_type, advertising_router):
@@ -71,11 +78,15 @@ class ExtensionLsdb:
         return None
 
     #  Atomically returns headers of full extension LSDB
-    def get_extension_lsa_headers(self):
-        lsa_list = self.get_extension_lsdb()
+    def get_extension_lsa_headers(self, identifiers):
+        lsa_list = self.get_extension_lsdb(identifiers)
         lsa_headers = []
         for query_lsa in lsa_list:
-            lsa_headers.append(query_lsa.header)
+            #  If no identifier list is provided, all LSA headers are returned
+            if identifiers is None:
+                lsa_headers.append(query_lsa.header)
+            elif query_lsa.get_lsa_identifier() in identifiers:
+                lsa_headers.append(query_lsa.header)
         return lsa_headers
 
     #  Atomically returns an extension LSA header given its identifier, if present
@@ -153,7 +164,7 @@ class ExtensionLsdb:
         self.prefix_lsa_list = []
         self.asbr_lsa_list = []
         self.release_all_locks()
-        self.is_modified.set()
+        self.extension_lsdb_modified()
 
     #  For each extension LSA, increases LS Age field if enough time has passed
     def increase_lsa_age(self):
@@ -234,7 +245,9 @@ class ExtensionLsdb:
         if memodict is None:
             memodict = {}
         lsdb_copy = ExtensionLsdb(self.version)
+        self.acquire_all_locks()
         lsdb_copy.abr_lsa_list = copy.deepcopy(self.abr_lsa_list)
         lsdb_copy.prefix_lsa_list = copy.deepcopy(self.prefix_lsa_list)
         lsdb_copy.asbr_lsa_type_3_list = copy.deepcopy(self.asbr_lsa_list)
+        self.release_all_locks()
         return lsdb_copy

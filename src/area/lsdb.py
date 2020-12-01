@@ -441,9 +441,11 @@ class Lsdb:
         if memodict is None:
             memodict = {}
         lsdb_copy = Lsdb(self.version, self.area_id)
+        self.acquire_all_locks()
         lsdb_copy.router_lsa_list = copy.deepcopy(self.router_lsa_list)
         lsdb_copy.network_lsa_list = copy.deepcopy(self.network_lsa_list)
         lsdb_copy.summary_lsa_type_3_list = copy.deepcopy(self.summary_lsa_type_3_list)
         lsdb_copy.inter_area_prefix_lsa_list = copy.deepcopy(self.inter_area_prefix_lsa_list)
         lsdb_copy.intra_area_prefix_lsa_list = copy.deepcopy(self.intra_area_prefix_lsa_list)
+        self.release_all_locks()
         return lsdb_copy

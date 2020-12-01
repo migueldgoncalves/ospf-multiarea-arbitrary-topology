@@ -674,7 +674,7 @@ class TestRoutingTable(unittest.TestCase):
         shortest_path_tree_dictionary = {conf.BACKBONE_AREA: self.lsdb_v2.get_shortest_path_tree(
             directed_graph, self.router_id_4)}
         lsdb_dict = {conf.BACKBONE_AREA: copy.deepcopy(self.lsdb_v2)}
-        table = router_v2.get_intra_area_routing_table(shortest_path_tree_dictionary, prefixes_dictionary, lsdb_dict)
+        table = router_v2.get_intra_area_ospf_routing_table(shortest_path_tree_dictionary, prefixes_dictionary, lsdb_dict)
         self.assertEqual(1, len(table.entries))
         entry_1 = table.get_entry(conf.DESTINATION_TYPE_NETWORK, self.prefix_1_v2, conf.BACKBONE_AREA)
         self.assertIsNotNone(entry_1)
@@ -705,7 +705,7 @@ class TestRoutingTable(unittest.TestCase):
         shortest_path_tree_dictionary = {conf.BACKBONE_AREA: self.lsdb_v3.get_shortest_path_tree(
             directed_graph, self.router_id_4)}
         lsdb_dict = {conf.BACKBONE_AREA: copy.deepcopy(self.lsdb_v3)}
-        table = router_v3.get_intra_area_routing_table(shortest_path_tree_dictionary, prefixes_dictionary, lsdb_dict)
+        table = router_v3.get_intra_area_ospf_routing_table(shortest_path_tree_dictionary, prefixes_dictionary, lsdb_dict)
         self.assertEqual(1, len(table.entries))
         entry_1 = table.get_entry(conf.DESTINATION_TYPE_NETWORK, self.prefix_1_v3, conf.BACKBONE_AREA)
         self.assertIsNotNone(entry_1)
@@ -755,7 +755,7 @@ class TestRoutingTable(unittest.TestCase):
         shortest_path_tree_dictionary = {conf.BACKBONE_AREA: self.lsdb_v2.get_shortest_path_tree(
             directed_graph, self.router_id_1)}
         lsdb_dict = {conf.BACKBONE_AREA: copy.deepcopy(self.lsdb_v2)}
-        table = router_v2.get_intra_area_routing_table(shortest_path_tree_dictionary, prefixes_dictionary, lsdb_dict)
+        table = router_v2.get_intra_area_ospf_routing_table(shortest_path_tree_dictionary, prefixes_dictionary, lsdb_dict)
         self.assertEqual(4, len(table.entries))
         entry_1 = table.get_entry(conf.DESTINATION_TYPE_NETWORK, self.prefix_1_v2, conf.BACKBONE_AREA)
         entry_2 = table.get_entry(conf.DESTINATION_TYPE_NETWORK, self.prefix_2_v2, conf.BACKBONE_AREA)
@@ -787,7 +787,7 @@ class TestRoutingTable(unittest.TestCase):
         shortest_path_tree_dictionary = {conf.BACKBONE_AREA: self.lsdb_v3.get_shortest_path_tree(
             directed_graph, self.router_id_1)}
         lsdb_dict = {conf.BACKBONE_AREA: copy.deepcopy(self.lsdb_v3)}
-        table = router_v3.get_intra_area_routing_table(shortest_path_tree_dictionary, prefixes_dictionary, lsdb_dict)
+        table = router_v3.get_intra_area_ospf_routing_table(shortest_path_tree_dictionary, prefixes_dictionary, lsdb_dict)
         self.assertEqual(4, len(table.entries))
         entry_1 = table.get_entry(conf.DESTINATION_TYPE_NETWORK, self.prefix_1_v3, conf.BACKBONE_AREA)
         entry_2 = table.get_entry(conf.DESTINATION_TYPE_NETWORK, self.prefix_2_v3, conf.BACKBONE_AREA)
@@ -825,7 +825,7 @@ class TestRoutingTable(unittest.TestCase):
             directed_graph, self.router_id_1)}
         prefixes_dictionary = {conf.BACKBONE_AREA: prefixes}
         lsdb_dict = {conf.BACKBONE_AREA: copy.deepcopy(self.lsdb_v2)}
-        table = router_v2.get_intra_area_routing_table(shortest_path_tree_dictionary, prefixes_dictionary, lsdb_dict)
+        table = router_v2.get_intra_area_ospf_routing_table(shortest_path_tree_dictionary, prefixes_dictionary, lsdb_dict)
         self.assertEqual(6, len(table.entries))
         entry_1 = table.get_entry(conf.DESTINATION_TYPE_NETWORK, self.prefix_1_v2, conf.BACKBONE_AREA)
         entry_2 = table.get_entry(conf.DESTINATION_TYPE_NETWORK, self.prefix_2_v2, conf.BACKBONE_AREA)
@@ -860,7 +860,7 @@ class TestRoutingTable(unittest.TestCase):
             directed_graph, self.router_id_1)}
         prefixes_dictionary = {conf.BACKBONE_AREA: prefixes}
         lsdb_dict = {conf.BACKBONE_AREA: copy.deepcopy(self.lsdb_v3)}
-        table = router_v3.get_intra_area_routing_table(shortest_path_tree_dictionary, prefixes_dictionary, lsdb_dict)
+        table = router_v3.get_intra_area_ospf_routing_table(shortest_path_tree_dictionary, prefixes_dictionary, lsdb_dict)
         self.assertEqual(6, len(table.entries))
         entry_1 = table.get_entry(conf.DESTINATION_TYPE_NETWORK, self.prefix_1_v3, conf.BACKBONE_AREA)
         entry_2 = table.get_entry(conf.DESTINATION_TYPE_NETWORK, self.prefix_2_v3, conf.BACKBONE_AREA)

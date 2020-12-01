@@ -18,6 +18,11 @@ import lsa.lsa as lsa
 This class represents the OSPF interface and contains its data and operations
 '''
 
+GET_LSDB = 'Get LSDB'
+GET_LSA = 'Get LSA'
+ADD_LSA = 'Add LSA'
+DELETE_LSA = 'Delete LSA'
+
 
 class Interface:
 
@@ -79,7 +84,8 @@ class Interface:
         self.flooded_pipeline = queue.Queue()  # Content states whether provided LSA was flooded or not
         self.lsa_list_to_ack = queue.Queue()  # Stores LSA headers to be flooded in same LS Acknowledgement packet
         self.is_abr = is_abr  # True if router is ABR
-        self.extension_lsa_pipeline = queue.Queue()  # Allows router class to fetch received extension LSAs
+        self.extension_lsa_pipeline_up = queue.Queue()  # Allows router class to receive extension LSAs
+        self.extension_lsa_pipeline_down = queue.Queue()  # Allows router class to provide extension LSAs
 
         self.hello_thread = None
         self.hello_timer = timer.Timer()
@@ -157,7 +163,7 @@ class Interface:
                     packet_to_send.create_ls_update_packet_body(self.version)
                     ls_retransmission_list = self.neighbors[n].ls_retransmission_list
                     for lsa_identifier in ls_retransmission_list:
-                        lsa_to_send = self.lsdb.get_lsa(lsa_identifier[0], lsa_identifier[1], lsa_identifier[2], [self])
+                        lsa_to_send = self.get_lsa(lsa_identifier[0], lsa_identifier[1], lsa_identifier[2], [self])
                         if lsa_to_send is not None:
                             packet_to_send.add_lsa(lsa_to_send)
                         else:
@@ -318,7 +324,8 @@ class Interface:
                                 #  Sends DB Description packet with either M-bit clear or more LSA headers
                                 dd_packet.create_db_description_packet_body(
                                     self.max_ip_datagram, conf.OPTIONS, False, m_bit, True, neighbor_router.dd_sequence,
-                                    self.lsdb.get_lsa_headers([self], neighbor_router.db_summary_list), self.version)
+                                    self.get_complete_lsdb_headers([self], neighbor_router.db_summary_list),
+                                    self.version)
                                 self.send_packet(dd_packet, neighbor_router.neighbor_ip_address, neighbor_router)
                             #  TODO: Implement case where LSA headers are sent in more than 1 DB Description packet
                         else:  # This router is the slave
@@ -329,7 +336,7 @@ class Interface:
                             #  Sends DB Description packet as response to master
                             dd_packet.create_db_description_packet_body(
                                 self.max_ip_datagram, conf.OPTIONS, False, m_bit, False, neighbor_router.dd_sequence,
-                                self.lsdb.get_lsa_headers([self], neighbor_router.db_summary_list), self.version)
+                                self.get_complete_lsdb_headers([self], neighbor_router.db_summary_list), self.version)
                             self.send_packet(dd_packet, neighbor_router.neighbor_ip_address, neighbor_router)
                             if (not m_bit) & (not incoming_packet.body.m_bit):
                                 self.event_exchange_done(neighbor_router)
@@ -361,7 +368,7 @@ class Interface:
                         ls_type = lsa_identifier[0]
                         link_state_id = lsa_identifier[1]
                         advertising_router = lsa_identifier[2]
-                        full_lsa = self.lsdb.get_lsa(ls_type, link_state_id, advertising_router, [self])
+                        full_lsa = self.get_lsa(ls_type, link_state_id, advertising_router, [self])
                         if full_lsa is None:
                             lsa_not_found = True
                         else:
@@ -384,12 +391,8 @@ class Interface:
                         if not received_lsa.is_ls_type_valid(received_lsa.header.ls_type, self.version):
                             continue
 
-                        if received_lsa.is_extension_lsa():
-                            self.extension_lsa_pipeline.put(received_lsa)
-                            continue  # Is not inserted in area LSDB
-
-                        local_copy = self.lsdb.get_lsa(received_lsa.header.ls_type, received_lsa.header.link_state_id,
-                                                       received_lsa.header.advertising_router, [self])
+                        local_copy = self.get_lsa(received_lsa.header.ls_type, received_lsa.header.link_state_id,
+                                                  received_lsa.header.advertising_router, [self])
 
                         if received_lsa.header.ls_age == conf.MAX_AGE:
                             #  Received LSA not in LSDB
@@ -423,7 +426,7 @@ class Interface:
                                     self.neighbors[n].ls_retransmission_list, received_lsa.get_lsa_identifier())
                             neighbor_router.delete_lsa_identifier(
                                 neighbor_router.ls_request_list, received_lsa.get_lsa_identifier())
-                            self.lsdb.add_lsa(received_lsa, self)
+                            self.add_lsa(received_lsa)
 
                             #  Adds LSA header to list of LSAs to acknowledge
                             lsa_flooded = self.flooded_pipeline.get()  # True if LSA flooded back out this interface
@@ -512,7 +515,7 @@ class Interface:
                 if self.neighbors[n].neighbor_state in [conf.NEIGHBOR_STATE_EXCHANGE, conf.NEIGHBOR_STATE_LOADING]:
                     neighbors_state_exchange_loading = True
             if not neighbors_state_exchange_loading:
-                lsa_list = self.lsdb.get_lsdb([self], None)
+                lsa_list = self.get_complete_lsdb([self], None)
                 for query_lsa in lsa_list:
                     lsa_identifier = query_lsa.get_lsa_identifier()
                     lsa_in_retransmission_list = False
@@ -520,10 +523,10 @@ class Interface:
                         if lsa_identifier in self.neighbors[n].ls_retransmission_list:
                             lsa_in_retransmission_list = True
                     if (not lsa_in_retransmission_list) & (query_lsa.header.ls_age >= conf.MAX_AGE):
-                        self.lsdb.delete_lsa(lsa_identifier[0], lsa_identifier[1], lsa_identifier[2], [self])
+                        self.delete_lsa(lsa_identifier[0], lsa_identifier[1], lsa_identifier[2])
 
             #  Creates new instances of own LSAs if previous reach LS Age of 30 minutes
-            lsa_instances = self.lsdb.get_lsdb([self], None)
+            lsa_instances = self.get_complete_lsdb([self], None)
             for query_lsa in lsa_instances:
                 if (query_lsa.header.ls_age >= conf.LS_REFRESH_TIME) & (
                         query_lsa.header.advertising_router == self.router_id):
@@ -877,7 +880,7 @@ class Interface:
     #  NegotiationDone event
     def event_negotiation_done(self, neighbor_router):
         self.set_neighbor_state(neighbor_router, conf.NEIGHBOR_STATE_EXCHANGE)
-        lsdb_summary = self.lsdb.get_lsa_headers([self], None)
+        lsdb_summary = self.get_complete_lsdb_headers([self], None)
         neighbor_router.db_summary_list = []
         for lsa_header in lsdb_summary:
             if lsa_header.ls_age == conf.MAX_AGE:
@@ -894,7 +897,7 @@ class Interface:
                                        self.ipv6_address, neighbor_router.neighbor_ip_address)
         dd_packet.create_db_description_packet_body(
             self.max_ip_datagram, conf.OPTIONS, False, True, neighbor_router.master_slave,
-            neighbor_router.dd_sequence, self.lsdb.get_lsa_headers([self], neighbor_router.db_summary_list),
+            neighbor_router.dd_sequence, self.get_complete_lsdb_headers([self], neighbor_router.db_summary_list),
             self.version)  # TODO: Case where not all LSAs fit in one packet
         self.send_packet(dd_packet, neighbor_router.neighbor_ip_address, neighbor_router)
 
@@ -998,7 +1001,7 @@ class Interface:
             if not lsa.Lsa.is_ls_type_valid(lsa_header.ls_type, self.version):
                 invalid_ls_type = True
             else:
-                local_lsa = self.lsdb.get_lsa(  # None if no LSA found
+                local_lsa = self.get_lsa(  # None if no LSA found
                     lsa_header.ls_type, lsa_header.link_state_id, lsa_header.advertising_router, [self])
                 # Router doesn't have LSA or has older instance
                 if local_lsa is None:
@@ -1035,9 +1038,9 @@ class Interface:
     def event_interface_state_change(self, old_state, new_state):
         #  Router-LSA
         if self.version == conf.VERSION_IPV4:
-            router_lsa = copy.deepcopy(self.lsdb.get_lsa(conf.LSA_TYPE_ROUTER, self.router_id, self.router_id, [self]))
+            router_lsa = copy.deepcopy(self.get_lsa(conf.LSA_TYPE_ROUTER, self.router_id, self.router_id, [self]))
         else:
-            router_lsa = copy.deepcopy(self.lsdb.get_lsa(conf.LSA_TYPE_ROUTER, '0.0.0.0', self.router_id, [self]))
+            router_lsa = copy.deepcopy(self.get_lsa(conf.LSA_TYPE_ROUTER, '0.0.0.0', self.router_id, [self]))
         if new_state == conf.INTERFACE_STATE_DOWN:
             router_lsa.body.delete_interface_link_info(self.ipv4_address, self.network_mask, self.ospf_identifier)
             self.generate_lsa_instance(router_lsa, self.router_id)
@@ -1068,9 +1071,9 @@ class Interface:
         #  Network-LSA
         if (old_state == conf.INTERFACE_STATE_DR) & (old_state != new_state):
             if self.version == conf.VERSION_IPV4:
-                network_lsa = self.lsdb.get_lsa(conf.LSA_TYPE_NETWORK, self.ipv4_address, self.router_id, [self])
+                network_lsa = self.get_lsa(conf.LSA_TYPE_NETWORK, self.ipv4_address, self.router_id, [self])
             elif self.version == conf.VERSION_IPV6:
-                network_lsa = self.lsdb.get_lsa(conf.LSA_TYPE_NETWORK, self.ospf_identifier, self.router_id, [self])
+                network_lsa = self.get_lsa(conf.LSA_TYPE_NETWORK, self.ospf_identifier, self.router_id, [self])
             else:
                 raise ValueError("Invalid OSPF version")
             if network_lsa is not None:
@@ -1091,7 +1094,7 @@ class Interface:
 
         #  Intra-Area-Prefix-LSA
         if (old_state != new_state) & (self.version == conf.VERSION_IPV6):
-            intra_area_prefix_lsa = self.lsdb.get_lsa(
+            intra_area_prefix_lsa = self.get_lsa(
                 conf.LSA_TYPE_INTRA_AREA_PREFIX, conf.DEFAULT_DESIGNATED_ROUTER, self.router_id, [self])
             if new_state == conf.INTERFACE_STATE_DOWN:
                 self.flush_lsa(intra_area_prefix_lsa)
@@ -1104,7 +1107,7 @@ class Interface:
                 pass  # Interface left Waiting state and is connected to stub link
             elif self.version == conf.VERSION_IPV4:
                 router_lsa = copy.deepcopy(
-                    self.lsdb.get_lsa(conf.LSA_TYPE_ROUTER, self.router_id, self.router_id, [self]))
+                    self.get_lsa(conf.LSA_TYPE_ROUTER, self.router_id, self.router_id, [self]))
                 if self.ipv4_address == self.designated_router:
                     link_id = self.ipv4_address
                 else:
@@ -1120,7 +1123,7 @@ class Interface:
                         network_prefix, self.network_mask, conf.LINK_TO_STUB_NETWORK, conf.DEFAULT_TOS, self.cost)
                 self.generate_lsa_instance(router_lsa, self.router_id)
             elif self.version == conf.VERSION_IPV6:
-                router_lsa = copy.deepcopy(self.lsdb.get_lsa(conf.LSA_TYPE_ROUTER, 0, self.router_id, [self]))
+                router_lsa = copy.deepcopy(self.get_lsa(conf.LSA_TYPE_ROUTER, 0, self.router_id, [self]))
                 if self.router_id == self.designated_router:
                     neighbor_interface_id = self.ospf_identifier
                     neighbor_router_id = self.router_id
@@ -1145,7 +1148,7 @@ class Interface:
                         link_state_id = self.ipv4_address
                     else:
                         link_state_id = self.ospf_identifier
-                    network_lsa = self.lsdb.get_lsa(conf.LSA_TYPE_NETWORK, link_state_id, self.router_id, [self])
+                    network_lsa = self.get_lsa(conf.LSA_TYPE_NETWORK, link_state_id, self.router_id, [self])
                     if network_lsa is not None:
                         self.flush_lsa(network_lsa)
 
@@ -1158,11 +1161,11 @@ class Interface:
                 prefix = utils.Utils.interface_name_to_ipv6_prefix_and_length(self.physical_identifier)[0]
                 #  TODO: Correct?
                 if old_dr in [self.router_id, self.ipv4_address]:
-                    network_intra_area_prefix_lsa = copy.deepcopy(self.lsdb.get_lsa(
+                    network_intra_area_prefix_lsa = copy.deepcopy(self.get_lsa(
                         conf.LSA_TYPE_INTRA_AREA_PREFIX, self.ospf_identifier, self.router_id, [self]))
                     if network_intra_area_prefix_lsa is not None:
                         self.flush_lsa(network_intra_area_prefix_lsa)
-                    router_intra_area_prefix_lsa = self.lsdb.get_lsa(
+                    router_intra_area_prefix_lsa = self.get_lsa(
                         conf.LSA_TYPE_INTRA_AREA_PREFIX, conf.DEFAULT_DESIGNATED_ROUTER, self.router_id, [self])
                     is_new = False
                     if router_intra_area_prefix_lsa is None:  # Router is not connected to other stub links
@@ -1183,8 +1186,7 @@ class Interface:
         #  Router-LSA
         if self.type == conf.POINT_TO_POINT_INTERFACE:
             if self.version == conf.VERSION_IPV4:
-                router_lsa = copy.deepcopy(
-                    self.lsdb.get_lsa(conf.LSA_TYPE_ROUTER, self.router_id, self.router_id, [self]))
+                router_lsa = copy.deepcopy(self.get_lsa(conf.LSA_TYPE_ROUTER, self.router_id, self.router_id, [self]))
                 link_id = list(self.neighbors.values())[0].neighbor_id
                 link_data = self.ipv4_address
                 link_type = conf.POINT_TO_POINT_LINK
@@ -1197,7 +1199,7 @@ class Interface:
                     router_lsa.body.delete_link_info_v2(link_id, link_data, link_type, tos_number, metric)
                     self.generate_lsa_instance(router_lsa, self.router_id)
             elif self.version == conf.VERSION_IPV6:
-                router_lsa = copy.deepcopy(self.lsdb.get_lsa(conf.LSA_TYPE_ROUTER, 0, self.router_id, [self]))
+                router_lsa = copy.deepcopy(self.get_lsa(conf.LSA_TYPE_ROUTER, 0, self.router_id, [self]))
                 link_type = conf.POINT_TO_POINT_LINK
                 metric = self.cost
                 interface_id = self.ospf_identifier
@@ -1227,8 +1229,7 @@ class Interface:
                 link_state_id = self.ipv4_address
             else:
                 link_state_id = self.ospf_identifier
-            network_lsa = copy.deepcopy(
-                self.lsdb.get_lsa(conf.LSA_TYPE_NETWORK, link_state_id, self.router_id, [self]))
+            network_lsa = copy.deepcopy(self.get_lsa(conf.LSA_TYPE_NETWORK, link_state_id, self.router_id, [self]))
             if new_state == conf.NEIGHBOR_STATE_FULL:
                 if network_lsa is not None:
                     network_lsa.body.add_attached_router(neighbor_id)
@@ -1251,7 +1252,7 @@ class Interface:
             prefix = utils.Utils.interface_name_to_ipv6_prefix_and_length(self.physical_identifier)[0]
             if new_state == conf.NEIGHBOR_STATE_FULL:
                 if self.is_transit_network(self.designated_router):
-                    router_intra_area_prefix_lsa = copy.deepcopy(self.lsdb.get_lsa(
+                    router_intra_area_prefix_lsa = copy.deepcopy(self.get_lsa(
                         conf.LSA_TYPE_INTRA_AREA_PREFIX, 0, self.router_id, [self]))  # Associated to stub networks
                     #  If first full adjacency has just been created and/or router is connected to stub networks
                     if router_intra_area_prefix_lsa is not None:
@@ -1269,10 +1270,10 @@ class Interface:
                             self.install_flood_lsa(network_intra_area_prefix_lsa, self.router_id)
             elif (old_state == conf.NEIGHBOR_STATE_FULL) & (self.designated_router == self.router_id):
                 if not self.is_transit_network(self.designated_router):  # Last full adjacency was destroyed
-                    network_intra_area_prefix_lsa = copy.deepcopy(self.lsdb.get_lsa(
+                    network_intra_area_prefix_lsa = copy.deepcopy(self.get_lsa(
                         conf.LSA_TYPE_INTRA_AREA_PREFIX, self.ospf_identifier, self.router_id, [self]))
                     self.flush_lsa(network_intra_area_prefix_lsa)
-                    router_intra_area_prefix_lsa = self.lsdb.get_lsa(
+                    router_intra_area_prefix_lsa = self.get_lsa(
                         conf.LSA_TYPE_INTRA_AREA_PREFIX, conf.DEFAULT_DESIGNATED_ROUTER, self.router_id, [self])
                     if router_intra_area_prefix_lsa is None:  # Router is not connected to other stub links
                         router_intra_area_prefix_lsa = self.create_lsa_header(
@@ -1298,7 +1299,7 @@ class Interface:
         self.install_flood_lsa(lsa_instance, neighbor_id)
 
     def install_flood_lsa(self, lsa_instance, neighbor_id):
-        self.lsdb.add_lsa(lsa_instance, self)
+        self.add_lsa(lsa_instance)
         self.add_lsa_to_flooding_pipeline(lsa_instance, neighbor_id)  # neighbor_id can be this Router ID
 
     #  Flushes given LSA instance
@@ -1306,7 +1307,10 @@ class Interface:
         if not lsa_instance.is_lsa_self_originated(self.router_id):
             warnings.warn("Router " + self.router_id + " flushing LSA originated at other router")
         lsa_instance.set_ls_age_max()
-        self.lsdb.add_lsa(lsa_instance, self)  # Replace current instance with MaxAge instance
+        if lsa_instance.is_extension_lsa():
+            self.add_extension_lsa(lsa_instance)  # Replace current instance with MaxAge instance
+        else:
+            self.add_lsa(lsa_instance)
         lsa_identifier = lsa_instance.get_lsa_identifier()
         for neighbor_id in self.neighbors:
             neighbor_router = self.neighbors[neighbor_id]
@@ -1314,7 +1318,7 @@ class Interface:
                 neighbor_router.delete_lsa_identifier(neighbor_router.ls_retransmission_list, lsa_identifier)
         self.add_lsa_to_flooding_pipeline(copy.deepcopy(lsa_instance), self.router_id)
         #  Shortcut to LSA removal from LSDB
-        self.lsdb.delete_lsa(lsa_identifier[0], lsa_identifier[1], lsa_identifier[2], [self])
+        self.delete_lsa(lsa_identifier[0], lsa_identifier[1], lsa_identifier[2])
 
     #  Returns True if interface has at least one neighbor in FULL state (full adjacency)
     def has_full_adjacency(self):
@@ -1514,6 +1518,80 @@ class Interface:
     def is_dr_bdr(self):
         return (self.router_id in [self.designated_router, self.backup_designated_router]) | (
                 self.ipv4_address in [self.designated_router, self.backup_designated_router])
+
+    #  Asks router instance for extension LSDB or part of it and returns answer
+    def get_extension_lsdb(self, identifiers):
+        self.extension_lsa_pipeline_up.put([GET_LSDB, identifiers])
+        while not self.extension_lsa_pipeline_down.empty():
+            time.sleep(0.001)  # Gives CPU to next thread
+        return self.extension_lsa_pipeline_down.get()  # List with all extension LSAs or desired part
+
+    #  Asks router instance for extension LSA instance and returns answer
+    def get_extension_lsa(self, ls_type, link_state_id, advertising_router):
+        if self.version == conf.VERSION_IPV4:
+            opaque_type = header.Header.get_opaque_type(link_state_id)
+        else:
+            opaque_type = 0
+        self.extension_lsa_pipeline_up.put([GET_LSA, ls_type, opaque_type, advertising_router])
+        while not self.extension_lsa_pipeline_down.empty():
+            time.sleep(0.001)  # Gives CPU to next thread
+        return self.extension_lsa_pipeline_down.get()  # Either desired LSA or None
+
+    #  Sends extension LSA to router instance to be stored
+    def add_extension_lsa(self, lsa_to_add):
+        self.extension_lsa_pipeline_up.put([ADD_LSA, lsa_to_add])
+        time.sleep(0.001)
+
+    #  Asks router instance to delete extension LSA instance
+    def delete_extension_lsa(self, ls_type, link_state_id, advertising_router):
+        if self.version == conf.VERSION_IPV4:
+            opaque_type = header.Header.get_opaque_type(link_state_id)
+        else:
+            opaque_type = 0
+        self.extension_lsa_pipeline_up.put([DELETE_LSA, ls_type, opaque_type, advertising_router])
+        time.sleep(0.001)
+
+    #  Gets all LSAs (except link-local-scope LSAs of other interfaces) from area LSDB and extension LSDB
+    def get_complete_lsdb(self, interfaces, identifiers):
+        return self.lsdb.get_lsdb(interfaces, identifiers) + self.get_extension_lsdb(identifiers)
+
+    #  Gets all LSA headers (except link-local-scope LSAs of other interfaces) from area LSDB and extension LSDB
+    def get_complete_lsdb_headers(self, interfaces, identifiers):
+        lsa_headers = []
+        for query_lsa in self.get_complete_lsdb(interfaces, identifiers):
+            lsa_headers.append(query_lsa)
+        return lsa_headers
+
+    #  Gets LSA either from area LSDB or extension LSDB according to desired LS Type
+    def get_lsa(self, ls_type, link_state_id, advertising_router, interfaces):
+        ls_type = header.Header.get_ls_type(ls_type)  # Removes S1, S2 and U bits in OSPFv3, otherwise does nothing
+        if ls_type in [
+            conf.LSA_TYPE_OPAQUE_LINK_LOCAL, conf.LSA_TYPE_OPAQUE_AREA, conf.LSA_TYPE_OPAQUE_AS,
+                conf.LSA_TYPE_EXTENSION_ABR_LSA, conf.LSA_TYPE_EXTENSION_PREFIX_LSA, conf.LSA_TYPE_EXTENSION_ASBR_LSA]:
+            return self.get_extension_lsa(ls_type, link_state_id, advertising_router)
+        else:
+            return self.lsdb.get_lsa(ls_type, link_state_id, advertising_router, interfaces)
+
+    #  Gets LSA header either from area LSDB or extension LSDB according to desired LS Type
+    def get_lsa_header(self, ls_type, link_state_id, advertising_router, interfaces):
+        return self.get_lsa(ls_type, link_state_id, advertising_router, interfaces).header
+
+    #  Adds LSA to either area LSDB or extension LSDB according to LS Type
+    def add_lsa(self, lsa_to_add):
+        if lsa_to_add.is_extension_lsa():
+            self.add_extension_lsa(lsa_to_add)
+        else:
+            self.lsdb.add_lsa(lsa_to_add, self)
+
+    #  Deletes LSA from either area LSDB or extension LSDB according to LS Type
+    def delete_lsa(self, ls_type, link_state_id, advertising_router):
+        ls_type = header.Header.get_ls_type(ls_type)
+        if ls_type in [
+            conf.LSA_TYPE_OPAQUE_LINK_LOCAL, conf.LSA_TYPE_OPAQUE_AREA, conf.LSA_TYPE_OPAQUE_AS,
+                conf.LSA_TYPE_EXTENSION_ABR_LSA, conf.LSA_TYPE_EXTENSION_PREFIX_LSA, conf.LSA_TYPE_EXTENSION_ASBR_LSA]:
+            self.delete_extension_lsa(ls_type, link_state_id, advertising_router)
+        else:
+            self.lsdb.delete_lsa(ls_type, link_state_id, advertising_router, [self])
 
     #  #  #  #  #  #  #  #  #  #  #  #
     #  Link-local LSA list methods  #
