@@ -50,7 +50,7 @@ class Area:
             link_state_id = router_id
             options = 0
         else:
-            link_state_id = '0.0.0.0'
+            link_state_id = conf.DEFAULT_LINK_STATE_ID
             options = conf.OPTIONS
         router_lsa.create_header(conf.INITIAL_LS_AGE, conf.OPTIONS, conf.LSA_TYPE_ROUTER, link_state_id, router_id,
                                  conf.INITIAL_SEQUENCE_NUMBER, version)

@@ -23,6 +23,8 @@ class ExtensionLsdb:
         self.prefix_lock = threading.RLock()
         self.asbr_lock = threading.RLock()
         self.time_lock = threading.RLock()
+        if version not in [conf.VERSION_IPV4, conf.VERSION_IPV6]:
+            raise ValueError("Invalid OSPF version")
         self.version = version
         self.is_modified = threading.Event()  # Set if LSDB was changed and change has not yet been processed
         self.modification_time = time.perf_counter()  # Current system time
@@ -205,24 +207,24 @@ class ExtensionLsdb:
         #  Graph initialization
         directed_graph = {}  # Dictionary of dictionaries - Each dictionary contains destinations for one graph node
         for query_lsa in abr_lsa_list:  # Each ABR creates one extension LSA of each type, at most
-            directed_graph[query_lsa.advertising_router] = {}
+            directed_graph[query_lsa.header.advertising_router] = {}
             for neighbor_abr in query_lsa.abr_list:
                 metric = neighbor_abr[0]
                 neighbor_id = neighbor_abr[1]
-                directed_graph[query_lsa.advertising_router][neighbor_id] = metric
+                directed_graph[query_lsa.header.advertising_router][neighbor_id] = metric
 
         #  Address prefixes
         prefixes = {}
         for query_lsa in prefix_lsa_list:
-            prefixes[query_lsa.advertising_router] = []
+            prefixes[query_lsa.header.advertising_router] = []
             if self.version == conf.VERSION_IPV4:
-                for subnet_info in query_lsa.subnet_list:
+                for subnet_info in query_lsa.body.subnet_list:
                     subnet_address = subnet_info[2]
-                    prefixes[query_lsa.advertising_router].append(subnet_address)
+                    prefixes[query_lsa.header.advertising_router].append(subnet_address)
             elif self.version == conf.VERSION_IPV6:
-                for prefix_info in query_lsa.prefix_list:
+                for prefix_info in query_lsa.body.prefix_list:
                     address_prefix = prefix_info[3]
-                    prefixes[query_lsa.advertising_router].append(address_prefix)
+                    prefixes[query_lsa.header.advertising_router].append(address_prefix)
 
         return [directed_graph, prefixes]
 

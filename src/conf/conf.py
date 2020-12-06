@@ -41,6 +41,7 @@ OSPF_PROTOCOL_NUMBER = 89
 INITIAL_LS_AGE = 0
 INITIAL_SEQUENCE_NUMBER = 0x80000001
 DEFAULT_TOS = 0
+INFINITE_COST = 16777215 + 1  # Undefined in OSPF RFCs - Value larger than possible to store in cost fields (3 bytes)
 
 #  Seconds
 MAX_AGE = 60 * 60

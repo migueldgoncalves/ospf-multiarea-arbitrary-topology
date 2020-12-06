@@ -84,8 +84,9 @@ class Interface:
         self.flooded_pipeline = queue.Queue()  # Content states whether provided LSA was flooded or not
         self.lsa_list_to_ack = queue.Queue()  # Stores LSA headers to be flooded in same LS Acknowledgement packet
         self.is_abr = is_abr  # True if router is ABR
-        self.extension_lsa_pipeline_up = queue.Queue()  # Allows router class to receive extension LSAs
-        self.extension_lsa_pipeline_down = queue.Queue()  # Allows router class to provide extension LSAs
+        #  Remain None if interface is being run as part of unit test
+        self.extension_lsa_pipeline_up = None  # Allows router class to receive extension LSAs - Set by router
+        self.extension_lsa_pipeline_down = None  # Allows router class to provide extension LSAs - Set by router
 
         self.hello_thread = None
         self.hello_timer = timer.Timer()
@@ -717,7 +718,7 @@ class Interface:
         elif len(group_2) > 0:
             group_to_process = group_2
         else:  # All routers declare themselves as DR - No BDR can be found
-            return '0.0.0.0'
+            return conf.DEFAULT_DESIGNATED_ROUTER
         return Interface.rank_routers(group_to_process)  # RID of BDR
 
     #  Election algorithm - Step 3
@@ -1400,7 +1401,7 @@ class Interface:
                 link_state_id = self.ospf_identifier
             elif lsa_type == conf.LSA_TYPE_INTRA_AREA_PREFIX:
                 if header.Header.get_ls_type(referenced_ls_type) == conf.LSA_TYPE_ROUTER:
-                    link_state_id = '0.0.0.0'
+                    link_state_id = conf.DEFAULT_LINK_STATE_ID
                 elif header.Header.get_ls_type(referenced_ls_type) == conf.LSA_TYPE_NETWORK:
                     link_state_id = self.ospf_identifier  # Can be a random value
                 else:
@@ -1521,29 +1522,47 @@ class Interface:
 
     #  Asks router instance for extension LSDB or part of it and returns answer
     def get_extension_lsdb(self, identifiers):
+        if (self.extension_lsa_pipeline_up is None) | (self.extension_lsa_pipeline_down is None):  # Unit test
+            return []
         self.extension_lsa_pipeline_up.put([GET_LSDB, identifiers])
         while not self.extension_lsa_pipeline_down.empty():
+            if self.interface_shutdown.is_set():  # Handles shutdown order during wait
+                break
             time.sleep(0.001)  # Gives CPU to next thread
-        return self.extension_lsa_pipeline_down.get()  # List with all extension LSAs or desired part
+        if self.interface_shutdown.is_set():
+            return []
+        else:
+            return self.extension_lsa_pipeline_down.get()  # List with all extension LSAs or desired part
 
     #  Asks router instance for extension LSA instance and returns answer
     def get_extension_lsa(self, ls_type, link_state_id, advertising_router):
+        if (self.extension_lsa_pipeline_up is None) | (self.extension_lsa_pipeline_down is None):
+            return None
         if self.version == conf.VERSION_IPV4:
             opaque_type = header.Header.get_opaque_type(link_state_id)
         else:
             opaque_type = 0
         self.extension_lsa_pipeline_up.put([GET_LSA, ls_type, opaque_type, advertising_router])
         while not self.extension_lsa_pipeline_down.empty():
+            if self.interface_shutdown.is_set():  # Handles shutdown order during wait
+                break
             time.sleep(0.001)  # Gives CPU to next thread
-        return self.extension_lsa_pipeline_down.get()  # Either desired LSA or None
+        if self.interface_shutdown.is_set():
+            return None
+        else:
+            return self.extension_lsa_pipeline_down.get()  # Either desired LSA or None
 
     #  Sends extension LSA to router instance to be stored
     def add_extension_lsa(self, lsa_to_add):
+        if (self.extension_lsa_pipeline_up is None) | (self.extension_lsa_pipeline_down is None):
+            return
         self.extension_lsa_pipeline_up.put([ADD_LSA, lsa_to_add])
         time.sleep(0.001)
 
     #  Asks router instance to delete extension LSA instance
     def delete_extension_lsa(self, ls_type, link_state_id, advertising_router):
+        if (self.extension_lsa_pipeline_up is None) | (self.extension_lsa_pipeline_down is None):
+            return
         if self.version == conf.VERSION_IPV4:
             opaque_type = header.Header.get_opaque_type(link_state_id)
         else:
@@ -1559,14 +1578,16 @@ class Interface:
     def get_complete_lsdb_headers(self, interfaces, identifiers):
         lsa_headers = []
         for query_lsa in self.get_complete_lsdb(interfaces, identifiers):
-            lsa_headers.append(query_lsa)
+            lsa_headers.append(query_lsa.header)
         return lsa_headers
 
     #  Gets LSA either from area LSDB or extension LSDB according to desired LS Type
     def get_lsa(self, ls_type, link_state_id, advertising_router, interfaces):
         ls_type = header.Header.get_ls_type(ls_type)  # Removes S1, S2 and U bits in OSPFv3, otherwise does nothing
-        if ls_type in [
-            conf.LSA_TYPE_OPAQUE_LINK_LOCAL, conf.LSA_TYPE_OPAQUE_AREA, conf.LSA_TYPE_OPAQUE_AS,
+        if (self.version == conf.VERSION_IPV4) & ls_type in [
+                conf.LSA_TYPE_OPAQUE_LINK_LOCAL, conf.LSA_TYPE_OPAQUE_AREA, conf.LSA_TYPE_OPAQUE_AS]:
+            return self.get_extension_lsa(ls_type, link_state_id, advertising_router)
+        if (self.version == conf.VERSION_IPV6) & ls_type in [
                 conf.LSA_TYPE_EXTENSION_ABR_LSA, conf.LSA_TYPE_EXTENSION_PREFIX_LSA, conf.LSA_TYPE_EXTENSION_ASBR_LSA]:
             return self.get_extension_lsa(ls_type, link_state_id, advertising_router)
         else:
@@ -1586,10 +1607,12 @@ class Interface:
     #  Deletes LSA from either area LSDB or extension LSDB according to LS Type
     def delete_lsa(self, ls_type, link_state_id, advertising_router):
         ls_type = header.Header.get_ls_type(ls_type)
-        if ls_type in [
-            conf.LSA_TYPE_OPAQUE_LINK_LOCAL, conf.LSA_TYPE_OPAQUE_AREA, conf.LSA_TYPE_OPAQUE_AS,
+        if (self.version == conf.VERSION_IPV4) & ls_type in [
+                conf.LSA_TYPE_OPAQUE_LINK_LOCAL, conf.LSA_TYPE_OPAQUE_AREA, conf.LSA_TYPE_OPAQUE_AS]:
+            return self.delete_extension_lsa(ls_type, link_state_id, advertising_router)
+        if (self.version == conf.VERSION_IPV6) & ls_type in [
                 conf.LSA_TYPE_EXTENSION_ABR_LSA, conf.LSA_TYPE_EXTENSION_PREFIX_LSA, conf.LSA_TYPE_EXTENSION_ASBR_LSA]:
-            self.delete_extension_lsa(ls_type, link_state_id, advertising_router)
+            return self.delete_extension_lsa(ls_type, link_state_id, advertising_router)
         else:
             self.lsdb.delete_lsa(ls_type, link_state_id, advertising_router, [self])
 

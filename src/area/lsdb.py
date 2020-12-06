@@ -389,7 +389,6 @@ class Lsdb:
     @staticmethod
     def get_shortest_path_tree(directed_graph, source_router_id):
         #  Initialization
-        infinite = conf.MAX_VALUE_24_BITS + 1  # Replacement for infinite cost - Infinite has no value in OSPF
         shortest_path_tree = {source_router_id: [0, source_router_id]}
         nodes_to_analyse = {}
         for destination in directed_graph:
@@ -397,14 +396,14 @@ class Lsdb:
                 if directed_graph[source_router_id].get(destination) is not None:
                     cost = directed_graph[source_router_id][destination]  # Source directly connected to destination
                 else:
-                    cost = infinite
+                    cost = conf.INFINITE_COST  # Value larger than possible to store in 3 bytes
                 nodes_to_analyse[destination] = [cost, source_router_id]
 
         while True:
             #  Finding closest node
             if len(nodes_to_analyse) == 0:
                 return shortest_path_tree  # No further nodes to analyse - Shortest path tree completed
-            shortest_cost = infinite
+            shortest_cost = conf.INFINITE_COST
             closest_node = ''
             for node in nodes_to_analyse:
                 if nodes_to_analyse[node][0] < shortest_cost:
