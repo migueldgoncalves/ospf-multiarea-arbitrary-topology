@@ -366,6 +366,12 @@ class Lsa:
         opaque_type = struct.unpack("> B", opaque_type_byte)[0]
         return opaque_type
 
+    #  Returns OSPF Opaque Type of current LSA
+    def get_opaque_type(self):
+        if self.get_ospf_version() != conf.VERSION_IPV4:
+            return 0
+        return header.Header.get_opaque_type(self.header.link_state_id)
+
     #  Returns type of current LSA, without flooding scope if any
     def get_lsa_type_from_lsa(self):
         return self.header.get_ls_type(self.header.ls_type)
@@ -383,7 +389,7 @@ class Lsa:
     #  Returns True if extension LSA identifier matches current LSA
     def is_extension_lsa_identifier_equal(self, ls_type, opaque_type, advertising_router):
         if self.get_ospf_version() == conf.VERSION_IPV4:
-            link_state_id = opaque_type << 3 * conf.BYTE_SIZE
+            link_state_id = utils.Utils.decimal_to_ipv4(opaque_type << 3 * conf.BYTE_SIZE)
         else:
             link_state_id = conf.DEFAULT_LINK_STATE_ID
         return self.is_lsa_identifier_equal(ls_type, link_state_id, advertising_router)

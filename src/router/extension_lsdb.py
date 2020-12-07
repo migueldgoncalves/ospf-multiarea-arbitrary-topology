@@ -52,23 +52,23 @@ class ExtensionLsdb:
 
     #  Atomically returns an extension LSA given its identifier, if present
     def get_extension_lsa(self, ls_type, opaque_type, advertising_router):
-        ls_type = header.Header.get_ls_type(ls_type)  # Removes S1, S2 and U bits in OSPFv3 LS Type
+        if self.version == conf.VERSION_IPV4:
+            ls_type = conf.LSA_TYPE_OPAQUE_AS
+        else:
+            ls_type = header.Header.get_ls_type(ls_type)  # Removes S1, S2 and U bits
         list_to_search = []
-        if ((self.version == conf.VERSION_IPV4) & (ls_type == conf.LSA_TYPE_OPAQUE_AS) & (
-                opaque_type == conf.OPAQUE_TYPE_ABR_LSA)) | ((self.version == conf.VERSION_IPV6) & (
-                ls_type == conf.LSA_TYPE_EXTENSION_ABR_LSA)):
+        if ((self.version == conf.VERSION_IPV4) & (opaque_type == conf.OPAQUE_TYPE_ABR_LSA)) | (
+                (self.version == conf.VERSION_IPV6) & (ls_type == conf.LSA_TYPE_EXTENSION_ABR_LSA)):
             self.abr_lock.acquire()
             list_to_search = copy.deepcopy(self.abr_lsa_list)
             self.abr_lock.release()
-        elif ((self.version == conf.VERSION_IPV4) & (ls_type == conf.LSA_TYPE_OPAQUE_AS) & (
-                opaque_type == conf.OPAQUE_TYPE_PREFIX_LSA)) | ((self.version == conf.VERSION_IPV6) & (
-                ls_type == conf.LSA_TYPE_EXTENSION_PREFIX_LSA)):
+        elif ((self.version == conf.VERSION_IPV4) & (opaque_type == conf.OPAQUE_TYPE_PREFIX_LSA)) | (
+                (self.version == conf.VERSION_IPV6) & (ls_type == conf.LSA_TYPE_EXTENSION_PREFIX_LSA)):
             self.abr_lock.acquire()
             list_to_search = copy.deepcopy(self.prefix_lsa_list)
             self.abr_lock.release()
-        elif ((self.version == conf.VERSION_IPV4) & (ls_type == conf.LSA_TYPE_OPAQUE_AS) & (
-                opaque_type == conf.OPAQUE_TYPE_ASBR_LSA)) | ((self.version == conf.VERSION_IPV6) & (
-                ls_type == conf.LSA_TYPE_EXTENSION_ASBR_LSA)):
+        elif ((self.version == conf.VERSION_IPV4) & (opaque_type == conf.OPAQUE_TYPE_ASBR_LSA)) | (
+                (self.version == conf.VERSION_IPV6) & (ls_type == conf.LSA_TYPE_EXTENSION_ASBR_LSA)):
             self.abr_lock.acquire()
             list_to_search = copy.deepcopy(self.asbr_lsa_list)
             self.abr_lock.release()
@@ -100,29 +100,29 @@ class ExtensionLsdb:
 
     #  Atomically deletes an extension LSA from the LSDB, if present
     def delete_extension_lsa(self, ls_type, opaque_type, advertising_router):
-        ls_type = header.Header.get_ls_type(ls_type)  # Removes S1, S2 and U bits in OSPFv3 LS Type
-        if ((self.version == conf.VERSION_IPV4) & (ls_type == conf.LSA_TYPE_OPAQUE_AS) & (
-                opaque_type == conf.OPAQUE_TYPE_ABR_LSA)) | ((self.version == conf.VERSION_IPV6) & (
-                ls_type == conf.LSA_TYPE_EXTENSION_ABR_LSA)):
+        if self.version == conf.VERSION_IPV4:
+            ls_type = conf.LSA_TYPE_OPAQUE_AS
+        else:
+            ls_type = header.Header.get_ls_type(ls_type)  # Removes S1, S2 and U bits
+        if ((self.version == conf.VERSION_IPV4) & (opaque_type == conf.OPAQUE_TYPE_ABR_LSA)) | (
+                (self.version == conf.VERSION_IPV6) & (ls_type == conf.LSA_TYPE_EXTENSION_ABR_LSA)):
             lock = self.abr_lock
             lock.acquire()
             list_to_search = self.abr_lsa_list
-        elif ((self.version == conf.VERSION_IPV4) & (ls_type == conf.LSA_TYPE_OPAQUE_AS) & (
-                opaque_type == conf.OPAQUE_TYPE_PREFIX_LSA)) | ((self.version == conf.VERSION_IPV6) & (
-                ls_type == conf.LSA_TYPE_EXTENSION_PREFIX_LSA)):
+        elif ((self.version == conf.VERSION_IPV4) & (opaque_type == conf.OPAQUE_TYPE_PREFIX_LSA)) | (
+                (self.version == conf.VERSION_IPV6) & (ls_type == conf.LSA_TYPE_EXTENSION_PREFIX_LSA)):
             lock = self.prefix_lock
             lock.acquire()
             list_to_search = self.prefix_lsa_list
-        elif ((self.version == conf.VERSION_IPV4) & (ls_type == conf.LSA_TYPE_OPAQUE_AS) & (
-                opaque_type == conf.OPAQUE_TYPE_ASBR_LSA)) | ((self.version == conf.VERSION_IPV6) & (
-                ls_type == conf.LSA_TYPE_EXTENSION_ASBR_LSA)):
+        elif ((self.version == conf.VERSION_IPV4) & (opaque_type == conf.OPAQUE_TYPE_ASBR_LSA)) | (
+                (self.version == conf.VERSION_IPV6) & (ls_type == conf.LSA_TYPE_EXTENSION_ASBR_LSA)):
             lock = self.asbr_lock
             lock.acquire()
             list_to_search = self.asbr_lsa_list
         else:
             return
         for query_lsa in list_to_search:
-            if query_lsa.is_lsa_identifier_equal(ls_type, opaque_type, advertising_router):
+            if query_lsa.is_extension_lsa_identifier_equal(ls_type, opaque_type, advertising_router):
                 list_to_search.remove(query_lsa)
                 self.extension_lsdb_modified()
         lock.release()

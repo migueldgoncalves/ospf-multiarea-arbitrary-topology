@@ -62,9 +62,13 @@ class TestLsdb(unittest.TestCase):
         self.assertEqual(0, len(self.lsdb_ospfv2.router_lsa_list))
         self.assertEqual(0, len(self.lsdb_ospfv2.network_lsa_list))
         self.assertEqual(0, len(self.lsdb_ospfv2.intra_area_prefix_lsa_list))
+        self.assertEqual(0, len(self.lsdb_ospfv2.summary_lsa_type_3_list))
+        self.assertEqual(0, len(self.lsdb_ospfv2.inter_area_prefix_lsa_list))
         self.assertEqual(0, len(self.lsdb_ospfv3.router_lsa_list))
         self.assertEqual(0, len(self.lsdb_ospfv3.network_lsa_list))
         self.assertEqual(0, len(self.lsdb_ospfv3.intra_area_prefix_lsa_list))
+        self.assertEqual(0, len(self.lsdb_ospfv3.summary_lsa_type_3_list))
+        self.assertEqual(0, len(self.lsdb_ospfv3.inter_area_prefix_lsa_list))
         self.assertFalse(self.lsdb_ospfv2.is_modified.is_set())
         self.assertFalse(self.lsdb_ospfv3.is_modified.is_set())
 

@@ -4,7 +4,6 @@ import time
 import copy
 import random
 import multiprocessing
-import queue
 
 import general.utils as utils
 import general.sock as sock
@@ -16,7 +15,6 @@ import lsa.header as header
 import router.routing_table as routing_table
 import router.kernel_table as kernel_table
 import router.extension_lsdb as extension_lsdb
-import interface.interface as interface
 
 '''
 This class contains the top-level OSPF data structures and operations
@@ -63,7 +61,6 @@ class Router:
         self.command_thread = threading.Thread(target=self.execute_commands)
         self.kernel_table_process = None
         self.extension_database = None
-        self.extension_lsdb_command_thread = threading.Thread(target=self.extension_lsdb_command_loop)
 
     #  Allows router instance to be created without starting it
     def set_up(self, router_id, ospf_version, router_shutdown_event, interface_ids, area_ids, localhost,
@@ -97,9 +94,6 @@ class Router:
             self.packet_pipelines[interface_id] = multiprocessing.Queue()
         for interface_id in self.interfaces:
             self.socket_shutdown_events[interface_id] = multiprocessing.Event()
-        for interface_id in self.interfaces:  # Remain None at interface if it is being run as part of unit test
-            self.interfaces[interface_id][area.INTERFACE_OBJECT].extension_lsa_pipeline_up = queue.Queue()
-            self.interfaces[interface_id][area.INTERFACE_OBJECT].extension_lsa_pipeline_down = queue.Queue()
         accept_self_packets = False
         is_dr = multiprocessing.Event()  # Event is clear on creation - Router on startup is never DR/BDR
         for interface_id in self.interfaces:
@@ -120,7 +114,8 @@ class Router:
         self.output_event = output_event  # If has printed desired output, if any
         self.command_thread.start()
         self.extension_database = extension_lsdb.ExtensionLsdb(self.ospf_version)
-        self.extension_lsdb_command_thread.start()
+        for interface_id in self.interfaces:  # Remains None at interface if it is being run as part of unit test
+            self.interfaces[interface_id][area.INTERFACE_OBJECT].extension_lsdb = self.extension_database
 
         self.main_loop()
 
@@ -270,39 +265,6 @@ class Router:
     #  #  #  #  #  #  #  #  #  #  #  #  #  #  #
     #  LSDB update and routing table creation  #
     #  #  #  #  #  #  #  #  #  #  #  #  #  #  #
-
-    #  Searches for commands related to the extension LSDB given by the interfaces and executes them
-    def extension_lsdb_command_loop(self):
-        while not self.router_shutdown_event.is_set():
-            for interface_id in self.interfaces:
-                if self.router_shutdown_event.is_set():
-                    break
-                interface_object = self.interfaces[interface_id][area.INTERFACE_OBJECT]
-                extension_lsa_pipeline_up = interface_object.extension_lsa_pipeline_up
-                if not extension_lsa_pipeline_up.empty():
-                    data = extension_lsa_pipeline_up.get()
-                    command = data[0]
-                    extension_lsa_pipeline_down = interface_object.extension_lsa_pipeline_down
-                    if command == interface.GET_LSDB:
-                        identifiers = data[1]
-                        extension_lsa_pipeline_down.put(self.extension_database.get_extension_lsdb(identifiers))
-                    elif command == interface.GET_LSA:
-                        ls_type = data[1]
-                        opaque_type = data[2]
-                        advertising_router = data[3]
-                        extension_lsa_pipeline_down.put(self.extension_database.get_extension_lsa(
-                            ls_type, opaque_type, advertising_router))
-                    elif command == interface.ADD_LSA:
-                        lsa_to_add = data[1]
-                        self.extension_database.add_extension_lsa(lsa_to_add)
-                    elif command == interface.DELETE_LSA:
-                        ls_type = data[1]
-                        opaque_type = data[2]
-                        advertising_router = data[3]
-                        self.extension_database.delete_extension_lsa(ls_type, opaque_type, advertising_router)
-                    else:
-                        continue
-                    time.sleep(0.001)  # Gives CPU to next thread
 
     #  Returns OSPF routing table with paths to intra-area prefixes
     #  Receives shortest path trees of directly connected areas, and prefixes and LSDBs of such areas
@@ -809,9 +771,6 @@ class Router:
                 updated_lsa_list.append(own_prefix_lsa)
                 self.extension_database.add_extension_lsa(own_prefix_lsa)
 
-        print(updated_lsa_list)
-        print(len(self.extension_database.prefix_lsa_list))
-
         #  Updating LSA instances and flooding them
         for area_id in self.areas:
             for query_lsa in updated_lsa_list:
@@ -836,7 +795,9 @@ class Router:
             parent_node = prefix_lsa.header.advertising_router
             if self.ospf_version == conf.VERSION_IPV4:
                 for subnet_info in prefix_lsa.body.subnet_list:
-                    metric = subnet_info[0] + overlay_shortest_path_tree[parent_node][0]
+                    metric = subnet_info[0]
+                    if overlay_shortest_path_tree is not None:  # Router knows at least another ABR
+                        metric += overlay_shortest_path_tree[parent_node][0]
                     netmask = subnet_info[1]
                     subnet_address = subnet_info[2]
                     if subnet_address not in abr_prefixes_dictionary:
@@ -845,7 +806,9 @@ class Router:
                         abr_prefixes_dictionary[subnet_address] = [metric, netmask, parent_node]
             elif self.ospf_version == conf.VERSION_IPV6:
                 for prefix_info in prefix_lsa.body.prefix_list:
-                    metric = prefix_info[0] + overlay_shortest_path_tree[parent_node][0]
+                    metric = prefix_info[0]
+                    if overlay_shortest_path_tree is not None:
+                        metric += overlay_shortest_path_tree[parent_node][0]
                     prefix_length = prefix_info[1]
                     prefix = prefix_info[3]
                     if prefix not in abr_prefixes_dictionary:
@@ -966,9 +929,10 @@ class Router:
 
         #  Extension LSAs, inter-area LSAs and prefixes
         if self.abr:
-            self.routing_table = self.get_complete_ospf_routing_table(self.routing_table)
-            if self.router_shutdown_event.is_set():
-                return
+            if len(self.extension_database.abr_lsa_list) > 0:  # If network has more than 1 ABR
+                self.routing_table = self.get_complete_ospf_routing_table(self.routing_table)
+                if self.router_shutdown_event.is_set():
+                    return
             self.update_inter_area_lsa_list(lsdb_dict)
         if self.router_shutdown_event.is_set():
             return
@@ -1133,7 +1097,6 @@ class Router:
         for a in self.areas:
             self.areas[a].shutdown_area()
         self.command_thread.join()
-        self.extension_lsdb_command_thread.join()
 
     #  #  #  #  #  #  #  #
     #  Auxiliary methods  #
@@ -1157,7 +1120,7 @@ class Router:
         routers = []
         self.extension_database.prefix_lock.acquire()
         for prefix_lsa in self.extension_database.prefix_lsa_list:
-            routers.append(prefix_lsa.header.router_id)  # ABRs will always be associated with at least 1 network prefix
+            routers.append(prefix_lsa.header.advertising_router)  # Routers are associated with 1 or + network prefixes
         self.extension_database.prefix_lock.release()
         return routers
 
@@ -1183,34 +1146,6 @@ class Router:
             for query_abr in abr_overlay_shortest_path_tree:
                 if abr_id == query_abr:
                     return abr_overlay_shortest_path_tree[query_abr][0]
-
-    '''#  Returns list of all prefixes in directly connected areas
-    @staticmethod
-    def get_prefixes_in_directly_connected_areas(lsdb_dict, version):
-        prefixes = []
-        for area_id in lsdb_dict:
-            database = lsdb_dict[area_id]  # Assumes database is already independent copy of original
-            if version == conf.VERSION_IPV4:
-                for router_lsa in database.router_lsa_list:
-                    for link in router_lsa.body.links:
-                        if link[2] == conf.LINK_TO_STUB_NETWORK:  # Link type
-                            if [link[0], link[1]] not in prefixes:  # Subnet address and subnet mask
-                                prefixes.append([link[0], link[1]])
-                        elif link[2] == conf.LINK_TO_TRANSIT_NETWORK:
-                            ip_address = link[0]
-                            for network_lsa in database.network_lsa_list:
-                                prefix_length = utils.Utils.prefix_to_prefix_length(network_lsa.body.network_mask)
-                                prefix = utils.Utils.ip_address_to_prefix(ip_address, prefix_length)
-                                if [prefix, network_lsa.body.network_mask] not in prefixes:
-                                    prefixes.append([prefix, network_lsa.body.network_mask])
-            elif version == conf.VERSION_IPV6:
-                for intra_area_prefix_lsa in database.intra_area_prefix_lsa_list:
-                    for prefix_data in intra_area_prefix_lsa.body.prefixes:
-                        if [prefix_data[3], prefix_data[0]] not in prefixes:
-                            prefixes.append([prefix_data[3], prefix_data[0]])
-            else:
-                raise ValueError("Invalid OSPF version")
-        return prefixes'''
 
     #  Returns dictionary with deep copy of all router LSDBs
     def get_lsdb_copy_dict(self):
