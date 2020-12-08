@@ -138,9 +138,12 @@ class Main(cmd.Cmd):
         area_ids = router_data[2]
         print(datetime.now().time(), Main.router_id + ": Starting router...")
         Main.startup(interface_ids)
-        self.option = int(input(
-            "Write " + str(BOTH_VERSIONS) + " for running both OSPF versions, " + str(OSPF_V2) +
-            " for running just OSPFv2, or " + str(OSPF_V3) + " for running just OSPFv3, then press ENTER:"))
+        try:
+            self.option = int(input(
+                "Write " + str(BOTH_VERSIONS) + " for running both OSPF versions, " + str(OSPF_V2) +
+                " for running just OSPFv2, or " + str(OSPF_V3) + " for running just OSPFv3, then press ENTER:"))
+        except ValueError:
+            pass
         while self.option not in [BOTH_VERSIONS, OSPF_V2, OSPF_V3]:
             try:
                 self.option = int(input(str("Write " + str(BOTH_VERSIONS) + ", " + str(OSPF_V2) + ", " + "or " +

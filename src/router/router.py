@@ -221,12 +221,12 @@ class Router:
                             destination_address = j.get_flooding_ip_address()
                             ls_update_packet = packet.Packet()
                             if self.ospf_version == conf.VERSION_IPV4:
-                                ls_update_packet.create_header_v2(conf.PACKET_TYPE_LS_UPDATE, self.router_id, a,
+                                ls_update_packet.create_header_v2(conf.PACKET_TYPE_LS_UPDATE, self.router_id, j.area_id,
                                                                   conf.DEFAULT_AUTH, conf.NULL_AUTHENTICATION)
                             else:
                                 ls_update_packet.create_header_v3(
-                                    conf.PACKET_TYPE_LS_UPDATE, self.router_id, a, current_interface.instance_id,
-                                    current_interface.ipv6_address, destination_address)
+                                    conf.PACKET_TYPE_LS_UPDATE, self.router_id, j.area_id,
+                                    current_interface.instance_id, current_interface.ipv6_address, destination_address)
                             ls_update_packet.create_ls_update_packet_body(self.ospf_version)
                             ls_update_packet.add_lsa(lsa_instance)
                             j.send_packet(ls_update_packet, destination_address, None)
@@ -692,7 +692,7 @@ class Router:
                         own_prefix_lsa.header.ls_sequence_number)
                 own_prefix_lsa.set_lsa_length()
                 own_prefix_lsa.set_lsa_checksum()
-                own_prefix_lsa.append(own_prefix_lsa)
+                updated_lsa_list.append(own_prefix_lsa)
                 self.extension_database.add_extension_lsa(own_prefix_lsa)
 
         #  Adding ABR info
@@ -1129,12 +1129,11 @@ class Router:
         shortest_cost = conf.INFINITE_COST
         if intra_area_only:  # Only intra-area paths to ABR allowed
             if self.ospf_version == conf.VERSION_IPV4:
-                prefix_lsa = self.extension_database.get_extension_lsa(
-                    conf.LSA_TYPE_OPAQUE_AS, conf.OPAQUE_TYPE_PREFIX_LSA, abr_id)
-                list_to_search = prefix_lsa.subnet_list
+                prefix_lsa = self.extension_database.get_extension_lsa(0, conf.OPAQUE_TYPE_PREFIX_LSA, abr_id)
+                list_to_search = prefix_lsa.body.subnet_list
             else:
                 prefix_lsa = self.extension_database.get_extension_lsa(conf.LSA_TYPE_EXTENSION_PREFIX_LSA, 0, abr_id)
-                list_to_search = prefix_lsa.prefix_list
+                list_to_search = prefix_lsa.body.prefix_list
             for prefix in list_to_search:
                 for entry in self.routing_table.entries:
                     if (entry.destination_id == prefix) & (entry.paths[0].cost < shortest_cost):
