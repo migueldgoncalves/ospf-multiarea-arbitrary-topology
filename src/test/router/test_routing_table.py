@@ -12,6 +12,7 @@ import area.lsdb as lsdb
 import interface.interface as interface
 import lsa.lsa as lsa
 import general.utils as utils
+import area.area as area
 
 '''
 This class tests the OSPF routing table classes and their operations
@@ -21,7 +22,7 @@ This class tests the OSPF routing table classes and their operations
 #  Full successful run - 21-22 s
 class TestRoutingTable(unittest.TestCase):
 
-    #  Setup based on the GNS3 Network 1 at https://github.com/migueldgoncalves/ospf-multiarea-arbitrary-topology
+    #  Setup based on the GNS3 Networks 1 at https://github.com/migueldgoncalves/ospf-multiarea-arbitrary-topology
     def setUp(self):
         #  Network variables
 
@@ -633,28 +634,23 @@ class TestRoutingTable(unittest.TestCase):
 
     #  Successful run - 0-1 s
     def test_get_intra_area_routing_table(self):
-        #  Startup
+        #  Startup - Router relevant parameters must be set without creating router thread as it is not needed
 
-        shutdown_event_v2 = threading.Event()
-        shutdown_event_v3 = threading.Event()
         router_v2 = router.Router()
         router_v3 = router.Router()
-        thread_v2 = threading.Thread(target=router_v2.set_up, args=(
-            self.router_id_4, conf.VERSION_IPV4, shutdown_event_v2, conf.INTERFACE_NAMES, conf.INTERFACE_AREAS, False,
-            multiprocessing.Queue(), multiprocessing.Event()))
-        thread_v3 = threading.Thread(target=router_v3.set_up, args=(
-            self.router_id_4, conf.VERSION_IPV6, shutdown_event_v3, conf.INTERFACE_NAMES, conf.INTERFACE_AREAS, False,
-            multiprocessing.Queue(), multiprocessing.Event()))
-        thread_v2.start()
-        time.sleep(0.1)
-        thread_v3.start()
-        time.sleep(0.1)
-        shutdown_event_v2.set()  # Router threads are not necessary for this test, only its data objects
-        shutdown_event_v3.set()
-        thread_v2.join()
-        thread_v3.join()
-        shutdown_event_v2.clear()  # Event must be clear for routing table computation to complete
-        shutdown_event_v3.clear()
+        router_v2.ospf_version = conf.VERSION_IPV4
+        router_v3.ospf_version = conf.VERSION_IPV6
+        router_v2.router_shutdown_event = multiprocessing.Event()
+        router_v3.router_shutdown_event = multiprocessing.Event()
+        area_v2 = area.Area(self.router_id_4, conf.VERSION_IPV4, conf.INTERFACE_AREAS[0], False, conf.INTERFACE_NAMES,
+                            False, False)
+        area_v3 = area.Area(self.router_id_4, conf.VERSION_IPV6, conf.INTERFACE_AREAS[0], False, conf.INTERFACE_NAMES,
+                            False, False)
+        router_v2.areas = {conf.INTERFACE_AREAS[0]: area_v2}
+        router_v3.areas = {conf.INTERFACE_AREAS[0]: area_v3}
+        time.sleep(0.1)  # Allows interface threads to start
+        area_v2.shutdown_area()  # Interface threads not needed
+        area_v3.shutdown_area()
         router_v2.areas[conf.BACKBONE_AREA].database = self.lsdb_v2  # Overwriting the router LSDB
         router_v3.areas[conf.BACKBONE_AREA].database = self.lsdb_v3
 
@@ -674,7 +670,8 @@ class TestRoutingTable(unittest.TestCase):
         shortest_path_tree_dictionary = {conf.BACKBONE_AREA: self.lsdb_v2.get_shortest_path_tree(
             directed_graph, self.router_id_4)}
         lsdb_dict = {conf.BACKBONE_AREA: copy.deepcopy(self.lsdb_v2)}
-        table = router_v2.get_intra_area_ospf_routing_table(shortest_path_tree_dictionary, prefixes_dictionary, lsdb_dict)
+        table = router_v2.get_intra_area_ospf_routing_table(
+            shortest_path_tree_dictionary, prefixes_dictionary, lsdb_dict)
         self.assertEqual(1, len(table.entries))
         entry_1 = table.get_entry(conf.DESTINATION_TYPE_NETWORK, self.prefix_1_v2, conf.BACKBONE_AREA)
         self.assertIsNotNone(entry_1)
@@ -705,7 +702,8 @@ class TestRoutingTable(unittest.TestCase):
         shortest_path_tree_dictionary = {conf.BACKBONE_AREA: self.lsdb_v3.get_shortest_path_tree(
             directed_graph, self.router_id_4)}
         lsdb_dict = {conf.BACKBONE_AREA: copy.deepcopy(self.lsdb_v3)}
-        table = router_v3.get_intra_area_ospf_routing_table(shortest_path_tree_dictionary, prefixes_dictionary, lsdb_dict)
+        table = router_v3.get_intra_area_ospf_routing_table(
+            shortest_path_tree_dictionary, prefixes_dictionary, lsdb_dict)
         self.assertEqual(1, len(table.entries))
         entry_1 = table.get_entry(conf.DESTINATION_TYPE_NETWORK, self.prefix_1_v3, conf.BACKBONE_AREA)
         self.assertIsNotNone(entry_1)
@@ -755,7 +753,8 @@ class TestRoutingTable(unittest.TestCase):
         shortest_path_tree_dictionary = {conf.BACKBONE_AREA: self.lsdb_v2.get_shortest_path_tree(
             directed_graph, self.router_id_1)}
         lsdb_dict = {conf.BACKBONE_AREA: copy.deepcopy(self.lsdb_v2)}
-        table = router_v2.get_intra_area_ospf_routing_table(shortest_path_tree_dictionary, prefixes_dictionary, lsdb_dict)
+        table = router_v2.get_intra_area_ospf_routing_table(
+            shortest_path_tree_dictionary, prefixes_dictionary, lsdb_dict)
         self.assertEqual(4, len(table.entries))
         entry_1 = table.get_entry(conf.DESTINATION_TYPE_NETWORK, self.prefix_1_v2, conf.BACKBONE_AREA)
         entry_2 = table.get_entry(conf.DESTINATION_TYPE_NETWORK, self.prefix_2_v2, conf.BACKBONE_AREA)
@@ -787,7 +786,8 @@ class TestRoutingTable(unittest.TestCase):
         shortest_path_tree_dictionary = {conf.BACKBONE_AREA: self.lsdb_v3.get_shortest_path_tree(
             directed_graph, self.router_id_1)}
         lsdb_dict = {conf.BACKBONE_AREA: copy.deepcopy(self.lsdb_v3)}
-        table = router_v3.get_intra_area_ospf_routing_table(shortest_path_tree_dictionary, prefixes_dictionary, lsdb_dict)
+        table = router_v3.get_intra_area_ospf_routing_table(
+            shortest_path_tree_dictionary, prefixes_dictionary, lsdb_dict)
         self.assertEqual(4, len(table.entries))
         entry_1 = table.get_entry(conf.DESTINATION_TYPE_NETWORK, self.prefix_1_v3, conf.BACKBONE_AREA)
         entry_2 = table.get_entry(conf.DESTINATION_TYPE_NETWORK, self.prefix_2_v3, conf.BACKBONE_AREA)
@@ -825,7 +825,8 @@ class TestRoutingTable(unittest.TestCase):
             directed_graph, self.router_id_1)}
         prefixes_dictionary = {conf.BACKBONE_AREA: prefixes}
         lsdb_dict = {conf.BACKBONE_AREA: copy.deepcopy(self.lsdb_v2)}
-        table = router_v2.get_intra_area_ospf_routing_table(shortest_path_tree_dictionary, prefixes_dictionary, lsdb_dict)
+        table = router_v2.get_intra_area_ospf_routing_table(
+            shortest_path_tree_dictionary, prefixes_dictionary, lsdb_dict)
         self.assertEqual(6, len(table.entries))
         entry_1 = table.get_entry(conf.DESTINATION_TYPE_NETWORK, self.prefix_1_v2, conf.BACKBONE_AREA)
         entry_2 = table.get_entry(conf.DESTINATION_TYPE_NETWORK, self.prefix_2_v2, conf.BACKBONE_AREA)
@@ -860,7 +861,8 @@ class TestRoutingTable(unittest.TestCase):
             directed_graph, self.router_id_1)}
         prefixes_dictionary = {conf.BACKBONE_AREA: prefixes}
         lsdb_dict = {conf.BACKBONE_AREA: copy.deepcopy(self.lsdb_v3)}
-        table = router_v3.get_intra_area_ospf_routing_table(shortest_path_tree_dictionary, prefixes_dictionary, lsdb_dict)
+        table = router_v3.get_intra_area_ospf_routing_table(
+            shortest_path_tree_dictionary, prefixes_dictionary, lsdb_dict)
         self.assertEqual(6, len(table.entries))
         entry_1 = table.get_entry(conf.DESTINATION_TYPE_NETWORK, self.prefix_1_v3, conf.BACKBONE_AREA)
         entry_2 = table.get_entry(conf.DESTINATION_TYPE_NETWORK, self.prefix_2_v3, conf.BACKBONE_AREA)
