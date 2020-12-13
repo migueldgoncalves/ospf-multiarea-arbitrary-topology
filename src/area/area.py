@@ -48,11 +48,11 @@ class Area:
         router_lsa = lsa.Lsa()
         if version == conf.VERSION_IPV4:
             link_state_id = router_id
-            options = 0
+            options = conf.OPTIONS_V2
         else:
             link_state_id = conf.DEFAULT_LINK_STATE_ID
-            options = conf.OPTIONS
-        router_lsa.create_header(conf.INITIAL_LS_AGE, conf.OPTIONS, conf.LSA_TYPE_ROUTER, link_state_id, router_id,
+            options = conf.OPTIONS_V3
+        router_lsa.create_header(conf.INITIAL_LS_AGE, options, conf.LSA_TYPE_ROUTER, link_state_id, router_id,
                                  conf.INITIAL_SEQUENCE_NUMBER, version)
         router_lsa.create_router_lsa_body(False, False, is_abr, options, version)
         if version == conf.VERSION_IPV4:
@@ -69,7 +69,7 @@ class Area:
             referenced_link_state_id = router_lsa.header.link_state_id
             referenced_advertising_router = router_lsa.header.advertising_router
             intra_area_prefix_lsa.create_header(
-                conf.INITIAL_LS_AGE, conf.OPTIONS, conf.LSA_TYPE_INTRA_AREA_PREFIX, link_state_id, router_id,
+                conf.INITIAL_LS_AGE, conf.OPTIONS_V3, conf.LSA_TYPE_INTRA_AREA_PREFIX, link_state_id, router_id,
                 conf.INITIAL_SEQUENCE_NUMBER, version)
             intra_area_prefix_lsa.create_intra_area_prefix_lsa_body(referenced_ls_type, referenced_link_state_id,
                                                                     referenced_advertising_router)

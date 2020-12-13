@@ -25,16 +25,16 @@ class TestExtensionLsdb(unittest.TestCase):
         self.prefix_lsa_v2 = lsa.Lsa()
         self.prefix_lsa_v3 = lsa.Lsa()
         self.abr_lsa_v2.create_extension_header(
-            conf.INITIAL_LS_AGE, conf.OPTIONS, conf.OPAQUE_TYPE_ABR_LSA, 0, ADVERTISING_ROUTER,
+            conf.INITIAL_LS_AGE, conf.OPTIONS_V2, conf.OPAQUE_TYPE_ABR_LSA, 0, ADVERTISING_ROUTER,
             conf.INITIAL_SEQUENCE_NUMBER, conf.VERSION_IPV4)
         self.abr_lsa_v3.create_extension_header(
-            conf.INITIAL_LS_AGE, conf.OPTIONS, 0, conf.LSA_TYPE_EXTENSION_ABR_LSA, ADVERTISING_ROUTER,
+            conf.INITIAL_LS_AGE, conf.OPTIONS_V3, 0, conf.LSA_TYPE_EXTENSION_ABR_LSA, ADVERTISING_ROUTER,
             conf.INITIAL_SEQUENCE_NUMBER, conf.VERSION_IPV6)
         self.prefix_lsa_v2.create_extension_header(
-            conf.INITIAL_LS_AGE, conf.OPTIONS, conf.OPAQUE_TYPE_PREFIX_LSA, 0, ADVERTISING_ROUTER,
+            conf.INITIAL_LS_AGE, conf.OPTIONS_V2, conf.OPAQUE_TYPE_PREFIX_LSA, 0, ADVERTISING_ROUTER,
             conf.INITIAL_SEQUENCE_NUMBER, conf.VERSION_IPV4)
         self.prefix_lsa_v3.create_extension_header(
-            conf.INITIAL_LS_AGE, conf.OPTIONS, 0, conf.LSA_TYPE_EXTENSION_PREFIX_LSA, ADVERTISING_ROUTER,
+            conf.INITIAL_LS_AGE, conf.OPTIONS_V3, 0, conf.LSA_TYPE_EXTENSION_PREFIX_LSA, ADVERTISING_ROUTER,
             conf.INITIAL_SEQUENCE_NUMBER, conf.VERSION_IPV6)
         self.abr_lsa_v2.create_extension_abr_lsa_body()
         self.abr_lsa_v3.create_extension_abr_lsa_body()
@@ -243,11 +243,11 @@ class TestExtensionLsdb(unittest.TestCase):
         #  OSPFv2
 
         new_lsa_v2_1 = lsa.Lsa()
-        new_lsa_v2_1.create_extension_header(conf.INITIAL_LS_AGE, conf.OPTIONS, conf.OPAQUE_TYPE_ABR_LSA, 0,
+        new_lsa_v2_1.create_extension_header(conf.INITIAL_LS_AGE, conf.OPTIONS_V2, conf.OPAQUE_TYPE_ABR_LSA, 0,
                                              ADVERTISING_ROUTER, conf.INITIAL_SEQUENCE_NUMBER + 1, conf.VERSION_IPV4)
         new_lsa_v2_1.create_extension_abr_lsa_body()
         new_lsa_v2_2 = lsa.Lsa()
-        new_lsa_v2_2.create_extension_header(conf.INITIAL_LS_AGE, conf.OPTIONS, conf.OPAQUE_TYPE_PREFIX_LSA, 0,
+        new_lsa_v2_2.create_extension_header(conf.INITIAL_LS_AGE, conf.OPTIONS_V2, conf.OPAQUE_TYPE_PREFIX_LSA, 0,
                                              ADVERTISING_ROUTER, conf.INITIAL_SEQUENCE_NUMBER + 1, conf.VERSION_IPV4)
         new_lsa_v2_2.create_extension_prefix_lsa_body(conf.VERSION_IPV4)
 
@@ -292,12 +292,13 @@ class TestExtensionLsdb(unittest.TestCase):
         #  OSPFv3
 
         new_lsa_v3_1 = lsa.Lsa()
-        new_lsa_v3_1.create_extension_header(conf.INITIAL_LS_AGE, conf.OPTIONS, 0, conf.LSA_TYPE_EXTENSION_ABR_LSA,
+        new_lsa_v3_1.create_extension_header(conf.INITIAL_LS_AGE, conf.OPTIONS_V3, 0, conf.LSA_TYPE_EXTENSION_ABR_LSA,
                                              ADVERTISING_ROUTER, conf.INITIAL_SEQUENCE_NUMBER + 1, conf.VERSION_IPV6)
         new_lsa_v3_1.create_extension_abr_lsa_body()
         new_lsa_v3_2 = lsa.Lsa()
-        new_lsa_v3_2.create_extension_header(conf.INITIAL_LS_AGE, conf.OPTIONS, 0, conf.LSA_TYPE_EXTENSION_PREFIX_LSA,
-                                             ADVERTISING_ROUTER, conf.INITIAL_SEQUENCE_NUMBER + 1, conf.VERSION_IPV6)
+        new_lsa_v3_2.create_extension_header(
+            conf.INITIAL_LS_AGE, conf.OPTIONS_V3, 0, conf.LSA_TYPE_EXTENSION_PREFIX_LSA, ADVERTISING_ROUTER,
+            conf.INITIAL_SEQUENCE_NUMBER + 1, conf.VERSION_IPV6)
         new_lsa_v3_2.create_extension_prefix_lsa_body(conf.VERSION_IPV6)
 
         self.extension_lsdb_v3.add_extension_lsa(self.abr_lsa_v3)

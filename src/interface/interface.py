@@ -312,6 +312,10 @@ class Interface:
                             neighbor_router.stop_retransmission_timer(neighbor.DB_DESCRIPTION)
 
                         dd_packet = neighbor_router.last_sent_dd_description_packet
+                        if self.version == conf.VERSION_IPV4:
+                            options = conf.OPTIONS_V2
+                        else:
+                            options = conf.OPTIONS_V3
                         if neighbor_router.master_slave:  # This router is the master
                             if incoming_packet.body.dd_sequence_number != neighbor_router.dd_sequence:
                                 self.event_seq_number_mismatch(neighbor_router, source_ip)
@@ -323,7 +327,7 @@ class Interface:
                             else:
                                 #  Sends DB Description packet with either M-bit clear or more LSA headers
                                 dd_packet.create_db_description_packet_body(
-                                    self.max_ip_datagram, conf.OPTIONS, False, m_bit, True, neighbor_router.dd_sequence,
+                                    self.max_ip_datagram, options, False, m_bit, True, neighbor_router.dd_sequence,
                                     self.get_complete_lsdb_headers(neighbor_router.db_summary_list), self.version)
                                 self.send_packet(dd_packet, neighbor_router.neighbor_ip_address, neighbor_router)
                             #  TODO: Implement case where LSA headers are sent in more than 1 DB Description packet
@@ -334,7 +338,7 @@ class Interface:
                             neighbor_router.dd_sequence = incoming_packet.body.dd_sequence_number
                             #  Sends DB Description packet as response to master
                             dd_packet.create_db_description_packet_body(
-                                self.max_ip_datagram, conf.OPTIONS, False, m_bit, False, neighbor_router.dd_sequence,
+                                self.max_ip_datagram, options, False, m_bit, False, neighbor_router.dd_sequence,
                                 self.get_complete_lsdb_headers(neighbor_router.db_summary_list), self.version)
                             self.send_packet(dd_packet, neighbor_router.neighbor_ip_address, neighbor_router)
                             if (not m_bit) & (not incoming_packet.body.m_bit):
@@ -863,14 +867,14 @@ class Interface:
                         conf.PACKET_TYPE_DB_DESCRIPTION, self.router_id, self.area_id, conf.NULL_AUTHENTICATION,
                         conf.DEFAULT_AUTH)
                     neighbor_router.last_sent_dd_description_packet.create_db_description_packet_body(
-                        conf.MTU, conf.OPTIONS, True, True, neighbor_router.master_slave,
+                        conf.MTU, conf.OPTIONS_V2, True, True, neighbor_router.master_slave,
                         self.neighbors[neighbor_id].dd_sequence, [], conf.VERSION_IPV4)
                 else:
                     neighbor_router.last_sent_dd_description_packet.create_header_v3(
                         conf.PACKET_TYPE_DB_DESCRIPTION, self.router_id, self.area_id, self.instance_id,
                         self.ipv6_address, source_ip)
                     neighbor_router.last_sent_dd_description_packet.create_db_description_packet_body(
-                        conf.MTU, conf.OPTIONS, True, True, neighbor_router.master_slave,
+                        conf.MTU, conf.OPTIONS_V3, True, True, neighbor_router.master_slave,
                         self.neighbors[neighbor_id].dd_sequence, [], conf.VERSION_IPV6)
                 self.send_packet(neighbor_router.last_sent_dd_description_packet, source_ip, neighbor_router)
         else:  # Nothing to do
@@ -894,9 +898,13 @@ class Interface:
         else:
             dd_packet.create_header_v3(conf.PACKET_TYPE_DB_DESCRIPTION, self.router_id, self.area_id, self.instance_id,
                                        self.ipv6_address, neighbor_router.neighbor_ip_address)
+        if self.version == conf.VERSION_IPV4:
+            options = conf.OPTIONS_V2
+        else:
+            options = conf.OPTIONS_V3
         dd_packet.create_db_description_packet_body(
-            self.max_ip_datagram, conf.OPTIONS, False, True, neighbor_router.master_slave,
-            neighbor_router.dd_sequence, self.get_complete_lsdb_headers(neighbor_router.db_summary_list), self.version)
+            self.max_ip_datagram, options, False, True, neighbor_router.master_slave, neighbor_router.dd_sequence,
+            self.get_complete_lsdb_headers(neighbor_router.db_summary_list), self.version)
         #  TODO: Case where not all LSAs fit in one packet
         self.send_packet(dd_packet, neighbor_router.neighbor_ip_address, neighbor_router)
 
@@ -954,13 +962,13 @@ class Interface:
             dd_packet.create_header_v2(conf.PACKET_TYPE_DB_DESCRIPTION, self.router_id, self.area_id,
                                        conf.NULL_AUTHENTICATION, conf.DEFAULT_AUTH)
             dd_packet.create_db_description_packet_body(
-                conf.MTU, conf.OPTIONS, True, True, neighbor_router.master_slave, neighbor_router.dd_sequence, [],
+                conf.MTU, conf.OPTIONS_V2, True, True, neighbor_router.master_slave, neighbor_router.dd_sequence, [],
                 conf.VERSION_IPV4)
         else:
             dd_packet.create_header_v3(conf.PACKET_TYPE_DB_DESCRIPTION, self.router_id, self.area_id, self.instance_id,
                                        self.ipv6_address, source_ip)
             dd_packet.create_db_description_packet_body(
-                conf.MTU, conf.OPTIONS, True, True, neighbor_router.master_slave, neighbor_router.dd_sequence, [],
+                conf.MTU, conf.OPTIONS_V3, True, True, neighbor_router.master_slave, neighbor_router.dd_sequence, [],
                 conf.VERSION_IPV6)
         self.send_packet(dd_packet, source_ip, neighbor_router)
 
@@ -1345,19 +1353,21 @@ class Interface:
         network_lsa = self.create_lsa_header(conf.LSA_TYPE_NETWORK, 0, ls_sequence_number)
         if self.version == conf.VERSION_IPV4:
             network_mask = self.network_mask
+            options = conf.OPTIONS_V2
         else:
             network_mask = ''
+            options = conf.OPTIONS_V3
         attached_routers = [self.router_id]
         for neighbor_id in self.neighbors:
             if self.neighbors[neighbor_id].neighbor_state == conf.NEIGHBOR_STATE_FULL:
                 attached_routers.append(neighbor_id)
-        network_lsa.create_network_lsa_body(network_mask, conf.OPTIONS, attached_routers, self.version)
+        network_lsa.create_network_lsa_body(network_mask, options, attached_routers, self.version)
         return network_lsa
 
     #  Creates and returns the Link-LSA for this interface
     def create_link_lsa(self, ls_sequence_number):
         link_lsa = self.create_lsa_header(conf.LSA_TYPE_LINK, 0, ls_sequence_number)
-        link_lsa.create_link_lsa_body(self.router_priority, conf.OPTIONS, self.ipv6_address)
+        link_lsa.create_link_lsa_body(self.router_priority, conf.OPTIONS_V3, self.ipv6_address)
         #  TODO: Consider the case where there are multiple link prefixes
         prefix_length = utils.Utils.interface_name_to_ipv6_prefix_and_length(self.physical_identifier)[1]
         prefix_options = conf.PREFIX_OPTIONS
@@ -1390,7 +1400,7 @@ class Interface:
                 link_state_id = self.router_id
             elif lsa_type == conf.LSA_TYPE_NETWORK:
                 link_state_id = self.ipv4_address
-            new_lsa.create_header(conf.INITIAL_LS_AGE, conf.OPTIONS, lsa_type, link_state_id, self.router_id,
+            new_lsa.create_header(conf.INITIAL_LS_AGE, conf.OPTIONS_V2, lsa_type, link_state_id, self.router_id,
                                   ls_sequence_number, self.version)
         elif self.version == conf.VERSION_IPV6:
             if lsa_type == conf.LSA_TYPE_ROUTER:
@@ -1420,11 +1430,11 @@ class Interface:
     def create_hello_packet(self):
         if self.version == conf.VERSION_IPV4:
             self.hello_packet_to_send.create_hello_v2_packet_body(
-                self.network_mask, self.hello_interval, conf.OPTIONS, self.router_priority, self.router_dead_interval,
-                self.designated_router, self.backup_designated_router, self.neighbors)
+                self.network_mask, self.hello_interval, conf.OPTIONS_V2, self.router_priority,
+                self.router_dead_interval, self.designated_router, self.backup_designated_router, self.neighbors)
         else:
             self.hello_packet_to_send.create_hello_v3_packet_body(
-                self.ospf_identifier, self.hello_interval, conf.OPTIONS, self.router_priority,
+                self.ospf_identifier, self.hello_interval, conf.OPTIONS_V3, self.router_priority,
                 self.router_dead_interval, self.designated_router, self.backup_designated_router, self.neighbors)
         return self.hello_packet_to_send
 

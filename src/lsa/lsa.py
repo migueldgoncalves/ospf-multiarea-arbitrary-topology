@@ -278,6 +278,9 @@ class Lsa:
     def has_abr_info(self, neighbor_router_id):
         return self.body.has_abr_info(neighbor_router_id)
 
+    def get_abr_info(self, neighbor_router_id):
+        return self.body.get_abr_info(neighbor_router_id)
+
     #  Deletes data for one ABR from the ABR-LSA body
     def delete_abr_info(self, neighbor_router_id):
         self.body.delete_abr_info(neighbor_router_id)
@@ -309,6 +312,12 @@ class Lsa:
 
     def has_prefix_info_extension(self, prefix_length, address_prefix):
         return self.body.has_prefix_info(prefix_length, address_prefix)
+
+    def get_subnet_info(self, subnet_mask, subnet_address):
+        return self.body.get_subnet_info(subnet_mask, subnet_address)
+
+    def get_prefix_info_extension(self, prefix_length, address_prefix):
+        return self.body.get_prefix_info(prefix_length, address_prefix)
 
     #  Deletes data for one subnet from the OSPFv2 Prefix-LSA body
     def delete_subnet_info(self, subnet_mask, subnet_address):

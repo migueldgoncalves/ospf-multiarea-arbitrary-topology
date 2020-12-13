@@ -208,7 +208,7 @@ class ExtensionLsdb:
         directed_graph = {}  # Dictionary of dictionaries - Each dictionary contains destinations for one graph node
         for query_lsa in abr_lsa_list:  # Each ABR creates one extension LSA of each type, at most
             directed_graph[query_lsa.header.advertising_router] = {}
-            for neighbor_abr in query_lsa.abr_list:
+            for neighbor_abr in query_lsa.body.abr_list:
                 metric = neighbor_abr[0]
                 neighbor_id = neighbor_abr[1]
                 directed_graph[query_lsa.header.advertising_router][neighbor_id] = metric

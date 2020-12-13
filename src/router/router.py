@@ -59,7 +59,9 @@ class Router:
         self.command_pipeline = None
         self.output_event = None
         self.command_thread = threading.Thread(target=self.execute_commands)
-        self.kernel_table_process = None
+        self.kernel_table_thread = None  # Handles LSDB changes
+        self.kernel_table_process = None  # Created by previous thread, adds routes to kernel routing table
+        self.kernel_thread_operating = threading.Event()
         self.extension_database = None
 
     #  Allows router instance to be created without starting it
@@ -233,21 +235,22 @@ class Router:
                             current_interface.flooded_pipeline.put(True)
                             time.sleep(0.1)
 
-            #  Sets the Linux kernel default routing table if any LSDB was changed and enough time has passed
+            #  Sets Linux kernel default routing table if LSDB was changed, no thread is running and enough time passed
             #  Updates and floods changes to inter-area and extension LSAs
-            lsdb_modified = False
-            for area_id in self.areas:
-                query_area = self.areas[area_id]
-                area_lsdb = query_area.database
-                if area_lsdb.is_modified.is_set():  # LSDB was modified
-                    if time.perf_counter() - area_lsdb.get_modification_time() > conf.KERNEL_UPDATE_INTERVAL:
-                        area_lsdb.is_modified.clear()  # Database can be modified again while copy is processed
-                        area_lsdb.reset_modification_time()
-                        lsdb_modified = True
-            if self.extension_database.is_modified.is_set() | lsdb_modified:
-                self.extension_database.is_modified.clear()
-                self.extension_database.reset_modification_time()
-                self.lsdb_modification_handler(lsdb_modified)
+            if not self.kernel_thread_operating.is_set():
+                lsdb_modified = False
+                for area_id in self.areas:
+                    query_area = self.areas[area_id]
+                    area_lsdb = query_area.database
+                    if area_lsdb.is_modified.is_set():  # LSDB was modified
+                        if time.perf_counter() - area_lsdb.get_modification_time() > conf.KERNEL_UPDATE_INTERVAL:
+                            area_lsdb.is_modified.clear()  # Database can be modified again while copy is processed
+                            area_lsdb.reset_modification_time()
+                            lsdb_modified = True
+                if self.extension_database.is_modified.is_set() | lsdb_modified:
+                    self.extension_database.is_modified.clear()
+                    self.extension_database.reset_modification_time()
+                    self.create_kernel_table_thread(lsdb_modified)
 
             #  Tells receiving socket whether respective interface is DR/BDR or not, if state changed
             for interface_id in self.interfaces:
@@ -555,8 +558,8 @@ class Router:
                 if self.ospf_version == conf.VERSION_IPV4:
                     network_mask = utils.Utils.prefix_length_to_network_mask(prefix_length, self.ospf_version)
                     summary_lsa = lsa.Lsa()
-                    summary_lsa.create_header(conf.INITIAL_LS_AGE, conf.OPTIONS, conf.LSA_TYPE_SUMMARY_TYPE_3, prefix,
-                                              self.router_id, conf.INITIAL_SEQUENCE_NUMBER, self.ospf_version)
+                    summary_lsa.create_header(conf.INITIAL_LS_AGE, conf.OPTIONS_V2, conf.LSA_TYPE_SUMMARY_TYPE_3,
+                                              prefix, self.router_id, conf.INITIAL_SEQUENCE_NUMBER, self.ospf_version)
                     summary_lsa.create_summary_lsa_body(network_mask, metric)
                     lsa_list.append(summary_lsa)
                 elif self.ospf_version == conf.VERSION_IPV6:
@@ -706,12 +709,12 @@ class Router:
                         own_abr_lsa = lsa.Lsa()
                         if self.ospf_version == conf.VERSION_IPV4:
                             own_abr_lsa.create_extension_header(
-                                conf.INITIAL_LS_AGE, conf.OPTIONS, conf.OPAQUE_TYPE_ABR_LSA, conf.LSA_TYPE_OPAQUE_AS,
+                                conf.INITIAL_LS_AGE, conf.OPTIONS_V2, conf.OPAQUE_TYPE_ABR_LSA, conf.LSA_TYPE_OPAQUE_AS,
                                 self.router_id, conf.INITIAL_SEQUENCE_NUMBER, self.ospf_version)
                         else:
                             own_abr_lsa.create_extension_header(
-                                conf.INITIAL_LS_AGE, conf.OPTIONS, 0, conf.LSA_TYPE_EXTENSION_ABR_LSA, self.router_id,
-                                conf.INITIAL_SEQUENCE_NUMBER, self.ospf_version)
+                                conf.INITIAL_LS_AGE, conf.OPTIONS_V3, 0, conf.LSA_TYPE_EXTENSION_ABR_LSA,
+                                self.router_id, conf.INITIAL_SEQUENCE_NUMBER, self.ospf_version)
                         own_abr_lsa.create_extension_abr_lsa_body()
                         created_now = True
                     else:
@@ -741,11 +744,11 @@ class Router:
                 own_prefix_lsa = lsa.Lsa()
                 if self.ospf_version == conf.VERSION_IPV4:
                     own_prefix_lsa.create_extension_header(
-                        conf.INITIAL_LS_AGE, conf.OPTIONS, conf.OPAQUE_TYPE_PREFIX_LSA, conf.LSA_TYPE_OPAQUE_AS,
+                        conf.INITIAL_LS_AGE, conf.OPTIONS_V2, conf.OPAQUE_TYPE_PREFIX_LSA, conf.LSA_TYPE_OPAQUE_AS,
                         self.router_id, conf.INITIAL_SEQUENCE_NUMBER, self.ospf_version)
                 else:
                     own_prefix_lsa.create_extension_header(
-                        conf.INITIAL_LS_AGE, conf.OPTIONS, 0, conf.LSA_TYPE_EXTENSION_PREFIX_LSA, self.router_id,
+                        conf.INITIAL_LS_AGE, conf.OPTIONS_V3, 0, conf.LSA_TYPE_EXTENSION_PREFIX_LSA, self.router_id,
                         conf.INITIAL_SEQUENCE_NUMBER, self.ospf_version)
                 own_prefix_lsa.create_extension_prefix_lsa_body(self.ospf_version)
                 created_now = True
@@ -870,11 +873,13 @@ class Router:
         for prefix in abr_prefixes_dictionary:
             if self.ospf_version == conf.VERSION_IPV4:
                 prefix_length = utils.Utils.prefix_to_prefix_length(abr_prefixes_dictionary[prefix][1])
+                options = conf.OPTIONS_V2
             else:
                 prefix_length = abr_prefixes_dictionary[prefix][1]
+                options = conf.OPTIONS_V3
             prefix_area = abr_prefixes_dictionary[prefix][5]
             complete_routing_table.add_entry(
-                conf.DESTINATION_TYPE_NETWORK, prefix, prefix_length, conf.OPTIONS, prefix_area)
+                conf.DESTINATION_TYPE_NETWORK, prefix, prefix_length, options, prefix_area)
             if prefix_area in self.area_ids:
                 path_type = conf.INTRA_AREA_PATH
             else:
@@ -941,11 +946,19 @@ class Router:
         if not self.localhost:  # Integration tests cannot set kernel routing table
             if self.kernel_table_process is not None:
                 if self.kernel_table_process.is_alive():
-                    self.kernel_table_process.terminate()
+                    self.kernel_table_process.join()
             self.kernel_table_process = multiprocessing.Process(
                 target=self.set_kernel_routing_table_from_ospf_table,
                 args=(self.ospf_version, self.routing_table, self.interface_ids))
             self.kernel_table_process.start()
+
+        self.kernel_thread_operating.clear()
+
+    #  Creates new thread to update kernel routing table
+    def create_kernel_table_thread(self, area_lsdb_modified):
+        self.kernel_thread_operating.set()
+        self.kernel_table_thread = threading.Thread(target=self.lsdb_modification_handler, args=(area_lsdb_modified,))
+        self.kernel_table_thread.start()
 
     #  #  #  #  #  #  #  #  #  #  #  #  #
     #  Command-line interface methods  #
@@ -1061,7 +1074,7 @@ class Router:
                     print(query_lsa)
         if self.abr:
             lsdb_content = self.extension_database.get_extension_lsdb(None)
-            print("Extension LSDB")
+            print("Extension LSDB - OSPFv" + str(self.ospf_version))
             if len(lsdb_content) == 0:
                 print("Router does not have extension LSAs")
             else:
@@ -1088,13 +1101,30 @@ class Router:
     def shutdown_router(self):
         if self.kernel_table_process is not None:
             if self.kernel_table_process.is_alive():
-                self.kernel_table_process.terminate()
-        kernel_table.KernelTable.delete_all_ospf_routes(self.ospf_version)
+                self.kernel_table_process.join()
+                try:
+                    kernel_table.KernelTable.lock.release()
+                except AssertionError:
+                    pass  # As lock is recursive, releasing it with other thread will raise error
+        if self.kernel_table_thread is not None:
+            if self.kernel_table_thread.is_alive():
+                self.kernel_table_thread.join()
+
         for s in self.socket_shutdown_events:
             self.socket_shutdown_events[s].set()
         for t in self.socket_processes:
             self.socket_processes[t].join()
+        kernel_table.KernelTable.delete_all_ospf_routes(self.ospf_version)
+
+        try:
+            self.extension_database.release_all_locks()
+        except RuntimeError:
+            pass  # Lock was not acquired - Nothing to do
         for a in self.areas:
+            try:
+                self.areas[a].database.release_all_locks()
+            except RuntimeError:
+                pass
             self.areas[a].shutdown_area()
         self.command_thread.join()
 
@@ -1131,11 +1161,14 @@ class Router:
             if self.ospf_version == conf.VERSION_IPV4:
                 prefix_lsa = self.extension_database.get_extension_lsa(0, conf.OPAQUE_TYPE_PREFIX_LSA, abr_id)
                 list_to_search = prefix_lsa.body.subnet_list
+                prefix_position = 2
             else:
                 prefix_lsa = self.extension_database.get_extension_lsa(conf.LSA_TYPE_EXTENSION_PREFIX_LSA, 0, abr_id)
                 list_to_search = prefix_lsa.body.prefix_list
-            for prefix in list_to_search:
+                prefix_position = 3
+            for prefix_data in list_to_search:
                 for entry in self.routing_table.entries:
+                    prefix = prefix_data[prefix_position]
                     if (entry.destination_id == prefix) & (entry.paths[0].cost < shortest_cost):
                         shortest_cost = entry.paths[0].cost
             return shortest_cost

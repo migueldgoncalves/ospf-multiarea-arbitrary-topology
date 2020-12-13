@@ -188,16 +188,16 @@ class TestRoutingTable(unittest.TestCase):
         self.router_lsa_4_v2 = lsa.Lsa()
         for data in [[self.router_id_1, self.router_lsa_1_v2], [self.router_id_2, self.router_lsa_2_v2],
                      [self.router_id_3, self.router_lsa_3_v2], [self.router_id_4, self.router_lsa_4_v2]]:
-            data[1].create_header(conf.INITIAL_LS_AGE, conf.OPTIONS, conf.LSA_TYPE_ROUTER, data[0], data[0],
+            data[1].create_header(conf.INITIAL_LS_AGE, conf.OPTIONS_V2, conf.LSA_TYPE_ROUTER, data[0], data[0],
                                   conf.INITIAL_SEQUENCE_NUMBER, conf.VERSION_IPV4)
-            data[1].create_router_lsa_body(False, False, False, conf.OPTIONS, conf.VERSION_IPV4)
+            data[1].create_router_lsa_body(False, False, False, conf.OPTIONS_V2, conf.VERSION_IPV4)
         self.network_lsa_1_v2 = lsa.Lsa()
         self.network_lsa_3_v2 = lsa.Lsa()
         self.network_lsa_5_v2 = lsa.Lsa()
         for data in [[self.router_id_4, self.network_lsa_1_v2, self.r4_e0_v2],
                      [self.router_id_2, self.network_lsa_3_v2, self.r2_f0_1_v2],
                      [self.router_id_3, self.network_lsa_5_v2, self.r3_f0_0_v2]]:
-            data[1].create_header(conf.INITIAL_LS_AGE, conf.OPTIONS, conf.LSA_TYPE_NETWORK, data[2], data[0],
+            data[1].create_header(conf.INITIAL_LS_AGE, conf.OPTIONS_V2, conf.LSA_TYPE_NETWORK, data[2], data[0],
                                   conf.INITIAL_SEQUENCE_NUMBER, conf.VERSION_IPV4)
             data[1].create_network_lsa_body(self.network_mask, 0, [], conf.VERSION_IPV4)
 
@@ -207,18 +207,18 @@ class TestRoutingTable(unittest.TestCase):
         self.router_lsa_4_v3 = lsa.Lsa()
         for data in [[self.router_id_1, self.router_lsa_1_v3], [self.router_id_2, self.router_lsa_2_v3],
                      [self.router_id_3, self.router_lsa_3_v3], [self.router_id_4, self.router_lsa_4_v3]]:
-            data[1].create_header(conf.INITIAL_LS_AGE, conf.OPTIONS, conf.LSA_TYPE_ROUTER, 0, data[0],
+            data[1].create_header(conf.INITIAL_LS_AGE, conf.OPTIONS_V3, conf.LSA_TYPE_ROUTER, 0, data[0],
                                   conf.INITIAL_SEQUENCE_NUMBER, conf.VERSION_IPV6)
-            data[1].create_router_lsa_body(False, False, False, conf.OPTIONS, conf.VERSION_IPV6)
+            data[1].create_router_lsa_body(False, False, False, conf.OPTIONS_V3, conf.VERSION_IPV6)
         self.network_lsa_1_v3 = lsa.Lsa()
         self.network_lsa_3_v3 = lsa.Lsa()
         self.network_lsa_5_v3 = lsa.Lsa()
         for data in [[self.router_id_4, self.network_lsa_1_v3, self.r4_e0_id],
                      [self.router_id_2, self.network_lsa_3_v3, self.r2_f0_1_id],
                      [self.router_id_3, self.network_lsa_5_v3, self.r3_f0_0_id]]:
-            data[1].create_header(conf.INITIAL_LS_AGE, conf.OPTIONS, conf.LSA_TYPE_NETWORK, data[2], data[0],
+            data[1].create_header(conf.INITIAL_LS_AGE, conf.OPTIONS_V3, conf.LSA_TYPE_NETWORK, data[2], data[0],
                                   conf.INITIAL_SEQUENCE_NUMBER, conf.VERSION_IPV6)
-            data[1].create_network_lsa_body('', conf.OPTIONS, [], conf.VERSION_IPV6)
+            data[1].create_network_lsa_body('', conf.OPTIONS_V3, [], conf.VERSION_IPV6)
         self.intra_area_prefix_lsa_r1 = lsa.Lsa()
         self.intra_area_prefix_lsa_r2 = lsa.Lsa()
         self.intra_area_prefix_lsa_r3 = lsa.Lsa()
@@ -233,8 +233,8 @@ class TestRoutingTable(unittest.TestCase):
                      [self.router_id_4, self.intra_area_prefix_lsa_n1, self.network_lsa_1_v3, self.r4_e0_id],
                      [self.router_id_2, self.intra_area_prefix_lsa_n3, self.network_lsa_3_v3, self.r2_f0_1_id],
                      [self.router_id_3, self.intra_area_prefix_lsa_n5, self.network_lsa_5_v3, self.r3_f0_0_id]]:
-            data[1].create_header(conf.INITIAL_LS_AGE, conf.OPTIONS, conf.LSA_TYPE_INTRA_AREA_PREFIX, data[3], data[0],
-                                  conf.INITIAL_SEQUENCE_NUMBER, conf.VERSION_IPV6)
+            data[1].create_header(conf.INITIAL_LS_AGE, conf.OPTIONS_V3, conf.LSA_TYPE_INTRA_AREA_PREFIX, data[3],
+                                  data[0], conf.INITIAL_SEQUENCE_NUMBER, conf.VERSION_IPV6)
             data[1].create_intra_area_prefix_lsa_body(
                 data[2].header.ls_type, data[2].header.link_state_id, data[2].header.advertising_router)
         self.link_lsa_r1_1 = lsa.Lsa()
@@ -267,9 +267,9 @@ class TestRoutingTable(unittest.TestCase):
                       self.cost_point_point_link],
                      [self.router_id_4, self.link_lsa_r4_1, self.r4_e0_id, self.prefix_1_v3, self.r4_e0_local,
                       self.cost_broadcast_link]]:
-            data[1].create_header(conf.INITIAL_LS_AGE, conf.OPTIONS, conf.LSA_TYPE_LINK, data[2], data[0],
+            data[1].create_header(conf.INITIAL_LS_AGE, conf.OPTIONS_V3, conf.LSA_TYPE_LINK, data[2], data[0],
                                   conf.INITIAL_SEQUENCE_NUMBER, conf.VERSION_IPV6)
-            data[1].create_link_lsa_body(self.router_priority, conf.OPTIONS, data[4])
+            data[1].create_link_lsa_body(self.router_priority, conf.OPTIONS_V3, data[4])
             data[1].add_prefix_info(self.prefix_length, 0, data[5], data[3], conf.LSA_TYPE_LINK)
 
     #  Full successful run - Instant
@@ -678,7 +678,7 @@ class TestRoutingTable(unittest.TestCase):
         self.assertEqual(conf.DESTINATION_TYPE_NETWORK, entry_1.destination_type)
         self.assertEqual(self.prefix_1_v2, entry_1.destination_id)
         self.assertEqual(utils.Utils.prefix_to_prefix_length(self.network_mask), entry_1.prefix_length)
-        self.assertEqual(conf.OPTIONS, entry_1.options)
+        self.assertEqual(conf.OPTIONS_V2, entry_1.options)
         self.assertEqual(conf.BACKBONE_AREA, entry_1.area)
         self.assertEqual(1, len(entry_1.paths))
         path = entry_1.get_path('e0', '', '')
@@ -710,7 +710,7 @@ class TestRoutingTable(unittest.TestCase):
         self.assertEqual(conf.DESTINATION_TYPE_NETWORK, entry_1.destination_type)
         self.assertEqual(self.prefix_1_v3, entry_1.destination_id)
         self.assertEqual(self.prefix_length, entry_1.prefix_length)
-        self.assertEqual(conf.OPTIONS, entry_1.options)
+        self.assertEqual(conf.OPTIONS_V3, entry_1.options)
         self.assertEqual(conf.BACKBONE_AREA, entry_1.area)
         self.assertEqual(1, len(entry_1.paths))
         path = entry_1.get_path('e0', '', '')
@@ -768,7 +768,7 @@ class TestRoutingTable(unittest.TestCase):
             self.assertEqual(conf.DESTINATION_TYPE_NETWORK, data[0].destination_type)
             self.assertEqual(data[1], data[0].destination_id)
             self.assertEqual(utils.Utils.prefix_to_prefix_length(self.network_mask), data[0].prefix_length)
-            self.assertEqual(conf.OPTIONS, data[0].options)
+            self.assertEqual(conf.OPTIONS_V2, data[0].options)
             self.assertEqual(conf.BACKBONE_AREA, data[0].area)
             self.assertEqual(1, len(data[0].paths))
             path = data[0].get_path(data[2], '', '')
@@ -801,7 +801,7 @@ class TestRoutingTable(unittest.TestCase):
             self.assertEqual(conf.DESTINATION_TYPE_NETWORK, data[0].destination_type)
             self.assertEqual(data[1], data[0].destination_id)
             self.assertEqual(self.prefix_length, data[0].prefix_length)
-            self.assertEqual(conf.OPTIONS, data[0].options)
+            self.assertEqual(conf.OPTIONS_V3, data[0].options)
             self.assertEqual(conf.BACKBONE_AREA, data[0].area)
             self.assertEqual(1, len(data[0].paths))
             path = data[0].get_path(data[2], '', '')
@@ -844,7 +844,7 @@ class TestRoutingTable(unittest.TestCase):
             self.assertEqual(conf.DESTINATION_TYPE_NETWORK, data[0].destination_type)
             self.assertEqual(data[1], data[0].destination_id)
             self.assertEqual(utils.Utils.prefix_to_prefix_length(self.network_mask), data[0].prefix_length)
-            self.assertEqual(conf.OPTIONS, data[0].options)
+            self.assertEqual(conf.OPTIONS_V2, data[0].options)
             self.assertEqual(conf.BACKBONE_AREA, data[0].area)
             self.assertEqual(1, len(data[0].paths))
             path = data[0].get_path(data[2], data[4], '')
@@ -880,7 +880,7 @@ class TestRoutingTable(unittest.TestCase):
             self.assertEqual(conf.DESTINATION_TYPE_NETWORK, data[0].destination_type)
             self.assertEqual(data[1], data[0].destination_id)
             self.assertEqual(self.prefix_length, data[0].prefix_length)
-            self.assertEqual(conf.OPTIONS, data[0].options)
+            self.assertEqual(conf.OPTIONS_V3, data[0].options)
             self.assertEqual(conf.BACKBONE_AREA, data[0].area)
             self.assertEqual(1, len(data[0].paths))
             path = data[0].get_path(data[2], data[4], '')

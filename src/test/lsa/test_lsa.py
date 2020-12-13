@@ -37,15 +37,15 @@ class TestLsa(unittest.TestCase):
                           b'\xff\x00\x00\x00\x00\n'
     inter_area_prefix_lsa_bytes = b'\x00\x14 \x03\x00\x00\x00\x01\x04\x04\x04\x04\x80\x00\x00\x01H\xe1\x00$\x00\x00' \
                                   b'\x00\n@\x00\x00\x00 \x01\r\xb8\xca\xfe\x00\x01'
-    extension_abr_lsa_v2_bytes = b'\x00\x01\x00\x0b\x0a\x00\x00\x00\x04\x04\x04\x04\x80\x00\x00\x01*\xe0\x00$\x00' \
+    extension_abr_lsa_v2_bytes = b'\x00\x01\x00\x0b\x0b\x00\x00\x00\x04\x04\x04\x04\x80\x00\x00\x01\x1d\xec\x00$\x00' \
                                  b'\x00\x00\n\x01\x01\x01\x01\x00\x00\x00\x14\x02\x02\x02\x02'
-    extension_abr_lsa_v3_bytes = b'\x00\n\xc0\n\x00\x00\x00\x00\x04\x04\x04\x04\x80\x00\x00\x02\xc7T\x00$\x00\x00' \
+    extension_abr_lsa_v3_bytes = b'\x00\n\xc0\x11\x00\x00\x00\x00\x04\x04\x04\x04\x80\x00\x00\x02e\xaf\x00$\x00\x00' \
                                  b'\x00\x1e\x03\x03\x03\x03\x00\x00\x00(\x04\x04\x04\x04'
-    extension_prefix_lsa_v2_bytes = b'\x00\n\x00\x0b\x0b\x00\x00\x00\x01\x01\x01\x01\x80\x00\x00\x01\xd3H\x00D\x00' \
+    extension_prefix_lsa_v2_bytes = b'\x00\n\x00\x0b\x0c\x00\x00\x00\x01\x01\x01\x01\x80\x00\x00\x01\xc6T\x00D\x00' \
                                     b'\x00\x00\n\xff\xff\xff\x00\xde\xde\x01\x00\x00\x00\x00\x14\xff\xff\x00\x00\xde' \
                                     b'\x01\x00\x00\x00\x00\x00\x1e\xff\x00\x00\x00\x01\x00\x00\x00\x00\x00\x00(\x00' \
                                     b'\x00\x00\x00\x00\x00\x00\x00'
-    extension_prefix_lsa_v3_bytes = b'\x00\n\xc0\x0b\x00\x00\x00\x00\x04\x04\x04\x04\x80\x00\x00\x02Z\x06\x00h\x00' \
+    extension_prefix_lsa_v3_bytes = b'\x00\n\xc0\x12\x00\x00\x00\x00\x04\x04\x04\x04\x80\x00\x00\x02\xf7a\x00h\x00' \
                                     b'\x00\x00\x05\x00\x00\x00\n\x00\x00\x00\x00\x00\x00\x00\x14 \x00\x00\x00 \x01\r' \
                                     b'\xb8\x00\x00\x00\x1e@\x00\x00\x00 \x01\r\xb8\xca\xfe\x00\x01\x00\x00\x00(`\x00' \
                                     b'\x00\x00 \x01\r\xb8\xca\xfe\x00\x01\x00\x00\x00\x00\x00\x00\x002\x80\x00\x00' \
@@ -300,19 +300,19 @@ class TestLsa(unittest.TestCase):
         self.assertEqual('4.4.4.4', unpacked_lsa.header.advertising_router)
         self.assertEqual(2147483649, unpacked_lsa.header.ls_sequence_number)
         self.assertEqual(conf.VERSION_IPV4, unpacked_lsa.header.ospf_version)
-        self.assertEqual(10976, unpacked_lsa.header.ls_checksum)
+        self.assertEqual(7660, unpacked_lsa.header.ls_checksum)
         self.assertEqual(36, unpacked_lsa.header.length)
         self.assertEqual([[10, '1.1.1.1'], [20, '2.2.2.2']], unpacked_lsa.body.abr_list)
 
         #  Extension ABR-LSA - OSPFv3
         unpacked_lsa = lsa.Lsa.unpack_lsa(TestLsa.extension_abr_lsa_v3_bytes, conf.VERSION_IPV6)
         self.assertEqual(10, unpacked_lsa.header.ls_age)
-        self.assertEqual(0xc00a, unpacked_lsa.header.ls_type)
+        self.assertEqual(0xc011, unpacked_lsa.header.ls_type)
         self.assertEqual('0.0.0.0', unpacked_lsa.header.link_state_id)
         self.assertEqual('4.4.4.4', unpacked_lsa.header.advertising_router)
         self.assertEqual(2147483650, unpacked_lsa.header.ls_sequence_number)
         self.assertEqual(conf.VERSION_IPV6, unpacked_lsa.header.ospf_version)
-        self.assertEqual(51028, unpacked_lsa.header.ls_checksum)
+        self.assertEqual(26031, unpacked_lsa.header.ls_checksum)
         self.assertEqual(36, unpacked_lsa.header.length)
         self.assertEqual([[30, '3.3.3.3'], [40, '4.4.4.4']], unpacked_lsa.body.abr_list)
 
@@ -326,7 +326,7 @@ class TestLsa(unittest.TestCase):
         self.assertEqual('1.1.1.1', unpacked_lsa.header.advertising_router)
         self.assertEqual(2147483649, unpacked_lsa.header.ls_sequence_number)
         self.assertEqual(conf.VERSION_IPV4, unpacked_lsa.header.ospf_version)
-        self.assertEqual(54088, unpacked_lsa.header.ls_checksum)
+        self.assertEqual(50772, unpacked_lsa.header.ls_checksum)
         self.assertEqual(68, unpacked_lsa.header.length)
         self.assertEqual([[10, '255.255.255.0', '222.222.1.0'], [20, '255.255.0.0', '222.1.0.0'],
                           [30, '255.0.0.0', '1.0.0.0'], [40, '0.0.0.0', '0.0.0.0']], unpacked_lsa.body.subnet_list)
@@ -334,12 +334,12 @@ class TestLsa(unittest.TestCase):
         #  Extension Prefix-LSA - OSPFv3
         unpacked_lsa = lsa.Lsa.unpack_lsa(TestLsa.extension_prefix_lsa_v3_bytes, conf.VERSION_IPV6)
         self.assertEqual(10, unpacked_lsa.header.ls_age)
-        self.assertEqual(0xc00b, unpacked_lsa.header.ls_type)
+        self.assertEqual(0xc012, unpacked_lsa.header.ls_type)
         self.assertEqual('0.0.0.0', unpacked_lsa.header.link_state_id)
         self.assertEqual('4.4.4.4', unpacked_lsa.header.advertising_router)
         self.assertEqual(2147483650, unpacked_lsa.header.ls_sequence_number)
         self.assertEqual(conf.VERSION_IPV6, unpacked_lsa.header.ospf_version)
-        self.assertEqual(23046, unpacked_lsa.header.ls_checksum)
+        self.assertEqual(63329, unpacked_lsa.header.ls_checksum)
         self.assertEqual(104, unpacked_lsa.header.length)
         self.assertEqual(5, unpacked_lsa.body.prefix_number)
         self.assertEqual([[10, 0, 0, '::'], [20, 32, 0, '2001:db8::'], [30, 64, 0, '2001:db8:cafe:1::'],
@@ -400,11 +400,11 @@ class TestLsa(unittest.TestCase):
 
         first = lsa.Lsa()
         first.create_extension_header(
-            conf.INITIAL_LS_AGE, conf.OPTIONS, conf.OPAQUE_TYPE_ABR_LSA, initial_opaque_type,
+            conf.INITIAL_LS_AGE, conf.OPTIONS_V2, conf.OPAQUE_TYPE_ABR_LSA, initial_opaque_type,
             initial_advertising_router, conf.INITIAL_SEQUENCE_NUMBER, conf.VERSION_IPV4)
         second = lsa.Lsa()
         second.create_extension_header(
-            conf.INITIAL_LS_AGE + 1, conf.OPTIONS + 1, conf.OPAQUE_TYPE_ABR_LSA, initial_opaque_type,
+            conf.INITIAL_LS_AGE + 1, conf.OPTIONS_V2 + 1, conf.OPAQUE_TYPE_ABR_LSA, initial_opaque_type,
             initial_advertising_router, conf.INITIAL_SEQUENCE_NUMBER + 1, conf.VERSION_IPV4)
         self.assertTrue(first.is_lsa_identifier_equal(
             second.header.ls_type, second.header.link_state_id, second.header.advertising_router))
@@ -412,7 +412,7 @@ class TestLsa(unittest.TestCase):
             first.header.ls_type, first.header.link_state_id, first.header.advertising_router))
 
         first.create_extension_header(
-            conf.INITIAL_LS_AGE, conf.OPTIONS, conf.OPAQUE_TYPE_PREFIX_LSA, conf.LSA_TYPE_OPAQUE_AS,
+            conf.INITIAL_LS_AGE, conf.OPTIONS_V2, conf.OPAQUE_TYPE_PREFIX_LSA, conf.LSA_TYPE_OPAQUE_AS,
             initial_advertising_router, conf.INITIAL_SEQUENCE_NUMBER, conf.VERSION_IPV4)
         self.assertFalse(first.is_lsa_identifier_equal(
             second.header.ls_type, second.header.link_state_id, second.header.advertising_router))
@@ -420,7 +420,7 @@ class TestLsa(unittest.TestCase):
             first.header.ls_type, first.header.link_state_id, first.header.advertising_router))
 
         first.create_extension_header(
-            conf.INITIAL_LS_AGE, conf.OPTIONS, initial_opaque_type, conf.LSA_TYPE_OPAQUE_AS, '2.2.2.2',
+            conf.INITIAL_LS_AGE, conf.OPTIONS_V2, initial_opaque_type, conf.LSA_TYPE_OPAQUE_AS, '2.2.2.2',
             conf.INITIAL_SEQUENCE_NUMBER, conf.VERSION_IPV4)
         self.assertFalse(first.is_lsa_identifier_equal(
             second.header.ls_type, second.header.link_state_id, second.header.advertising_router))
@@ -430,10 +430,10 @@ class TestLsa(unittest.TestCase):
         #  OSPFv3
 
         first.create_extension_header(
-            conf.INITIAL_LS_AGE, conf.OPTIONS, 0, initial_ls_type, initial_advertising_router,
+            conf.INITIAL_LS_AGE, conf.OPTIONS_V3, 0, initial_ls_type, initial_advertising_router,
             conf.INITIAL_SEQUENCE_NUMBER, conf.VERSION_IPV6)
         second.create_extension_header(
-            conf.INITIAL_LS_AGE + 1, conf.OPTIONS + 1, 0, initial_ls_type, initial_advertising_router,
+            conf.INITIAL_LS_AGE + 1, conf.OPTIONS_V3 + 1, 0, initial_ls_type, initial_advertising_router,
             conf.INITIAL_SEQUENCE_NUMBER + 1, conf.VERSION_IPV6)
         self.assertTrue(first.is_lsa_identifier_equal(
             second.header.ls_type, second.header.link_state_id, second.header.advertising_router))
@@ -441,7 +441,7 @@ class TestLsa(unittest.TestCase):
             first.header.ls_type, first.header.link_state_id, first.header.advertising_router))
 
         first.create_extension_header(
-            conf.INITIAL_LS_AGE, conf.OPTIONS, 0, conf.LSA_TYPE_EXTENSION_PREFIX_LSA, initial_advertising_router,
+            conf.INITIAL_LS_AGE, conf.OPTIONS_V3, 0, conf.LSA_TYPE_EXTENSION_PREFIX_LSA, initial_advertising_router,
             conf.INITIAL_SEQUENCE_NUMBER, conf.VERSION_IPV6)
         self.assertFalse(first.is_lsa_identifier_equal(
             second.header.ls_type, second.header.link_state_id, second.header.advertising_router))
@@ -449,7 +449,7 @@ class TestLsa(unittest.TestCase):
             first.header.ls_type, first.header.link_state_id, first.header.advertising_router))
 
         first.create_extension_header(
-            conf.INITIAL_LS_AGE, conf.OPTIONS, 0, initial_ls_type, '2.2.2.2', conf.INITIAL_SEQUENCE_NUMBER,
+            conf.INITIAL_LS_AGE, conf.OPTIONS_V3, 0, initial_ls_type, '2.2.2.2', conf.INITIAL_SEQUENCE_NUMBER,
             conf.VERSION_IPV6)
         self.assertFalse(first.is_lsa_identifier_equal(
             second.header.ls_type, second.header.link_state_id, second.header.advertising_router))

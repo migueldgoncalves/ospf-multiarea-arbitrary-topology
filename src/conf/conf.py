@@ -11,7 +11,7 @@ INTERFACE_COST = 10
 #  Ex: Interface "ens32" belongs to area '0.0.0.0'
 INTERFACE_NAMES = ["eth0"]  # Must match interface names in the machine
 INTERFACE_AREAS = ['0.0.0.0']
-KERNEL_UPDATE_INTERVAL = 0  # Implementation-specific - Time between updates of kernel routing table
+KERNEL_UPDATE_INTERVAL = 0  # Implementation-specific - Minimum time between updates of kernel routing table
 
 #  Only applicable if program is running inside provided GNS3 networks - Replaces default parameters
 
@@ -31,7 +31,8 @@ AREAS_R6 = [['0.0.0.0'], [], []]
 
 #  OSPF-related constants
 
-OPTIONS = 2  # External Routing enabled - For compatibility with Cisco routers used
+OPTIONS_V2 = 0x40 + 0x02  # O-bit and E-bit
+OPTIONS_V3 = 0x10 + 0x02 + 0x01  # R-bit, E-bit, and V6-bit
 PREFIX_OPTIONS = 0
 DEFAULT_DESIGNATED_ROUTER = '0.0.0.0'
 DEFAULT_LINK_STATE_ID = '0.0.0.0'
@@ -72,15 +73,16 @@ LSA_TYPE_LINK = 8  # Just for OSPFv3
 LSA_TYPE_INTRA_AREA_PREFIX = 9  # Just for OSPFv3
 LSA_TYPE_OPAQUE_LINK_LOCAL = 9  # Just for OSPFv2
 LSA_TYPE_OPAQUE_AREA = 10  # Just for OSPFv2
-LSA_TYPE_EXTENSION_ABR_LSA = 10  # Just for OSPFv3
 LSA_TYPE_OPAQUE_AS = 11  # Just for OSPFv2
-LSA_TYPE_EXTENSION_PREFIX_LSA = 11 # Just for OSPFv3
-LSA_TYPE_EXTENSION_ASBR_LSA = 12  # Just for OSPFv3
+#  LS Types 1-16 are already being used (LS Type 16 use is temporary as of December 2020)
+LSA_TYPE_EXTENSION_ABR_LSA = 17  # Just for OSPFv3
+LSA_TYPE_EXTENSION_PREFIX_LSA = 18  # Just for OSPFv3
+LSA_TYPE_EXTENSION_ASBR_LSA = 19  # Just for OSPFv3
 
-#  Opaque Types 1-9 are already used by other OSPF extensions
-OPAQUE_TYPE_ABR_LSA = 10
-OPAQUE_TYPE_PREFIX_LSA = 11
-OPAQUE_TYPE_ASBR_LSA = 12
+#  Opaque Types 1-10 are already being used (Opaque Type 10 use is temporary as of December 2020)
+OPAQUE_TYPE_ABR_LSA = 11
+OPAQUE_TYPE_PREFIX_LSA = 12
+OPAQUE_TYPE_ASBR_LSA = 13
 
 HELLO_INTERVAL = 10
 ROUTER_DEAD_INTERVAL = 40
