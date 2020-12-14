@@ -33,7 +33,7 @@ class ExtensionAbr(body.Body):  # 8 bytes / ABR
 
     #  Adds data for one ABR to the LSA body
     def add_abr_info(self, metric, neighbor_router_id):
-        if not (0 <= metric <= conf.MAX_VALUE_24_BITS):
+        if not (0 <= int(metric) <= conf.MAX_VALUE_24_BITS):
             raise ValueError("Invalid Metric")
         if not utils.Utils.is_ipv4_address(neighbor_router_id):
             raise ValueError("Invalid Neighbor Router ID")
@@ -64,7 +64,7 @@ class ExtensionAbr(body.Body):  # 8 bytes / ABR
     def pack_lsa_body(self):
         body_bytes = b''
         for abr_info in self.abr_list:
-            metric = abr_info[0]
+            metric = int(abr_info[0])
             decimal_neighbor_router_id = utils.Utils.ipv4_to_decimal(abr_info[1])
             body_bytes += struct.pack(BASE_FORMAT_STRING, metric, decimal_neighbor_router_id)
         return body_bytes
@@ -75,7 +75,7 @@ class ExtensionAbr(body.Body):  # 8 bytes / ABR
         extension_abr_lsa = ExtensionAbr()
         while len(body_bytes) > 0:
             abr_parameters = struct.unpack(BASE_FORMAT_STRING, body_bytes[:8])
-            metric = abr_parameters[0]
+            metric = int(abr_parameters[0])
             neighbor_router_id = utils.Utils.decimal_to_ipv4(abr_parameters[1])
             extension_abr_lsa.add_abr_info(metric, neighbor_router_id)
             body_bytes = body_bytes[8:]

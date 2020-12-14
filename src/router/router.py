@@ -235,9 +235,10 @@ class Router:
                             current_interface.flooded_pipeline.put(True)
                             time.sleep(0.1)
 
-            #  Sets Linux kernel default routing table if LSDB was changed, no thread is running and enough time passed
+            #  Sets Linux kernel default routing table if LSDB was changed, no thread is running, enough time passed,
+            #  and all neighbors are stable
             #  Updates and floods changes to inter-area and extension LSAs
-            if not self.kernel_thread_operating.is_set():
+            if (not self.kernel_thread_operating.is_set()) & self.are_neighbors_stable():
                 lsdb_modified = False
                 for area_id in self.areas:
                     query_area = self.areas[area_id]
@@ -599,24 +600,25 @@ class Router:
                     time.sleep(0.1)
 
     #  Updates own extension LSA instances, and floods updates if any (at most router has one instance of each type)
-    #  Receives OSPF routing table with paths to intra-area prefixes, and shortest path trees and LSDBs for each
-    #  directly connected area
-    def update_own_extension_lsa_list(self, intra_area_table, shortest_path_tree_dictionary):
+    #  Receives OSPF routing table with paths to intra-area prefixes, shortest path trees and LSDBs for each directly
+    #  connected area, and copy of extension LSDB which is updated and returned
+    def update_own_extension_lsa_list(self, intra_area_table, shortest_path_tree_dictionary, extension_lsdb_copy):
         updated_lsa_list = []  # Empty if no LSA is created of updated
-        same_areas_abr_list = self.get_abr_list_in_directly_connected_areas()
+        same_areas_abr_list = self.get_abr_list_in_directly_connected_areas(extension_lsdb_copy)
         if self.ospf_version == conf.VERSION_IPV4:
-            own_abr_lsa = self.extension_database.get_extension_lsa(
+            own_abr_lsa = extension_lsdb_copy.get_extension_lsa(
                 conf.LSA_TYPE_OPAQUE_AS, conf.OPAQUE_TYPE_ABR_LSA, self.router_id)
-            own_prefix_lsa = self.extension_database.get_extension_lsa(
+            own_prefix_lsa = extension_lsdb_copy.get_extension_lsa(
                 conf.LSA_TYPE_OPAQUE_AS, conf.OPAQUE_TYPE_PREFIX_LSA, self.router_id)
         else:
-            own_abr_lsa = self.extension_database.get_extension_lsa(conf.LSA_TYPE_EXTENSION_ABR_LSA, 0, self.router_id)
-            own_prefix_lsa = self.extension_database.get_extension_lsa(
+            own_abr_lsa = extension_lsdb_copy.get_extension_lsa(conf.LSA_TYPE_EXTENSION_ABR_LSA, 0, self.router_id)
+            own_prefix_lsa = extension_lsdb_copy.get_extension_lsa(
                 conf.LSA_TYPE_EXTENSION_PREFIX_LSA, 0, self.router_id)
 
         #  Removing and updating ABR info
         if own_abr_lsa is not None:
             has_changed = False
+            to_flush = False
             for abr_info in own_abr_lsa.body.abr_list:
                 is_present = False
                 abr = abr_info[1]
@@ -629,14 +631,17 @@ class Router:
                             is_present = True
                             new_metric = node[0]
                 if not is_present:
-                    own_abr_lsa.body.delete_abr_info(abr)
+                    if len(own_abr_lsa.body.abr_list) > 1:
+                        own_abr_lsa.body.delete_abr_info(abr)
+                    else:
+                        to_flush = True
                     has_changed = True
                 elif advertised_metric != new_metric:
                     own_abr_lsa.body.delete_abr_info(abr)
                     own_abr_lsa.add_abr_info(new_metric, abr)
                     has_changed = True
             if has_changed:
-                if len(own_abr_lsa.pack_lsa()) == conf.LSA_HEADER_LENGTH:  # LSA no longer has content
+                if to_flush:  # No other ABR is known
                     own_abr_lsa.header.ls_age = conf.MAX_AGE
                 else:
                     own_abr_lsa.header.ls_age = conf.INITIAL_LS_AGE
@@ -646,6 +651,7 @@ class Router:
                 own_abr_lsa.set_lsa_checksum()
                 updated_lsa_list.append(own_abr_lsa)
                 self.extension_database.add_extension_lsa(own_abr_lsa)
+                extension_lsdb_copy.add_extension_lsa(own_abr_lsa)
 
         #  Removing and updating prefix info
         if own_prefix_lsa is not None:
@@ -697,6 +703,7 @@ class Router:
                 own_prefix_lsa.set_lsa_checksum()
                 updated_lsa_list.append(own_prefix_lsa)
                 self.extension_database.add_extension_lsa(own_prefix_lsa)
+                extension_lsdb_copy.add_extension_lsa(own_prefix_lsa)
 
         #  Adding ABR info
         for area_id in shortest_path_tree_dictionary:
@@ -720,7 +727,7 @@ class Router:
                     else:
                         is_present = own_abr_lsa.has_abr_info(node)
                     if not is_present:
-                        cost = self.get_cost_to_abr(node, True)
+                        cost = self.get_cost_to_abr(node, True, extension_lsdb_copy)
                         own_abr_lsa.add_abr_info(cost, node)
                         own_abr_lsa.header.ls_age = conf.INITIAL_LS_AGE
                         if not created_now:
@@ -730,6 +737,7 @@ class Router:
                         own_abr_lsa.set_lsa_checksum()
                         updated_lsa_list.append(own_abr_lsa)
                         self.extension_database.add_extension_lsa(own_abr_lsa)
+                        extension_lsdb_copy.add_extension_lsa(own_abr_lsa)
 
         #  Adding prefix info
         for entry in intra_area_table.entries:
@@ -778,17 +786,19 @@ class Router:
         for area_id in self.areas:
             for query_lsa in updated_lsa_list:
                 self.extension_database.add_extension_lsa(query_lsa)
+                extension_lsdb_copy.add_extension_lsa(query_lsa)
                 for interface_id in self.areas[area_id].interfaces:
                     query_interface = self.areas[area_id].interfaces[interface_id][area.INTERFACE_OBJECT]
                     query_interface.flooding_pipeline.put([query_lsa, self.router_id])
                     time.sleep(0.001)
 
+        return extension_lsdb_copy
+
     #  Returns OSPF routing table with paths to intra-area and inter-area prefixes
-    #  Receives OSPF routing table with paths to intra-area prefixes, shortest path tree of ABR overlay, and prefixes
-    #  reachable by network ABRs
-    def get_complete_ospf_routing_table(self, intra_area_table):
+    #  Receives OSPF routing table with paths to intra-area prefixes, shortest path tree of ABR overlay, prefixes
+    #  reachable by network ABRs, and copy of extension LSDB
+    def get_complete_ospf_routing_table(self, intra_area_table, extension_lsdb_copy):
         #  Get ABR overlay shortest path tree
-        extension_lsdb_copy = copy.deepcopy(self.extension_database)
         directed_graph = extension_lsdb_copy.get_overlay_directed_graph()[0]
         overlay_shortest_path_tree = extension_lsdb_copy.get_shortest_path_tree(directed_graph, self.router_id)
 
@@ -822,7 +832,7 @@ class Router:
                 raise ValueError("Invalid OSPF version")
 
         #  Replace prefix parent node for respective next hop ABR from this router
-        same_areas_abr_list = self.get_abr_list_in_directly_connected_areas()  # Next hops OR router itself
+        same_areas_abr_list = self.get_abr_list_in_directly_connected_areas(extension_lsdb_copy)  # Next hops OR router
         for prefix in abr_prefixes_dictionary:
             parent_node = abr_prefixes_dictionary[prefix][2]
             while parent_node not in same_areas_abr_list:
@@ -830,7 +840,7 @@ class Router:
             abr_prefixes_dictionary[prefix][2] = parent_node
 
         #  For each next hop ABR, get outgoing interface and next hop address to reach it - Ignore if router itself
-        routing_info = {}
+        routing_info = {self.router_id: []}
         for next_hop_abr in same_areas_abr_list:
             if next_hop_abr != self.router_id:
                 if self.ospf_version == conf.VERSION_IPV4:
@@ -887,7 +897,9 @@ class Router:
             cost = abr_prefixes_dictionary[prefix][0]
             outgoing_interface = abr_prefixes_dictionary[prefix][3]
             next_hop_address = abr_prefixes_dictionary[prefix][4]
-            complete_routing_table.entries[0].add_path(path_type, cost, 0, outgoing_interface, next_hop_address, '')
+            #complete_routing_table.entries[0].add_path(path_type, cost, 0, outgoing_interface, next_hop_address, '')
+            complete_routing_table.get_entry(conf.DESTINATION_TYPE_NETWORK, prefix, prefix_area).add_path(
+                path_type, cost, 0, outgoing_interface, next_hop_address, '')
 
         return complete_routing_table
 
@@ -908,51 +920,66 @@ class Router:
     #  Updates own extension LSAs and inter-area LSAs and floods changes as required
     #  Sets kernel routing table according to area LSDBs and extension LSDB
     def lsdb_modification_handler(self, area_lsdb_modified):
-        #  Required data
-        shortest_path_tree_dict = {}
-        prefixes_dict = {}
-        lsdb_dict = self.get_lsdb_copy_dict()  # Deep copy - Can be reused
-        for area_id in lsdb_dict:
-            lsdb_copy = lsdb_dict[area_id]
-            data = lsdb_copy.get_directed_graph()
-            directed_graph = data[0]
-            prefixes = data[1]
-            shortest_path_tree = lsdb_copy.get_shortest_path_tree(directed_graph, self.router_id)
-            shortest_path_tree_dict[area_id] = shortest_path_tree
-            prefixes_dict[area_id] = prefixes
-        if self.router_shutdown_event.is_set():  # Shutdown
-            return
+        while True:  # Code will be run until no errors are raised
+            try:
+                #  Required data
+                shortest_path_tree_dict = {}
+                prefixes_dict = {}
+                lsdb_dict = self.get_lsdb_copy_dict()  # Deep copy - Can be reused
+                extension_lsdb_copy = self.extension_database.__deepcopy__()
+                for area_id in lsdb_dict:
+                    lsdb_copy = lsdb_dict[area_id]
+                    data = lsdb_copy.get_directed_graph()
+                    directed_graph = data[0]
+                    prefixes = data[1]
+                    shortest_path_tree = lsdb_copy.get_shortest_path_tree(directed_graph, self.router_id)
+                    shortest_path_tree_dict[area_id] = shortest_path_tree
+                    prefixes_dict[area_id] = prefixes
+                if self.router_shutdown_event.is_set():  # Shutdown
+                    return
 
-        #  Intra-area LSAs and prefixes
-        if area_lsdb_modified:
-            self.routing_table = self.get_intra_area_ospf_routing_table(
-                shortest_path_tree_dict, prefixes_dict, lsdb_dict)
-            if self.abr:
-                self.update_own_extension_lsa_list(self.routing_table, shortest_path_tree_dict)
-            if self.router_shutdown_event.is_set():
-                return
+                #  Intra-area LSAs and prefixes
+                if area_lsdb_modified:
+                    self.routing_table = self.get_intra_area_ospf_routing_table(
+                        shortest_path_tree_dict, prefixes_dict, lsdb_dict)
+                    if self.abr:
+                        extension_lsdb_copy = self.update_own_extension_lsa_list(
+                            self.routing_table, shortest_path_tree_dict, extension_lsdb_copy)
+                    if self.router_shutdown_event.is_set():
+                        return
 
-        #  Extension LSAs, inter-area LSAs and prefixes
-        if self.abr:
-            if len(self.extension_database.abr_lsa_list) > 0:  # If network has more than 1 ABR
-                self.routing_table = self.get_complete_ospf_routing_table(self.routing_table)
+                #  Extension LSAs
+                if self.abr:
+                    if len(self.extension_database.abr_lsa_list) > 0:  # If network has more than 1 ABR
+                        self.routing_table = self.get_complete_ospf_routing_table(
+                            self.routing_table, extension_lsdb_copy)
+                        if self.router_shutdown_event.is_set():
+                            return
+                    #self.update_inter_area_lsa_list(lsdb_dict)
                 if self.router_shutdown_event.is_set():
                     return
-            self.update_inter_area_lsa_list(lsdb_dict)
-        if self.router_shutdown_event.is_set():
-            return
 
-        #  Kernel routing table
-        if not self.localhost:  # Integration tests cannot set kernel routing table
-            if self.kernel_table_process is not None:
-                if self.kernel_table_process.is_alive():
-                    self.kernel_table_process.join()
-            self.kernel_table_process = multiprocessing.Process(
-                target=self.set_kernel_routing_table_from_ospf_table,
-                args=(self.ospf_version, self.routing_table, self.interface_ids))
-            self.kernel_table_process.start()
+                #  Kernel routing table
+                if not self.localhost:  # Integration tests cannot set kernel routing table
+                    if self.kernel_table_process is not None:
+                        if self.kernel_table_process.is_alive():
+                            self.kernel_table_process.join()
+                    '''self.kernel_table_process = multiprocessing.Process(
+                        target=self.set_kernel_routing_table_from_ospf_table,
+                        args=(self.ospf_version, self.routing_table, self.interface_ids))
+                    self.kernel_table_process.start()'''
+                    self.set_kernel_routing_table_from_ospf_table(
+                        self.ospf_version, self.routing_table, self.interface_ids)
 
-        self.kernel_thread_operating.clear()
+                #  Inter-area LSAs and prefixes
+                if self.abr:
+                    self.update_inter_area_lsa_list(lsdb_dict)
+
+                self.kernel_thread_operating.clear()
+                break  # No errors raised - Kernel table and LSDBs successfully updated
+
+            except (KeyError, TypeError, IndexError, AttributeError):
+                time.sleep(1)  # Possibly LSDBs have yet to stabilize, new execution may find LSDBs stabilized
 
     #  Creates new thread to update kernel routing table
     def create_kernel_table_thread(self, area_lsdb_modified):
@@ -1146,24 +1173,29 @@ class Router:
             return False
 
     #  Returns list of all ABRs in directly connected areas
-    def get_abr_list_in_directly_connected_areas(self):
-        routers = []
-        self.extension_database.prefix_lock.acquire()
-        for prefix_lsa in self.extension_database.prefix_lsa_list:
-            routers.append(prefix_lsa.header.advertising_router)  # Routers are associated with 1 or + network prefixes
-        self.extension_database.prefix_lock.release()
+    def get_abr_list_in_directly_connected_areas(self, extension_lsdb_copy):
+        if self.abr:
+            routers = [self.router_id]
+        else:
+            routers = []
+        for prefix_lsa in extension_lsdb_copy.prefix_lsa_list:  # Routers are associated with 1 or + network prefixes
+            abr_id = prefix_lsa.header.advertising_router
+            if (abr_id != self.router_id) & (  # ABR is reachable
+                    self.get_cost_to_abr(abr_id, True, extension_lsdb_copy) < conf.INFINITE_COST):
+                routers.append(abr_id)
         return routers
 
     #  Given neighbor ABR ID, returns either intra-area shortest path cost or overall shortest path cost
-    def get_cost_to_abr(self, abr_id, intra_area_only):
+    #  To ensure atomicity of operation, it is necessary to supply copy of extension LSDB
+    def get_cost_to_abr(self, abr_id, intra_area_only, extension_lsdb_copy):
         shortest_cost = conf.INFINITE_COST
         if intra_area_only:  # Only intra-area paths to ABR allowed
             if self.ospf_version == conf.VERSION_IPV4:
-                prefix_lsa = self.extension_database.get_extension_lsa(0, conf.OPAQUE_TYPE_PREFIX_LSA, abr_id)
+                prefix_lsa = extension_lsdb_copy.get_extension_lsa(0, conf.OPAQUE_TYPE_PREFIX_LSA, abr_id)
                 list_to_search = prefix_lsa.body.subnet_list
                 prefix_position = 2
             else:
-                prefix_lsa = self.extension_database.get_extension_lsa(conf.LSA_TYPE_EXTENSION_PREFIX_LSA, 0, abr_id)
+                prefix_lsa = extension_lsdb_copy.get_extension_lsa(conf.LSA_TYPE_EXTENSION_PREFIX_LSA, 0, abr_id)
                 list_to_search = prefix_lsa.body.prefix_list
                 prefix_position = 3
             for prefix_data in list_to_search:
@@ -1173,11 +1205,21 @@ class Router:
                         shortest_cost = entry.paths[0].cost
             return shortest_cost
         else:
-            abr_overlay_shortest_path_tree = self.extension_database.get_shortest_path_tree(
-                self.extension_database.get_overlay_directed_graph(), self.router_id)
+            abr_overlay_shortest_path_tree = extension_lsdb_copy.get_shortest_path_tree(
+                extension_lsdb_copy.get_overlay_directed_graph(), self.router_id)
             for query_abr in abr_overlay_shortest_path_tree:
                 if abr_id == query_abr:
                     return abr_overlay_shortest_path_tree[query_abr][0]
+
+    #  Returns True if all neighbors are adjacent and stable i.e. are in 2-WAY or FULL states
+    def are_neighbors_stable(self):
+        neighbors_stable = True
+        for interface_id in self.interfaces:
+            neighbors = self.interfaces[interface_id][area.INTERFACE_OBJECT].neighbors
+            for neighbor_id in neighbors:
+                if neighbors[neighbor_id].neighbor_state not in [conf.NEIGHBOR_STATE_2_WAY, conf.NEIGHBOR_STATE_FULL]:
+                    neighbors_stable = False
+        return neighbors_stable
 
     #  Returns dictionary with deep copy of all router LSDBs
     def get_lsdb_copy_dict(self):
