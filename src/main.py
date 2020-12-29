@@ -97,6 +97,17 @@ class Main(cmd.Cmd):
         'Prints addresses of all router interfaces: SHOW_ADDRESS'
         os.system("ip addr")
 
+    def do_show_convergence_time(self, arg):
+        'Prints router start time and time of last kernel routing table update: SHOW_CONVERGENCE_TIME'
+        if self.option in [BOTH_VERSIONS, OSPF_V2]:
+            print("OSPFv2")
+            self.command_pipeline_v2.put([router.SHOW_CONVERGENCE, None])
+            Main.wait_for_output(self.output_event_v2)
+        if self.option in [BOTH_VERSIONS, OSPF_V3]:
+            print("OSPFv3")
+            self.command_pipeline_v3.put([router.SHOW_CONVERGENCE, None])
+            Main.wait_for_output(self.output_event_v3)
+
     def do_shutdown_interface(self, arg):
         'Performs shutdown of specified interface: SHUTDOWN_INTERFACE ens33'
         if self.option in [BOTH_VERSIONS, OSPF_V2]:

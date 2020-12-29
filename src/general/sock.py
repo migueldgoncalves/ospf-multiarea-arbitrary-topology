@@ -6,6 +6,7 @@ import multiprocessing
 import conf.conf as conf
 import general.utils as utils
 import packet.packet as packet
+import lsa.lsa as lsa
 
 '''
 This class performs the socket operations in the router
@@ -70,7 +71,7 @@ class Socket:
         s.close()
 
     #  Listens to IPv6 packets in the network until signaled to stop
-    def receive_ipv6(self, pipeline, shutdown, interface, accept_self_packets, is_dr, localhost):
+    def receive_ipv6(self, pipeline, shutdown, interface, accept_self_packets, is_dr, localhost, router_id):
         if localhost:  # No sockets will be used in the integration tests
             return
 
@@ -101,6 +102,7 @@ class Socket:
             s.settimeout(0.1)
             try:
                 data = s.recvfrom(conf.MTU)  # Does not include IP header
+                #packet_bytes = Socket.remove_extension_pseudo_headers(data[0], interface, router_id)
                 packet_bytes = data[0]
                 source_ip_address = data[1][0].split('%')[0]
                 link_local_address = utils.Utils.interface_name_to_ipv6_link_local_address(interface)
@@ -159,6 +161,7 @@ class Socket:
         source_address = utils.Utils.interface_name_to_ipv6_link_local_address(interface)
         packet_bytes = self.is_packet_checksum_valid(
             packet_bytes, conf.VERSION_IPV6, source_address, destination_address)
+        #packet_bytes = Socket.add_extension_pseudo_headers(packet_bytes, source_address, destination_address)
 
         if localhost:  # Socket will not be used in integration tests
             data = [packet_bytes, source_address, destination_address]
@@ -235,6 +238,7 @@ class Socket:
     @staticmethod
     def is_packet_checksum_valid(packet_bytes, version, source_address, destination_address):
         packet_object = packet.Packet.unpack_packet(packet_bytes)
+        # print("Sending packet", packet_object, source_address)
         if not packet_object.is_packet_checksum_valid(source_address, destination_address):
             if version == conf.VERSION_IPV6:
                 packet_object.header.source_ipv6_address = source_address
@@ -243,3 +247,85 @@ class Socket:
             packet_object.set_packet_checksum()
             packet_bytes = packet_object.pack_packet()
         return packet_bytes
+
+    #  The Cisco routers being used appear to treat LSAs with unknown types in OSPFv3 as if they all had the same type.
+    #  If a router sends a LSA with type 18, and the Cisco router has a LSA from the router with type 17 and an higher
+    #  Sequence Number, it drops the new LSA and sends the LSA with type 17 to the router
+    #  The following lines append a pseudo-header with constant LS type to all extension LSAs being sent
+    '''@staticmethod
+    def add_extension_pseudo_headers(packet_bytes, source_address, destination_address):
+        if struct.unpack("> B", packet_bytes[1:2])[0] != conf.PACKET_TYPE_LS_UPDATE:
+            return packet_bytes  # Nothing to do
+
+        packet_header = packet_bytes[:2] + b'\x00\x00' + packet_bytes[4:12] + b'\x00\x00' + packet_bytes[14:16]
+        packet_body_to_process = packet_bytes[conf.OSPFV3_PACKET_HEADER_LENGTH + 4:]  # Number of LSAs field left out
+        new_packet_body = packet_bytes[conf.OSPFV3_PACKET_HEADER_LENGTH:conf.OSPFV3_PACKET_HEADER_LENGTH + 4]
+        while len(packet_body_to_process) > 0:
+            lsa_length = struct.unpack("> H", packet_body_to_process[18:20])[0]
+            lsa_bytes = packet_body_to_process[:lsa_length]
+            packet_body_to_process = packet_body_to_process[lsa_length:]  # Removes LSA from bytes to process
+            if struct.unpack("> B", lsa_bytes[3:4])[0] in [  # Overlay LSA
+                conf.LSA_TYPE_EXTENSION_ABR_LSA, conf.LSA_TYPE_EXTENSION_PREFIX_LSA,
+                    conf.LSA_TYPE_EXTENSION_ASBR_LSA]:
+                advertising_router = utils.Utils.decimal_to_ipv4(struct.unpack("> L", packet_bytes[4:8])[0])
+                pseudo_lsa_header = lsa.Lsa()
+                pseudo_lsa_header.create_extension_header(  # LS Type is fixed
+                    conf.MAX_AGE, conf.OPTIONS_V3, 0, conf.LSA_TYPE_EXTENSION_ABR_LSA, advertising_router,
+                    conf.INITIAL_SEQUENCE_NUMBER, conf.VERSION_IPV6)
+                pseudo_lsa_header = pseudo_lsa_header.pack_header()
+                lsa_new_length = (conf.LSA_HEADER_LENGTH + len(lsa_bytes))
+                lsa_new_checksum = utils.Utils.create_fletcher_checksum(  # Leaves LS Age out
+                    pseudo_lsa_header[2:16] + b'\x00\x00' + struct.pack("> H", lsa_new_length) + lsa_bytes)
+                pseudo_lsa_header = pseudo_lsa_header[:16] + struct.pack("> H", lsa_new_checksum) + \
+                                    struct.pack("> H", lsa_new_length)  # Restores LS Age bytes
+                lsa_bytes = pseudo_lsa_header + lsa_bytes
+            new_packet_body += lsa_bytes
+        packet_new_length = len(packet_header + new_packet_body)
+        packet_header = packet_header[:2] + struct.pack("> H", packet_new_length) + packet_header[4:16]
+        packet_new_checksum = utils.Utils.create_checksum_ospfv3(  # Includes packet length
+            packet_header + new_packet_body, source_address, destination_address)
+        packet_header = packet_header[:12] + struct.pack("> H", packet_new_checksum) + packet_header[14:16]
+        return packet_header + new_packet_body
+
+    #  Given a LS Update packet in OSPFv3, return the pseudo headers from any extension LSAs in the packet
+    @staticmethod
+    def remove_extension_pseudo_headers(packet_bytes, interface, router_id):
+        if struct.unpack("> B", packet_bytes[1:2])[0] != conf.PACKET_TYPE_LS_UPDATE:
+            return packet_bytes  # Nothing to do
+
+        ls_ack_bytes = b''  # Interface won't be able to acknowledge extension LSAs - It must be done here
+        packet_header = packet_bytes[:2] + b'\x00\x00' + packet_bytes[4:12] + b'\x00\x00' + packet_bytes[14:16]
+        packet_body_to_process = packet_bytes[conf.OSPFV3_PACKET_HEADER_LENGTH + 4:]
+        new_packet_body = packet_bytes[conf.OSPFV3_PACKET_HEADER_LENGTH:conf.OSPFV3_PACKET_HEADER_LENGTH + 4]
+        while len(packet_body_to_process) > 0:
+            lsa_length = struct.unpack("> H", packet_body_to_process[18:20])[0]
+            lsa_bytes = packet_body_to_process[:lsa_length]
+            packet_body_to_process = packet_body_to_process[lsa_length:]
+            if struct.unpack("> B", lsa_bytes[3:4])[0] in [  # Overlay LSA
+                conf.LSA_TYPE_EXTENSION_ABR_LSA, conf.LSA_TYPE_EXTENSION_PREFIX_LSA,
+                    conf.LSA_TYPE_EXTENSION_ASBR_LSA]:
+                ls_ack_bytes += lsa_bytes[:conf.LSA_HEADER_LENGTH]
+                lsa_bytes = lsa_bytes[conf.LSA_HEADER_LENGTH:]
+            new_packet_body += lsa_bytes
+        packet_new_length = len(packet_header + new_packet_body)
+        packet_header = packet_bytes[:2] + struct.pack("> H", packet_new_length) + packet_bytes[4:16]
+
+        #  Sends LS Ack packet with pseudo headers of extension LSAs - Interface does not receive the pseudo headers
+        if len(ls_ack_bytes) > 0:  # At least one overlay LSA was received
+            area_id = utils.Utils.decimal_to_ipv4(struct.unpack("> L", ls_ack_bytes[4:8])[0])
+            ls_ack_packet = packet.Packet()
+            source_address = utils.Utils.interface_name_to_ipv6_link_local_address(interface)
+            destination_address = conf.ALL_OSPF_ROUTERS_IPV6
+            ls_ack_packet.create_header_v3(
+                conf.PACKET_TYPE_LS_ACKNOWLEDGMENT, router_id, area_id, 0, source_address, destination_address)
+            ls_ack_packet.create_ls_acknowledgement_packet_body(conf.VERSION_IPV6)
+            while len(ls_ack_bytes) > 0:
+                lsa_header = ls_ack_bytes[:conf.LSA_HEADER_LENGTH]
+                ls_ack_packet.add_lsa_header(lsa.Lsa.unpack_header(lsa_header, conf.VERSION_IPV6))
+                ls_ack_bytes = ls_ack_bytes[conf.LSA_HEADER_LENGTH:]
+            s = socket.socket(socket.AF_INET6, socket.SOCK_RAW, conf.OSPF_PROTOCOL_NUMBER)
+            s.setsockopt(socket.SOL_SOCKET, socket.SO_BINDTODEVICE, str(interface + '\0').encode(ENCODING))
+            s.sendto(ls_ack_packet.pack_packet(), (destination_address, PORT))
+            s.close()
+
+        return packet_header + new_packet_body'''

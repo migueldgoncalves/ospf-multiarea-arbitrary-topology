@@ -18,7 +18,6 @@ class ExtensionLsdb:
         self.prefix_lsa_list = []
         self.asbr_lsa_list = []
 
-        self.lsdb_lock = threading.RLock()
         self.abr_lock = threading.RLock()
         self.prefix_lock = threading.RLock()
         self.asbr_lock = threading.RLock()
@@ -211,7 +210,7 @@ class ExtensionLsdb:
             for neighbor_abr in query_lsa.body.abr_list:
                 metric = neighbor_abr[0]
                 neighbor_id = neighbor_abr[1]
-                directed_graph[query_lsa.header.advertising_router][neighbor_id] = metric
+                directed_graph[query_lsa.header.advertising_router][neighbor_id] = int(metric)
 
         #  Address prefixes
         prefixes = {}
@@ -231,7 +230,7 @@ class ExtensionLsdb:
     #  Returns the shortest path tree for the overlay by running the Dijkstra algorithm
     @staticmethod
     def get_shortest_path_tree(directed_graph, source_router_id):
-        lsdb.Lsdb.get_shortest_path_tree(directed_graph, source_router_id)
+        return lsdb.Lsdb.get_shortest_path_tree(directed_graph, source_router_id)
 
     def acquire_all_locks(self):
         self.abr_lock.acquire()

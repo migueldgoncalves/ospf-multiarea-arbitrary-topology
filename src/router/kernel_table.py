@@ -1,5 +1,6 @@
 import multiprocessing
 import os
+import datetime
 
 import conf.conf as conf
 import general.utils as utils
@@ -12,6 +13,7 @@ This class serves as an interface to OSPF route management in the Linux kernel d
 class KernelTable:
 
     lock = multiprocessing.RLock()
+    modification_time = datetime.datetime.now()
 
     #  Returns the prefixes associated with the router interfaces
     @staticmethod
@@ -71,6 +73,7 @@ class KernelTable:
                     [prefix, prefix_length] not in KernelTable.get_directly_connected_prefixes(interfaces)):
                 os.system('ip route add ' + prefix + '/' + str(prefix_length) + ' via ' + next_hop + ' dev ' +
                           outgoing_interface + ' proto ' + str(conf.OSPF_PROTOCOL_NUMBER))
+                KernelTable.reset_modification_time()
 
     #  Cleans the default routing table of all routes created by specified version of OSPF
     @staticmethod
@@ -86,6 +89,7 @@ class KernelTable:
                 if (prefix_version == ospf_version) | (ospf_version == 0):
                     os.system('ip route del ' + prefix + '/' + str(prefix_length) + ' via ' + next_hop + ' dev ' +
                               outgoing_interface + ' proto ' + str(conf.OSPF_PROTOCOL_NUMBER))
+                    KernelTable.reset_modification_time()
 
     #  Given route information as returned by command 'ip route list', returns its prefix
     @staticmethod
@@ -128,3 +132,15 @@ class KernelTable:
             if route_list[i] == keyword:
                 return route_list[i + 1]
         return ''
+
+    #  Atomically resets modification time to current time
+    @staticmethod
+    def reset_modification_time():
+        with KernelTable.lock:
+            KernelTable.modification_time = datetime.datetime.now()
+
+    #  Atomically returns value of modification time
+    @staticmethod
+    def get_modification_time():
+        with KernelTable.lock:
+            return KernelTable.modification_time

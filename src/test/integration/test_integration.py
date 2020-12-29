@@ -13,7 +13,7 @@ import general.utils as utils
 import packet.packet as packet
 
 '''
-This class tests integration between 2 router processes running inside the VM
+This class tests integration between 2 router processes running inside the same machine
 '''
 
 #  More interfaces and routers can be added as required

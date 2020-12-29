@@ -20,9 +20,9 @@ OSPFV3_LINK_FORMAT_STRING = "> L L L L"
 class Router(body.Body):  # OSPFv2 - 4 bytes + 12 bytes / link; OSPFv3 - 4 bytes + 16 bytes / link
 
     def __init__(self, bit_v, bit_e, bit_b, options, version):
-        self.bit_v = bit_v  # Virtual link endpoint bit
-        self.bit_e = bit_e  # AS boundary router bit
-        self.bit_b = bit_b  # Area border router bit
+        self.bit_v = bool(bit_v)  # Virtual link endpoint bit
+        self.bit_e = bool(bit_e)  # AS boundary router bit
+        self.bit_b = bool(bit_b)  # Area border router bit
         self.link_number = 0  # 2 bytes - Just for OSPFv2
         self.options = options  # 3 bytes - Just for OSPFv3
         self.links = []  # 12 bytes/link in OSPFv2; 16 bytes / link in OSPFv3

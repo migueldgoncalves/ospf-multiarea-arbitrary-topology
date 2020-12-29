@@ -18,11 +18,6 @@ import lsa.lsa as lsa
 This class represents the OSPF interface and contains its data and operations
 '''
 
-GET_LSDB = 'Get LSDB'
-GET_LSA = 'Get LSA'
-ADD_LSA = 'Add LSA'
-DELETE_LSA = 'Delete LSA'
-
 
 class Interface:
 
