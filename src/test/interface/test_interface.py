@@ -66,8 +66,7 @@ class InterfaceTest(unittest.TestCase):
             args=(socket_pipeline_v2, socket_shutdown_v2, self.interface_identifier, accept_self_packets, is_dr, False))
         thread_socket_v3 = threading.Thread(
             target=socket_v3.receive_ipv6,
-            args=(socket_pipeline_v3, socket_shutdown_v3, self.interface_identifier, accept_self_packets, is_dr, False,
-                  ''))
+            args=(socket_pipeline_v3, socket_shutdown_v3, self.interface_identifier, accept_self_packets, is_dr, False))
         thread_socket_v2.start()
         thread_socket_v3.start()
 
@@ -211,8 +210,7 @@ class InterfaceTest(unittest.TestCase):
             args=(socket_pipeline_v2, socket_shutdown_v2, self.interface_identifier, accept_self_packets, is_dr, False))
         thread_socket_v3 = threading.Thread(
             target=socket_v3.receive_ipv6,
-            args=(socket_pipeline_v3, socket_shutdown_v3, self.interface_identifier, accept_self_packets, is_dr, False,
-                  ''))
+            args=(socket_pipeline_v3, socket_shutdown_v3, self.interface_identifier, accept_self_packets, is_dr, False))
         thread_socket_v2.start()
         thread_socket_v3.start()
 

@@ -109,7 +109,7 @@ class Router:
                 self.socket_processes[interface_id] = multiprocessing.Process(
                     target=self.packet_sockets[interface_id].receive_ipv6,
                     args=(self.packet_pipelines[interface_id], self.socket_shutdown_events[interface_id], interface_id,
-                          accept_self_packets, is_dr, localhost, self.router_id))
+                          accept_self_packets, is_dr, localhost))
             self.socket_processes[interface_id].start()
         self.router_shutdown_event = router_shutdown_event
         self.abr = Router.is_abr(area_ids)
@@ -961,29 +961,6 @@ class Router:
                 shortest_path_tree_dict = {}
                 prefixes_dict = {}
                 lsdb_dict = self.get_lsdb_copy_dict()  # Deep copy - Can be reused
-                '''for area_id in lsdb_dict:
-                    #  Prefixes in network Intra-Area-Prefix-LSAs which weren't removed from router IAP-LSAs
-                    repeated_prefixes = []
-                    for router_iap_lsa in lsdb_dict[area_id].intra_area_prefix_lsa_list:
-                        if header.Header.get_ls_type(router_iap_lsa.body.referenced_ls_type) == conf.LSA_TYPE_ROUTER:
-                            for prefix_info in router_iap_lsa.body.prefixes:
-                                for network_iap_lsa in lsdb_dict[area_id].intra_area_prefix_lsa_list:
-                                    if header.Header.get_ls_type(
-                                            network_iap_lsa.body.referenced_ls_type) == conf.LSA_TYPE_NETWORK:
-                                        for prefix_info_2 in network_iap_lsa.body.prefixes:
-                                            if prefix_info_2[3] == prefix_info[3]:  # Prefix in both LSAs
-                                                repeated_prefixes.append(prefix_info)
-                    lsa_list_to_delete = []
-                    for prefix_info in repeated_prefixes:
-                        for router_iap_lsa in lsdb_dict[area_id].intra_area_prefix_lsa_list:
-                            if header.Header.get_ls_type(
-                                    router_iap_lsa.body.referenced_ls_type) == conf.LSA_TYPE_ROUTER:
-                                router_iap_lsa.body.delete_prefix_info(
-                                    prefix_info[0], prefix_info[1], prefix_info[2], prefix_info[3])
-                                if len(router_iap_lsa.body.prefixes) == 0:
-                                    lsa_list_to_delete.append(router_iap_lsa.get_lsa_identifier())
-                    for lsa_identifier in lsa_list_to_delete:
-                        lsdb_dict[area_id].delete_lsa(lsa_identifier[0], lsa_identifier[1], lsa_identifier[2], [])'''
                 extension_lsdb_copy = self.extension_database.__deepcopy__()
                 for area_id in lsdb_dict:
                     lsdb_copy = lsdb_dict[area_id]
