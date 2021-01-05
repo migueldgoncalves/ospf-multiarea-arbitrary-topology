@@ -1349,3 +1349,69 @@ class Router:
         for area_id in self.areas:
             lsdb_copy_dict[area_id] = copy.deepcopy(self.areas[area_id].database)
         return lsdb_copy_dict
+
+    #  Returns True if provided router is connected to network - If it appears in any current Network-LSA
+    #  Assumes router either has all interfaces connected or is fully disconnected/down - No partial shutdown supported
+    def is_router_connected(self, router_id, lsdb_dict_copy):
+        for area_id in lsdb_dict_copy:
+            query_lsdb = lsdb_dict_copy[area_id]
+
+            router_in_network_lsa = False
+            for network_lsa in query_lsdb.network_lsa_list:
+                if router_id in network_lsa.body.attached_routers:
+                    if network_lsa.header.advertising_router != router_id:
+                        return True  # Router is in Network-LSA from another router
+                    router_in_network_lsa = True
+            if not router_in_network_lsa:
+                return False  # Router is not in any Network-LSA
+
+            for network_lsa in query_lsdb.network_lsa_list:
+                if network_lsa.header.advertising_router == router_id:
+                    #  Routers that this router says are connected to same subnets
+                    for query_router_id in network_lsa.body.attached_routers:
+                        recognizes_router_as_dr = False
+                        router_lsa = query_lsdb.get_lsa(conf.LSA_TYPE_ROUTER, query_router_id, query_router_id, [])
+                        for link_info in router_lsa.body.links:
+                            if self.ospf_version == conf.VERSION_IPV4:
+                                if link_info[0] == router_id:
+                                    recognizes_router_as_dr = True
+                            else:
+                                if link_info[4] == router_id:
+                                    recognizes_router_as_dr = True
+                        if not recognizes_router_as_dr:
+                            return False  # Other router does not recognize this router as DR - Discrepancy
+
+        return True
+
+    #  Cleans LSDBs of LSAs from unconnected/down routers - Should only be run in LSDB copies
+    def clean_unconnected_routers(self, lsdb_dict_copy, extension_lsdb_copy):
+        unconnected_routers = []
+        for area_id in lsdb_dict_copy:
+            query_lsdb = lsdb_dict_copy[area_id]
+            for query_lsa in query_lsdb.router_lsa_list:
+                if not self.is_router_connected(query_lsa.header.advertising_router, lsdb_dict_copy):
+                    unconnected_routers.append(query_lsa.header.advertising_router)
+
+        lsa_list_to_delete = []
+        extension_lsa_list_to_delete = []
+        for area_id in lsdb_dict_copy:
+            query_lsdb = lsdb_dict_copy[area_id]
+            for query_lsa in query_lsdb.get_lsdb([], None):
+                if query_lsa.header.advertising_router in unconnected_routers:
+                    lsa_list_to_delete.append(query_lsa.get_lsa_identifier())
+        if extension_lsdb_copy is not None:
+            for query_lsa in extension_lsdb_copy.get_extension_lsdb(None):
+                if query_lsa.header.advertising_router in unconnected_routers:
+                    extension_lsa_list_to_delete.append(query_lsa.get_lsa_identifier())
+
+        for area_id in lsdb_dict_copy:
+            query_lsdb = lsdb_dict_copy[area_id]
+            for lsa_to_delete in lsa_list_to_delete:
+                query_lsdb.delete_lsa(lsa_to_delete[0], lsa_to_delete[1], lsa_to_delete[2], [])
+        if extension_lsdb_copy is not None:
+            for lsa_to_delete in extension_lsa_list_to_delete:
+                extension_lsdb_copy.delete_lsa(lsa_to_delete[0], lsa_to_delete[1], lsa_to_delete[2], [])
+
+        if extension_lsdb_copy is None:
+            return lsdb_dict_copy
+        return lsdb_dict_copy, extension_lsdb_copy
