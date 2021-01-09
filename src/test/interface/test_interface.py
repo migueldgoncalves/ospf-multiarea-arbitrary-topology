@@ -34,16 +34,18 @@ class InterfaceTest(unittest.TestCase):
         self.interface_pipeline_v3 = queue.Queue()
         self.interface_shutdown_v2 = threading.Event()
         self.interface_shutdown_v3 = threading.Event()
-        self.lsdb_v2 = area.Area.lsdb_startup(
-            conf.ROUTER_ID, conf.VERSION_IPV4, conf.BACKBONE_AREA, False, [self.interface_identifier])
-        self.lsdb_v3 = area.Area.lsdb_startup(
-            conf.ROUTER_ID, conf.VERSION_IPV6, conf.BACKBONE_AREA, False, [self.interface_identifier])
+        self.lsdb_v2 = area.Area.lsdb_startup(conf.ROUTER_ID, conf.VERSION_IPV4, conf.BACKBONE_AREA, False,
+                                              [self.interface_identifier], conf.INTERFACE_COSTS)
+        self.lsdb_v3 = area.Area.lsdb_startup(conf.ROUTER_ID, conf.VERSION_IPV6, conf.BACKBONE_AREA, False,
+                                              [self.interface_identifier], conf.INTERFACE_COSTS)
         self.interface_ospfv2 = interface.Interface(
             conf.ROUTER_ID, self.interface_identifier, self.ipv4_address, '', self.network_mask, [], self.area_id,
-            self.interface_pipeline_v2, self.interface_shutdown_v2, conf.VERSION_IPV4, self.lsdb_v2, False, False)
+            self.interface_pipeline_v2, self.interface_shutdown_v2, conf.VERSION_IPV4, self.lsdb_v2, False, False,
+            conf.INTERFACE_COSTS[0])
         self.interface_ospfv3 = interface.Interface(
             conf.ROUTER_ID, self.interface_identifier, '', self.ipv6_address, '', self.link_prefixes, self.area_id,
-            self.interface_pipeline_v3, self.interface_shutdown_v3, conf.VERSION_IPV6, self.lsdb_v3, False, False)
+            self.interface_pipeline_v3, self.interface_shutdown_v3, conf.VERSION_IPV6, self.lsdb_v3, False, False,
+            conf.INTERFACE_COSTS[0])
 
     #  #  #  #  #  #
     #  Main methods  #

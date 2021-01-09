@@ -2,11 +2,14 @@ import unittest
 import threading
 import time
 import multiprocessing
+import copy
 
 import router.router as router
 import conf.conf as conf
 import area.area as area
 import router.kernel_table as kernel_table
+import area.lsdb as lsdb
+import lsa.lsa as lsa
 
 '''
 This class tests the top-level OSPF operations in the router
@@ -70,11 +73,11 @@ class RouterTest(unittest.TestCase):
         with self.assertRaises(ValueError):
             new_router.set_up(
                 conf.ROUTER_ID, 1, multiprocessing.Event(), conf.INTERFACE_NAMES, conf.INTERFACE_AREAS, False,
-                multiprocessing.Queue(), multiprocessing.Event())
+                multiprocessing.Queue(), multiprocessing.Event(), conf.INTERFACE_COSTS)
         with self.assertRaises(ValueError):
             new_router.set_up(
                 conf.ROUTER_ID, 4, multiprocessing.Event(), conf.INTERFACE_NAMES, conf.INTERFACE_AREAS, False,
-                multiprocessing.Queue(), multiprocessing.Event())
+                multiprocessing.Queue(), multiprocessing.Event(), conf.INTERFACE_COSTS)
 
     #  Successful run - Instant
     def test_get_unique_values(self):
@@ -111,6 +114,137 @@ class RouterTest(unittest.TestCase):
         self.assertTrue(router.Router.is_abr(['1.1.1.1', '1.1.1.1', '0.0.0.0']))
         self.assertTrue(router.Router.is_abr(['0.0.0.1', '1.1.1.1', '0.0.0.0']))
 
+    #  Successful run - Instant
+    def test_clean_unconnected_routers(self):
+        #  Setup
+        router_id_1 = '1.1.1.1'
+        router_id_2 = '2.2.2.2'
+        router_id_3 = '3.3.3.3'
+        router_id_4 = '4.4.4.4'
+        router_ip_1_1 = '222.222.1.1'
+        router_ip_1_2 = '222.222.2.1'
+        router_ip_2 = '222.222.1.2'
+        router_ip_3 = '222.222.1.3'
+        router_ip_4 = '222.222.2.4'
+        network_prefix_1 = '222.222.1.0'
+        network_prefix_2 = '222.222.2.0'
+        options = conf.OPTIONS_V2
+        cost = 10
+        network_mask = '255.255.255.0'
+        area_1 = '1.1.1.1'
+        area_2 = '2.2.2.2'
+
+        #  Case 1
+
+        router_lsa_1 = lsa.Lsa()
+        router_lsa_2 = lsa.Lsa()
+        router_lsa_3 = lsa.Lsa()
+        network_lsa_1 = lsa.Lsa()
+
+        router_lsa_1.create_header(conf.INITIAL_LS_AGE, options, conf.LSA_TYPE_ROUTER, router_id_1, router_id_1,
+                                   conf.INITIAL_SEQUENCE_NUMBER, conf.VERSION_IPV4)
+        router_lsa_2.create_header(conf.INITIAL_LS_AGE, options, conf.LSA_TYPE_ROUTER, router_id_2, router_id_2,
+                                   conf.INITIAL_SEQUENCE_NUMBER, conf.VERSION_IPV4)
+        router_lsa_3.create_header(conf.INITIAL_LS_AGE, options, conf.LSA_TYPE_ROUTER, router_id_3, router_id_3,
+                                   conf.INITIAL_SEQUENCE_NUMBER, conf.VERSION_IPV4)
+        network_lsa_1.create_header(conf.INITIAL_LS_AGE, options, conf.LSA_TYPE_NETWORK, conf.DEFAULT_LINK_STATE_ID,
+                                    router_ip_1_1, conf.INITIAL_SEQUENCE_NUMBER, conf.VERSION_IPV4)
+        router_lsa_1.create_router_lsa_body(False, False, True, options, conf.VERSION_IPV4)
+        router_lsa_2.create_router_lsa_body(False, False, True, options, conf.VERSION_IPV4)
+        router_lsa_3.create_router_lsa_body(False, False, True, options, conf.VERSION_IPV4)
+        network_lsa_1.create_network_lsa_body(
+            network_mask, options, [router_id_1, router_id_2, router_id_3], conf.VERSION_IPV4)
+        router_lsa_1.add_link_info_v2(
+            router_ip_1_1, router_ip_1_1, conf.LINK_TO_TRANSIT_NETWORK, conf.DEFAULT_TOS, cost)
+        router_lsa_2.add_link_info_v2(router_ip_1_1, router_ip_2, conf.LINK_TO_TRANSIT_NETWORK, conf.DEFAULT_TOS, cost)
+        router_lsa_3.add_link_info_v2(router_ip_1_1, router_ip_3, conf.LINK_TO_TRANSIT_NETWORK, conf.DEFAULT_TOS, cost)
+
+        database = lsdb.Lsdb(conf.VERSION_IPV4, conf.BACKBONE_AREA)
+        for query_lsa in [router_lsa_1, router_lsa_2, router_lsa_3, network_lsa_1]:
+            database.add_lsa(query_lsa, None)
+        lsdb_dict = {conf.BACKBONE_AREA: database}
+
+        self.assertTrue(router.Router.is_router_connected(router_id_1, lsdb_dict, conf.VERSION_IPV4))
+        self.assertTrue(router.Router.is_router_connected(router_id_2, lsdb_dict, conf.VERSION_IPV4))
+        self.assertTrue(router.Router.is_router_connected(router_id_3, lsdb_dict, conf.VERSION_IPV4))
+        self.assertFalse(router.Router.is_router_connected('10.10.10.10', lsdb_dict, conf.VERSION_IPV4))
+        lsdb_dict = router.Router.clean_unconnected_routers(copy.deepcopy(lsdb_dict), None, conf.VERSION_IPV4)
+        self.assertEqual(4, len(lsdb_dict[conf.BACKBONE_AREA].get_lsdb([], None)))
+
+        router_lsa_3.body.links = []
+        router_lsa_3.add_link_info_v2(network_prefix_1, network_mask, conf.LINK_TO_STUB_NETWORK, conf.DEFAULT_TOS, cost)
+        network_lsa_1.body.attached_routers = [router_id_1, router_id_2]
+        database = lsdb.Lsdb(conf.VERSION_IPV4, conf.BACKBONE_AREA)
+        for query_lsa in [router_lsa_1, router_lsa_2, router_lsa_3, network_lsa_1]:
+            database.add_lsa(query_lsa, None)
+        lsdb_dict = {conf.BACKBONE_AREA: database}
+
+        self.assertTrue(router.Router.is_router_connected(router_id_1, lsdb_dict, conf.VERSION_IPV4))
+        self.assertTrue(router.Router.is_router_connected(router_id_2, lsdb_dict, conf.VERSION_IPV4))
+        self.assertFalse(router.Router.is_router_connected(router_id_3, lsdb_dict, conf.VERSION_IPV4))
+        lsdb_dict = router.Router.clean_unconnected_routers(copy.deepcopy(lsdb_dict), None, conf.VERSION_IPV4)
+        self.assertNotEqual(len(database.get_lsdb([], None)), len(lsdb_dict[conf.BACKBONE_AREA].get_lsdb([], None)))
+        self.assertEqual(3, len(lsdb_dict[conf.BACKBONE_AREA].get_lsdb([], None)))
+        self.assertEqual(2, len(lsdb_dict[conf.BACKBONE_AREA].router_lsa_list))
+        self.assertEqual(1, len(lsdb_dict[conf.BACKBONE_AREA].network_lsa_list))
+
+        #  Case 2
+
+        router_lsa_1_1 = lsa.Lsa()
+        router_lsa_1_2 = lsa.Lsa()
+        router_lsa_2 = lsa.Lsa()
+        router_lsa_3 = lsa.Lsa()
+        router_lsa_4 = lsa.Lsa()
+        network_lsa_1 = lsa.Lsa()
+        network_lsa_2 = lsa.Lsa()
+
+        router_lsa_1_1.create_header(conf.INITIAL_LS_AGE, options, conf.LSA_TYPE_ROUTER, router_id_1, router_id_1,
+                                     conf.INITIAL_SEQUENCE_NUMBER, conf.VERSION_IPV4)
+        router_lsa_1_2.create_header(conf.INITIAL_LS_AGE, options, conf.LSA_TYPE_ROUTER, router_id_1, router_id_1,
+                                     conf.INITIAL_SEQUENCE_NUMBER, conf.VERSION_IPV4)
+        router_lsa_2.create_header(conf.INITIAL_LS_AGE, options, conf.LSA_TYPE_ROUTER, router_id_2, router_id_2,
+                                   conf.INITIAL_SEQUENCE_NUMBER, conf.VERSION_IPV4)
+        router_lsa_3.create_header(conf.INITIAL_LS_AGE, options, conf.LSA_TYPE_ROUTER, router_id_3, router_id_3,
+                                   conf.INITIAL_SEQUENCE_NUMBER, conf.VERSION_IPV4)
+        router_lsa_4.create_header(conf.INITIAL_LS_AGE, options, conf.LSA_TYPE_ROUTER, router_id_4, router_id_4,
+                                   conf.INITIAL_SEQUENCE_NUMBER, conf.VERSION_IPV4)
+        network_lsa_1.create_header(conf.INITIAL_LS_AGE, options, conf.LSA_TYPE_NETWORK, router_ip_3, router_id_3,
+                                    conf.INITIAL_SEQUENCE_NUMBER, conf.VERSION_IPV4)
+        network_lsa_2.create_header(conf.INITIAL_LS_AGE, options, conf.LSA_TYPE_NETWORK, router_ip_4, router_id_4,
+                                    conf.INITIAL_SEQUENCE_NUMBER, conf.VERSION_IPV4)
+        router_lsa_1_1.create_router_lsa_body(False, False, True, options, conf.VERSION_IPV4)
+        router_lsa_1_2.create_router_lsa_body(False, False, True, options, conf.VERSION_IPV4)
+        router_lsa_2.create_router_lsa_body(False, False, True, options, conf.VERSION_IPV4)
+        router_lsa_3.create_router_lsa_body(False, False, True, options, conf.VERSION_IPV4)
+        router_lsa_4.create_router_lsa_body(False, False, True, options, conf.VERSION_IPV4)
+        network_lsa_1.create_network_lsa_body(
+            network_mask, options, [router_id_1, router_id_2, router_id_3], conf.VERSION_IPV4)
+        network_lsa_2.create_network_lsa_body(network_mask, options, [router_id_1, router_id_4], conf.VERSION_IPV4)
+        router_lsa_1_1.add_link_info_v2(
+            router_ip_3, router_ip_1_1, conf.LINK_TO_TRANSIT_NETWORK, conf.DEFAULT_TOS, cost)
+        router_lsa_1_2.add_link_info_v2(
+            router_ip_4, router_ip_1_2, conf.LINK_TO_TRANSIT_NETWORK, conf.DEFAULT_TOS, cost)
+        router_lsa_2.add_link_info_v2(router_ip_3, router_ip_2, conf.LINK_TO_TRANSIT_NETWORK, conf.DEFAULT_TOS, cost)
+        router_lsa_3.add_link_info_v2(router_ip_3, router_ip_3, conf.LINK_TO_TRANSIT_NETWORK, conf.DEFAULT_TOS, cost)
+        router_lsa_4.add_link_info_v2(router_ip_4, router_ip_4, conf.LINK_TO_TRANSIT_NETWORK, conf.DEFAULT_TOS, cost)
+
+        database_1 = lsdb.Lsdb(conf.VERSION_IPV4, area_1)
+        database_2 = lsdb.Lsdb(conf.VERSION_IPV4, area_2)
+        for query_lsa in [router_lsa_1_1, router_lsa_2, router_lsa_3, network_lsa_1]:
+            database_1.add_lsa(query_lsa, None)
+        for query_lsa in [router_lsa_1_2, router_lsa_4, network_lsa_2]:
+            database_2.add_lsa(query_lsa, None)
+        lsdb_dict = {area_1: database_1, area_2: database_2}
+
+        self.assertTrue(router.Router.is_router_connected(router_id_1, lsdb_dict, conf.VERSION_IPV4))
+        self.assertTrue(router.Router.is_router_connected(router_id_2, lsdb_dict, conf.VERSION_IPV4))
+        self.assertTrue(router.Router.is_router_connected(router_id_3, lsdb_dict, conf.VERSION_IPV4))
+        self.assertTrue(router.Router.is_router_connected(router_id_4, lsdb_dict, conf.VERSION_IPV4))
+        self.assertFalse(router.Router.is_router_connected('10.10.10.10', lsdb_dict, conf.VERSION_IPV4))
+        lsdb_dict = router.Router.clean_unconnected_routers(copy.deepcopy(lsdb_dict), None, conf.VERSION_IPV4)
+        self.assertEqual(4, len(lsdb_dict[area_1].get_lsdb([], None)))
+        self.assertEqual(3, len(lsdb_dict[area_2].get_lsdb([], None)))
+
     #  #  #  #  #  #  #  #
     #  Auxiliary methods  #
     #  #  #  #  #  #  #  #
@@ -140,7 +274,7 @@ class RouterTest(unittest.TestCase):
         r = router.Router()
         router_thread = threading.Thread(target=r.set_up, args=(
             conf.ROUTER_ID, version, shutdown, conf.INTERFACE_NAMES, conf.INTERFACE_AREAS, False,
-            multiprocessing.Queue(), multiprocessing.Event()))
+            multiprocessing.Queue(), multiprocessing.Event(), conf.INTERFACE_COSTS))
         router_thread.start()
         time.sleep(0.1)
         test_thread = threading.Thread(target=test_to_run, args=(version, test_passed, r))

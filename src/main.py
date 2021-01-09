@@ -84,6 +84,17 @@ class Main(cmd.Cmd):
             self.command_pipeline_v3.put([router.SHOW_LSDB, None])
             Main.wait_for_output(self.output_event_v3)
 
+    def do_show_database_summary(self, arg):
+        'Prints LSDB summary: SHOW_DATABASE_SUMMARY'
+        if self.option in [BOTH_VERSIONS, OSPF_V2]:
+            print("OSPFv2")
+            self.command_pipeline_v2.put([router.SHOW_DATABASE_SUMMARY, None])
+            Main.wait_for_output(self.output_event_v2)
+        if self.option in [BOTH_VERSIONS, OSPF_V3]:
+            print("OSPFv3")
+            self.command_pipeline_v3.put([router.SHOW_DATABASE_SUMMARY, None])
+            Main.wait_for_output(self.output_event_v3)
+
     def do_show_route(self, arg):
         'Prints routing table content: SHOW_ROUTE'
         if self.option in [BOTH_VERSIONS, OSPF_V2]:
@@ -135,6 +146,10 @@ class Main(cmd.Cmd):
         command = "ping -c 5 -i 0 " + arg  # No interval between pings
         os.system(command)
 
+    def do_traceroute(self, arg):
+        'Prints the packet route to the specified address: TRACEROUTE 222.222.1.1'
+        os.system("traceroute " + arg)
+
     #  Waits for router process to signal printing of desired output
     @staticmethod
     def wait_for_output(event):
@@ -147,6 +162,7 @@ class Main(cmd.Cmd):
         Main.router_id = router_data[0]
         interface_ids = router_data[1]
         area_ids = router_data[2]
+        interface_costs = router_data[3]
         print(datetime.now().time(), Main.router_id + ": Starting router...")
         Main.startup(interface_ids)
         try:
@@ -168,7 +184,7 @@ class Main(cmd.Cmd):
             self.shutdown_event_v2 = multiprocessing.Event()
             self.process_v2 = multiprocessing.Process(target=self.router_v2.set_up, args=(
                 Main.router_id, conf.VERSION_IPV4, self.shutdown_event_v2, interface_ids, area_ids, False,
-                self.command_pipeline_v2, self.output_event_v2))
+                self.command_pipeline_v2, self.output_event_v2, interface_costs))
             self.process_v2.start()
         if self.option in [BOTH_VERSIONS, OSPF_V3]:
             self.router_v3 = router.Router()
@@ -177,7 +193,7 @@ class Main(cmd.Cmd):
             self.shutdown_event_v3 = multiprocessing.Event()
             self.process_v3 = multiprocessing.Process(target=self.router_v3.set_up, args=(
                 Main.router_id, conf.VERSION_IPV6, self.shutdown_event_v3, interface_ids, area_ids, False,
-                self.command_pipeline_v3, self.output_event_v3))
+                self.command_pipeline_v3, self.output_event_v3, interface_costs))
             self.process_v3.start()
         print(datetime.now().time(), Main.router_id + ": Router started")
 
@@ -199,26 +215,32 @@ class Main(cmd.Cmd):
             rid = int(os.environ['ROUTER'])
             if (not (1 <= network <= 3)) | (not (1 <= rid <= 6)):
                 print("NETWORK must be an integer between 1 and 3, ROUTER must be an integer between 1 and 6")
-                return [conf.ROUTER_ID, conf.INTERFACE_NAMES, conf.INTERFACE_AREAS]  # Default data
+                return [conf.ROUTER_ID, conf.INTERFACE_NAMES, conf.INTERFACE_AREAS, conf.INTERFACE_COSTS]  # Default
 
             if rid == 1:  # R1
-                return [conf.ROUTER_IDS[rid - 1], conf.INTERFACES_R1[network - 1], conf.AREAS_R1[network - 1]]
+                return [conf.ROUTER_IDS[rid - 1], conf.INTERFACES_R1[network - 1], conf.AREAS_R1[network - 1],
+                        conf.INTERFACE_COSTS_R1[network - 1]]
             elif rid == 2:  # R2
-                return [conf.ROUTER_IDS[rid - 1], conf.INTERFACES_R2[network - 1], conf.AREAS_R2[network - 1]]
+                return [conf.ROUTER_IDS[rid - 1], conf.INTERFACES_R2[network - 1], conf.AREAS_R2[network - 1],
+                        conf.INTERFACE_COSTS_R2[network - 1]]
             elif rid == 3:  # R3
-                return [conf.ROUTER_IDS[rid - 1], conf.INTERFACES_R3[network - 1], conf.AREAS_R3[network - 1]]
+                return [conf.ROUTER_IDS[rid - 1], conf.INTERFACES_R3[network - 1], conf.AREAS_R3[network - 1],
+                        conf.INTERFACE_COSTS_R3[network - 1]]
             elif rid == 4:  # R4
-                return [conf.ROUTER_IDS[rid - 1], conf.INTERFACES_R4[network - 1], conf.AREAS_R4[network - 1]]
+                return [conf.ROUTER_IDS[rid - 1], conf.INTERFACES_R4[network - 1], conf.AREAS_R4[network - 1],
+                        conf.INTERFACE_COSTS_R4[network - 1]]
             elif rid == 5:  # R5
-                return [conf.ROUTER_IDS[rid - 1], conf.INTERFACES_R5[network - 1], conf.AREAS_R5[network - 1]]
+                return [conf.ROUTER_IDS[rid - 1], conf.INTERFACES_R5[network - 1], conf.AREAS_R5[network - 1],
+                        conf.INTERFACE_COSTS_R5[network - 1]]
             elif rid == 6:  # R6
-                return [conf.ROUTER_IDS[rid - 1], conf.INTERFACES_R6[network - 1], conf.AREAS_R6[network - 1]]
+                return [conf.ROUTER_IDS[rid - 1], conf.INTERFACES_R6[network - 1], conf.AREAS_R6[network - 1],
+                        conf.INTERFACE_COSTS_R6[network - 1]]
         except ValueError:
             print("NETWORK must be an integer between 1 and 3, ROUTER must be an integer between 1 and 6")
-            return [conf.ROUTER_ID, conf.INTERFACE_NAMES, conf.INTERFACE_AREAS]
+            return [conf.ROUTER_ID, conf.INTERFACE_NAMES, conf.INTERFACE_AREAS, conf.INTERFACE_COSTS]
         except KeyError:
             #  Program is running outside provided GNS3 networks - Fetch default data
-            return [conf.ROUTER_ID, conf.INTERFACE_NAMES, conf.INTERFACE_AREAS]
+            return [conf.ROUTER_ID, conf.INTERFACE_NAMES, conf.INTERFACE_AREAS, conf.INTERFACE_COSTS]
 
     #  VM startup configuration
     @staticmethod

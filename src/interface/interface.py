@@ -27,7 +27,7 @@ class Interface:
     ospf_identifier = 1
 
     def __init__(self, router_id, physical_identifier, ipv4_address, ipv6_address, network_mask, link_prefixes, area_id,
-                 pipeline, interface_shutdown, version, lsdb, localhost, is_abr):
+                 pipeline, interface_shutdown, version, lsdb, localhost, is_abr, cost):
 
         #  OSPF interface parameters
 
@@ -48,7 +48,7 @@ class Interface:
         self.neighbors = {}
         self.designated_router = conf.DEFAULT_DESIGNATED_ROUTER  # 0.0.0.0 - No DR known
         self.backup_designated_router = conf.DEFAULT_DESIGNATED_ROUTER
-        self.cost = conf.INTERFACE_COST
+        self.cost = cost
         self.max_ip_datagram = conf.MTU
         #  TODO: Allow router to operate more than one instance of OSPFv3
         self.instance_id = 0  # Just for OSPFv3 - Default is 0
@@ -580,7 +580,7 @@ class Interface:
         #  Reset interface values
         self.__init__(self.router_id, self.physical_identifier, self.ipv4_address, self.ipv6_address, self.network_mask,
                       self.link_prefixes, self.area_id, self.pipeline, self.interface_shutdown, self.version, self.lsdb,
-                      self.localhost, self.is_abr)
+                      self.localhost, self.is_abr, self.cost)
 
     #  Groups LSAs to acknowledge and sends delayed acknowledgments
     def send_delayed_acknowledgements(self):

@@ -18,10 +18,10 @@ class AreaTest(unittest.TestCase):
 
     def setUp(self):
         self.external_routing_capable = True
-        self.area_v2 = area.Area(
-            ROUTER_ID, conf.VERSION_IPV4, AREA, self.external_routing_capable, [INTERFACE], False, False)
-        self.area_v3 = area.Area(
-            ROUTER_ID, conf.VERSION_IPV6, AREA, self.external_routing_capable, [INTERFACE], False, False)
+        self.area_v2 = area.Area(ROUTER_ID, conf.VERSION_IPV4, AREA, self.external_routing_capable, [INTERFACE], False,
+                                 False, conf.INTERFACE_COSTS)
+        self.area_v3 = area.Area(ROUTER_ID, conf.VERSION_IPV6, AREA, self.external_routing_capable, [INTERFACE], False,
+                                 False, conf.INTERFACE_COSTS)
 
     #  Successful run - 1 s
     def test_constructor_successful(self):
@@ -74,46 +74,53 @@ class AreaTest(unittest.TestCase):
     #  Successful run - 1 s
     def test_constructor_invalid_parameters(self):
         with self.assertRaises(ValueError):
-            area.Area(ROUTER_ID, 1, AREA, self.external_routing_capable, [INTERFACE], False, False)
+            area.Area(ROUTER_ID, 1, AREA, self.external_routing_capable, [INTERFACE], False, False,
+                      conf.INTERFACE_COSTS)
         with self.assertRaises(ValueError):
-            area.Area(ROUTER_ID, 4, AREA, self.external_routing_capable, [INTERFACE], False, False)
+            area.Area(ROUTER_ID, 4, AREA, self.external_routing_capable, [INTERFACE], False, False,
+                      conf.INTERFACE_COSTS)
 
         with self.assertRaises(ValueError):
-            area.Area(ROUTER_ID, conf.VERSION_IPV4, '', self.external_routing_capable, [INTERFACE], False, False)
+            area.Area(ROUTER_ID, conf.VERSION_IPV4, '', self.external_routing_capable, [INTERFACE], False, False,
+                      conf.INTERFACE_COSTS)
         with self.assertRaises(ValueError):
             area.Area(ROUTER_ID, conf.VERSION_IPV4, '        ', self.external_routing_capable, [INTERFACE], False,
-                      False)
+                      False, conf.INTERFACE_COSTS)
         with self.assertRaises(ValueError):
             area.Area(ROUTER_ID, conf.VERSION_IPV4, 'An invalid IP address', self.external_routing_capable, [INTERFACE],
-                      False, False)
+                      False, False, conf.INTERFACE_COSTS)
         with self.assertRaises(ValueError):
-            area.Area(ROUTER_ID, conf.VERSION_IPV4, '0', self.external_routing_capable, [INTERFACE], False, False)
+            area.Area(ROUTER_ID, conf.VERSION_IPV4, '0', self.external_routing_capable, [INTERFACE], False, False,
+                      conf.INTERFACE_COSTS)
         with self.assertRaises(ValueError):
-            area.Area(ROUTER_ID, conf.VERSION_IPV4, '0.', self.external_routing_capable, [INTERFACE], False, False)
+            area.Area(ROUTER_ID, conf.VERSION_IPV4, '0.', self.external_routing_capable, [INTERFACE], False, False,
+                      conf.INTERFACE_COSTS)
         with self.assertRaises(ValueError):
-            area.Area(ROUTER_ID, conf.VERSION_IPV4, '0.0.0', self.external_routing_capable, [INTERFACE], False, False)
+            area.Area(ROUTER_ID, conf.VERSION_IPV4, '0.0.0', self.external_routing_capable, [INTERFACE], False, False,
+                      conf.INTERFACE_COSTS)
         with self.assertRaises(ValueError):
-            area.Area(ROUTER_ID, conf.VERSION_IPV4, '0.0.0.', self.external_routing_capable, [INTERFACE], False, False)
+            area.Area(ROUTER_ID, conf.VERSION_IPV4, '0.0.0.', self.external_routing_capable, [INTERFACE], False, False,
+                      conf.INTERFACE_COSTS)
         with self.assertRaises(ValueError):
             area.Area(ROUTER_ID, conf.VERSION_IPV4, '0.0.0.0.', self.external_routing_capable, [INTERFACE], False,
-                      False)
+                      False, conf.INTERFACE_COSTS)
         with self.assertRaises(ValueError):
             area.Area(ROUTER_ID, conf.VERSION_IPV4, '0.0.0.0.0', self.external_routing_capable, [INTERFACE], False,
-                      False)
+                      False, conf.INTERFACE_COSTS)
 
     #  Successful run - 1 s
     def test_create_interface_twice(self):
-        self.area_v2.create_interface(INTERFACE)  # Interface is already created on startup
-        self.area_v3.create_interface(INTERFACE)
+        self.area_v2.create_interface(INTERFACE, conf.INTERFACE_COSTS)  # Interface is already created on startup
+        self.area_v3.create_interface(INTERFACE, conf.INTERFACE_COSTS)
         self.assertTrue(self.area_v2.is_interface_operating(INTERFACE))
         self.assertTrue(self.area_v3.is_interface_operating(INTERFACE))
 
     #  Successful run - 1 s
     def test_create_interface_invalid_interface_id(self):
         with self.assertRaises(ValueError):
-            self.area_v2.create_interface('Invalid interface')
+            self.area_v2.create_interface('Invalid interface', conf.INTERFACE_COSTS)
         with self.assertRaises(ValueError):
-            self.area_v3.create_interface('Invalid interface')
+            self.area_v3.create_interface('Invalid interface', conf.INTERFACE_COSTS)
 
     #  Successful run - 2 s
     def test_start_interface_after_shutdown(self):

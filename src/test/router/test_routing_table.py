@@ -1,6 +1,5 @@
 import unittest
 import time
-import threading
 import multiprocessing
 import copy
 
@@ -90,76 +89,76 @@ class TestRoutingTable(unittest.TestCase):
 
         self.interface_r1_f0_0_v2 = interface.Interface(
             self.router_id_1, 'f0/0', self.r1_f0_0_v2, '', self.network_mask, [], conf.BACKBONE_AREA, None, None,
-            conf.VERSION_IPV4, None, False, False)
+            conf.VERSION_IPV4, None, False, False, conf.INTERFACE_COSTS[0])
         self.interface_r1_f0_1_v2 = interface.Interface(
             self.router_id_1, 'f0/1', self.r1_f0_1_v2, '', self.network_mask, [], conf.BACKBONE_AREA, None, None,
-            conf.VERSION_IPV4, None, False, False)
+            conf.VERSION_IPV4, None, False, False, conf.INTERFACE_COSTS[0])
         self.interface_r1_f1_0_v2 = interface.Interface(
             self.router_id_1, 'f1/0', self.r1_f1_0_v2, '', self.network_mask, [], conf.BACKBONE_AREA, None, None,
-            conf.VERSION_IPV4, None, False, False)
+            conf.VERSION_IPV4, None, False, False, conf.INTERFACE_COSTS[0])
         self.interface_r1_s2_0_v2 = interface.Interface(
             self.router_id_1, 's2/0', self.r1_s2_0_v2, '', self.network_mask, [], conf.BACKBONE_AREA, None, None,
-            conf.VERSION_IPV4, None, False, False)
+            conf.VERSION_IPV4, None, False, False, conf.INTERFACE_COSTS[0])
         self.interface_r2_f0_0_v2 = interface.Interface(
             self.router_id_2, 'f0/0', self.r2_f0_0_v2, '', self.network_mask, [], conf.BACKBONE_AREA, None, None,
-            conf.VERSION_IPV4, None, False, False)
+            conf.VERSION_IPV4, None, False, False, conf.INTERFACE_COSTS[0])
         self.interface_r2_f0_1_v2 = interface.Interface(
             self.router_id_2, 'f0/1', self.r2_f0_1_v2, '', self.network_mask, [], conf.BACKBONE_AREA, None, None,
-            conf.VERSION_IPV4, None, False, False)
+            conf.VERSION_IPV4, None, False, False, conf.INTERFACE_COSTS[0])
         self.interface_r2_f1_0_v2 = interface.Interface(
             self.router_id_2, 'f1/0', self.r2_f1_0_v2, '', self.network_mask, [], conf.BACKBONE_AREA, None, None,
-            conf.VERSION_IPV4, None, False, False)
+            conf.VERSION_IPV4, None, False, False, conf.INTERFACE_COSTS[0])
         self.interface_r3_f0_0_v2 = interface.Interface(
             self.router_id_3, 'f0/0', self.r3_f0_0_v2, '', self.network_mask, [], conf.BACKBONE_AREA, None, None,
-            conf.VERSION_IPV4, None, False, False)
+            conf.VERSION_IPV4, None, False, False, conf.INTERFACE_COSTS[0])
         self.interface_r3_s1_0_v2 = interface.Interface(
             self.router_id_3, 's1/0', self.r3_s1_0_v2, '', self.network_mask, [], conf.BACKBONE_AREA, None, None,
-            conf.VERSION_IPV4, None, False, False)
+            conf.VERSION_IPV4, None, False, False, conf.INTERFACE_COSTS[0])
         self.interface_r4_e0_v2 = interface.Interface(
             self.router_id_4, 'e0', self.r4_e0_v2, '', self.network_mask, [], conf.BACKBONE_AREA, None, None,
-            conf.VERSION_IPV4, None, False, False)
+            conf.VERSION_IPV4, None, False, False, conf.INTERFACE_COSTS[0])
 
         #  Implementation requires physical interface identifier for OSPFv3 to match a VM interface
         self.interface_r1_f0_0_v3 = interface.Interface(
             self.router_id_1, conf.INTERFACE_NAMES[0], '', self.r1_f0_0_v3, '',
             [[self.prefix_3_v3, self.prefix_length]], conf.BACKBONE_AREA, None, None, conf.VERSION_IPV6, None, False,
-            False)
+            False, conf.INTERFACE_COSTS[0])
         self.interface_r1_f0_1_v3 = interface.Interface(
             self.router_id_1, conf.INTERFACE_NAMES[0], '', self.r1_f0_1_v3, '',
             [[self.prefix_2_v3, self.prefix_length]], conf.BACKBONE_AREA, None, None, conf.VERSION_IPV6, None, False,
-            False)
+            False, conf.INTERFACE_COSTS[0])
         self.interface_r1_f1_0_v3 = interface.Interface(
             self.router_id_1, conf.INTERFACE_NAMES[0], '', self.r1_f1_0_v3, '',
             [[self.prefix_1_v3, self.prefix_length]], conf.BACKBONE_AREA, None, None, conf.VERSION_IPV6, None, False,
-            False)
+            False, conf.INTERFACE_COSTS[0])
         self.interface_r1_s2_0_v3 = interface.Interface(
             self.router_id_1, conf.INTERFACE_NAMES[0], '', self.r1_s2_0_v3, '',
             [[self.prefix_6_v3, self.prefix_length]], conf.BACKBONE_AREA, None, None, conf.VERSION_IPV6, None, False,
-            False)
+            False, conf.INTERFACE_COSTS[0])
         self.interface_r2_f0_0_v3 = interface.Interface(
             self.router_id_2, conf.INTERFACE_NAMES[0], '', self.r2_f0_0_v3, '',
             [[self.prefix_4_v3, self.prefix_length]], conf.BACKBONE_AREA, None, None, conf.VERSION_IPV6, None, False,
-            False)
+            False, conf.INTERFACE_COSTS[0])
         self.interface_r2_f0_1_v3 = interface.Interface(
             self.router_id_2, conf.INTERFACE_NAMES[0], '', self.r2_f0_1_v3, '',
             [[self.prefix_3_v3, self.prefix_length]], conf.BACKBONE_AREA, None, None, conf.VERSION_IPV6, None, False,
-            False)
+            False, conf.INTERFACE_COSTS[0])
         self.interface_r2_f1_0_v3 = interface.Interface(
             self.router_id_2, conf.INTERFACE_NAMES[0], '', self.r2_f1_0_v3, '',
             [[self.prefix_5_v3, self.prefix_length]], conf.BACKBONE_AREA, None, None, conf.VERSION_IPV6, None, False,
-            False)
+            False, conf.INTERFACE_COSTS[0])
         self.interface_r3_f0_0_v3 = interface.Interface(
             self.router_id_3, conf.INTERFACE_NAMES[0], '', self.r3_f0_0_v3, '',
             [[self.prefix_5_v3, self.prefix_length]], conf.BACKBONE_AREA, None, None, conf.VERSION_IPV6, None, False,
-            False)
+            False, conf.INTERFACE_COSTS[0])
         self.interface_r3_s1_0_v3 = interface.Interface(
             self.router_id_3, conf.INTERFACE_NAMES[0], '', self.r3_s1_0_v3, '',
             [[self.prefix_6_v3, self.prefix_length]], conf.BACKBONE_AREA, None, None, conf.VERSION_IPV6, None, False,
-            False)
+            False, conf.INTERFACE_COSTS[0])
         self.interface_r4_e0_v3 = interface.Interface(
             self.router_id_4, conf.INTERFACE_NAMES[0], '', self.r4_e0_v3, '',
             [[self.prefix_1_v3, self.prefix_length]], conf.BACKBONE_AREA, None, None, conf.VERSION_IPV6, None, False,
-            False)
+            False, conf.INTERFACE_COSTS[0])
 
         self.interfaces_r1_v2 = [self.interface_r1_f0_0_v2, self.interface_r1_f0_1_v2, self.interface_r1_f1_0_v2,
                                  self.interface_r1_s2_0_v2]
@@ -643,9 +642,9 @@ class TestRoutingTable(unittest.TestCase):
         router_v2.router_shutdown_event = multiprocessing.Event()
         router_v3.router_shutdown_event = multiprocessing.Event()
         area_v2 = area.Area(self.router_id_4, conf.VERSION_IPV4, conf.INTERFACE_AREAS[0], False, conf.INTERFACE_NAMES,
-                            False, False)
+                            False, False, conf.INTERFACE_COSTS)
         area_v3 = area.Area(self.router_id_4, conf.VERSION_IPV6, conf.INTERFACE_AREAS[0], False, conf.INTERFACE_NAMES,
-                            False, False)
+                            False, False, conf.INTERFACE_COSTS)
         router_v2.areas = {conf.INTERFACE_AREAS[0]: area_v2}
         router_v3.areas = {conf.INTERFACE_AREAS[0]: area_v3}
         time.sleep(0.1)  # Allows interface threads to start
@@ -905,10 +904,10 @@ class TestRoutingTable(unittest.TestCase):
         router_v3 = router.Router()
         process_v2 = multiprocessing.Process(target=router_v2.set_up, args=(
             conf.ROUTER_ID, conf.VERSION_IPV4, shutdown_event_v2, conf.INTERFACE_NAMES, conf.INTERFACE_AREAS, False,
-            multiprocessing.Queue(), multiprocessing.Event()))
+            multiprocessing.Queue(), multiprocessing.Event(), conf.INTERFACE_COSTS))
         process_v3 = multiprocessing.Process(target=router_v3.set_up, args=(
             conf.ROUTER_ID, conf.VERSION_IPV6, shutdown_event_v3, conf.INTERFACE_NAMES, conf.INTERFACE_AREAS, False,
-            multiprocessing.Queue(), multiprocessing.Event()))
+            multiprocessing.Queue(), multiprocessing.Event(), conf.INTERFACE_COSTS))
         process_v2.start()
         process_v3.start()
         existing_routes = len(kernel_table.KernelTable.get_all_routes())  # Includes 222.222.1.0 and 2001:db8:cafe:1::

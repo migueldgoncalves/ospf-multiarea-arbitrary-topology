@@ -222,7 +222,7 @@ class IntegrationTest(unittest.TestCase):
                 self.assertEqual(1, intra_area_prefix_lsa.body.prefix_number)
                 self.assertEqual(1, len(intra_area_prefix_lsa.body.prefixes))
                 prefix_data = utils.Utils.interface_name_to_ipv6_prefix_and_length(interface_obj.physical_identifier)
-                self.assertEqual([prefix_data[1], conf.PREFIX_OPTIONS, conf.INTERFACE_COST, prefix_data[0]],
+                self.assertEqual([prefix_data[1], conf.PREFIX_OPTIONS, conf.INTERFACE_COSTS[0], prefix_data[0]],
                                  intra_area_prefix_lsa.body.prefixes[0])
             remaining_router_ids = copy.deepcopy(router_ids)
             for router_lsa in interface_obj.lsdb.router_lsa_list:
@@ -231,10 +231,10 @@ class IntegrationTest(unittest.TestCase):
                         self.assertEqual(1, len(router_lsa.body.links))
                         if version == conf.VERSION_IPV4:
                             self.assertEqual([interface_object_2.ipv4_address, interface_obj_2.ipv4_address,
-                                              conf.LINK_TO_TRANSIT_NETWORK, conf.DEFAULT_TOS, conf.INTERFACE_COST],
+                                              conf.LINK_TO_TRANSIT_NETWORK, conf.DEFAULT_TOS, conf.INTERFACE_COSTS[0]],
                                              router_lsa.body.links[0])
                         else:
-                            self.assertEqual([conf.LINK_TO_TRANSIT_NETWORK, conf.INTERFACE_COST,
+                            self.assertEqual([conf.LINK_TO_TRANSIT_NETWORK, conf.INTERFACE_COSTS[0],
                                               interface_obj_2.ospf_identifier, interface_object_2.ospf_identifier,
                                               interface_object_2.router_id], router_lsa.body.links[0])
                         remaining_router_ids.remove(interface_obj_2.router_id)
@@ -263,7 +263,7 @@ class IntegrationTest(unittest.TestCase):
             routers.append(router.Router())
             threads.append(threading.Thread(target=routers[i].set_up, args=(
                 router_id, version, router_shutdown, router_interfaces, router_areas, True, multiprocessing.Queue(),
-                multiprocessing.Event())))
+                multiprocessing.Event(), conf.INTERFACE_COSTS)))
             threads[i].start()
             time.sleep(0.5)  # Gives CPU to router thread
 

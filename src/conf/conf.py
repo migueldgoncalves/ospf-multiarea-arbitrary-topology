@@ -6,7 +6,7 @@ This file contains the program constants
 
 ROUTER_ID = '4.4.4.4'
 ROUTER_PRIORITY = 1
-INTERFACE_COST = 10
+INTERFACE_COSTS = [10]
 #  1st element in interface names tuple must match 1st element in interface areas tuple, and so on
 #  Ex: Interface "ens32" belongs to area '0.0.0.0'
 INTERFACE_NAMES = ["eth0"]  # Must match interface names in the machine
@@ -28,6 +28,12 @@ AREAS_R3 = [['0.0.0.0', '0.0.0.0'], ['0.0.0.1', '0.0.0.0'], ['0.0.0.1', '0.0.0.3
 AREAS_R4 = [['0.0.0.0'], [], ['0.0.0.2', '0.0.0.4']]
 AREAS_R5 = [['0.0.0.0'], ['0.0.0.0', '0.0.0.1'], ['0.0.0.3', '0.0.0.3', '0.0.0.4']]
 AREAS_R6 = [['0.0.0.0'], [], []]
+INTERFACE_COSTS_R1 = [[10, 10, 10, 10], [], [10, 10]]
+INTERFACE_COSTS_R2 = [[10, 10, 10], [], [10, 10]]
+INTERFACE_COSTS_R3 = [[10, 10], [10, 10], [10, 10]]
+INTERFACE_COSTS_R4 = [[10], [], [10, 10]]
+INTERFACE_COSTS_R5 = [[10], [10, 10], [10, 10, 10]]
+INTERFACE_COSTS_R6 = [[10], [], []]
 
 #  OSPF-related constants
 

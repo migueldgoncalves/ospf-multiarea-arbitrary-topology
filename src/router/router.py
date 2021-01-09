@@ -24,9 +24,10 @@ SHOW = 1
 SHOW_INTERFACE = 2
 SHOW_NEIGHBOR = 3
 SHOW_LSDB = 4
-SHOW_CONVERGENCE = 5
-SHUTDOWN_INTERFACE = 6
-START_INTERFACE = 7
+SHOW_DATABASE_SUMMARY = 5
+SHOW_CONVERGENCE = 6
+SHUTDOWN_INTERFACE = 7
+START_INTERFACE = 8
 
 
 class Router:
@@ -67,7 +68,7 @@ class Router:
 
     #  Allows router instance to be created without starting it
     def set_up(self, router_id, ospf_version, router_shutdown_event, interface_ids, area_ids, localhost,
-               command_pipeline, output_event):
+               command_pipeline, output_event, interface_costs):
         if ospf_version not in [conf.VERSION_IPV4, conf.VERSION_IPV6]:
             raise ValueError("Invalid OSPF version")
         self.ospf_version = ospf_version
@@ -80,12 +81,14 @@ class Router:
         external_routing_capable = False
         for area_id in Router.get_unique_values(self.area_ids):
             area_interfaces = []
+            area_interface_costs = []
             for i in range(len(self.interface_ids)):
                 if area_ids[i] == area_id:
                     area_interfaces.append(self.interface_ids[i])
+                    area_interface_costs.append(interface_costs[i])
             new_area = area.Area(
                 self.router_id, self.ospf_version, area_id, external_routing_capable, area_interfaces, self.localhost,
-                Router.is_abr(area_ids))
+                Router.is_abr(area_ids), area_interface_costs)
             self.areas[area_id] = new_area
         for area_id in Router.get_unique_values(self.area_ids):
             for interface_id in self.areas[area_id].interfaces:
@@ -960,6 +963,7 @@ class Router:
                 #  Required data
                 shortest_path_tree_dict = {}
                 prefixes_dict = {}
+                #lsdb_dict = Router.clean_unconnected_routers(self.get_lsdb_copy_dict(), None, self.ospf_version)  # Deep copy - Can be reused
                 lsdb_dict = self.get_lsdb_copy_dict()  # Deep copy - Can be reused
                 extension_lsdb_copy = self.extension_database.__deepcopy__()
                 for area_id in lsdb_dict:
@@ -993,11 +997,23 @@ class Router:
                                     for interface_id in self.interfaces:
                                         sending_interface = self.interfaces[interface_id][area.INTERFACE_OBJECT]
                                         ls_update_packet = packet.Packet()
-                                        ls_update_packet.create_header_v2(
-                                            conf.PACKET_TYPE_LS_UPDATE, self.router_id, sending_interface.area_id, 0, 0)
-                                        ls_update_packet.create_ls_update_packet_body(conf.VERSION_IPV4)
-                                        ls_update_packet.add_lsa(query_lsa)
-                                        sending_interface.send_packet(ls_update_packet, conf.ALL_OSPF_ROUTERS_IPV4, '')
+                                        if self.ospf_version == conf.VERSION_IPV4:
+                                            ls_update_packet.create_header_v2(
+                                                conf.PACKET_TYPE_LS_UPDATE, self.router_id, sending_interface.area_id,
+                                                0, 0)
+                                            ls_update_packet.create_ls_update_packet_body(conf.VERSION_IPV4)
+                                            ls_update_packet.add_lsa(query_lsa)
+                                            sending_interface.send_packet(
+                                                ls_update_packet, conf.ALL_OSPF_ROUTERS_IPV4, '')
+                                        else:
+                                            ls_update_packet.create_header_v3(
+                                                conf.PACKET_TYPE_LS_UPDATE, self.router_id, sending_interface.area_id,
+                                                sending_interface.instance_id, sending_interface.ipv6_address,
+                                                conf.ALL_OSPF_ROUTERS_IPV6)
+                                            ls_update_packet.create_ls_update_packet_body(conf.VERSION_IPV6)
+                                            ls_update_packet.add_lsa(query_lsa)
+                                            sending_interface.send_packet(
+                                                ls_update_packet, conf.ALL_OSPF_ROUTERS_IPV6, '')
                                 area_lsdb_modified = True  # Forces recreation of self-originated extension LSAs
                             for area_id in lsdb_dict:  # Flooding of regular LSAs - Overcomes previous flooding failures
                                 ls_update_packet = packet.Packet()
@@ -1078,6 +1094,8 @@ class Router:
                     self.show_neighbor_data()
                 elif command == SHOW_LSDB:
                     self.show_lsdb_content()
+                elif command == SHOW_DATABASE_SUMMARY:
+                    self.show_lsdb_database_summary()
                 elif command == SHUTDOWN_INTERFACE:
                     self.shutdown_interface(arg)
                 elif command == START_INTERFACE:
@@ -1144,19 +1162,27 @@ class Router:
             neighbors = self.interfaces[i][0].neighbors
             print(self.interfaces[i][0].physical_identifier)
             if self.ospf_version == conf.VERSION_IPV4:
-                print("Neighbor ID\tState\t\tDead Time\tAddress\t\tInterface")
+                print("Neighbor ID\tState\t\tDR/BDR\t\tDead Time\tAddress\t\tInterface")
             else:
-                print("Neighbor ID\tState\t\tDead Time\tInterface ID\tInterface")
+                print("Neighbor ID\tState\t\tDR/BDR\t\tDead Time\tInterface ID\tInterface")
             for n in neighbors:
                 neighbor_state = neighbors[n].neighbor_state
                 dead_time = str(datetime.timedelta(seconds=neighbors[n].inactivity_timer.get_timer_time()))
                 neighbor_address = neighbors[n].neighbor_ip_address
                 neighbor_interface_id = neighbors[n].neighbor_interface_id
-                if self.ospf_version == conf.VERSION_IPV4:
-                    print(n + "\t\t" + neighbor_state + "\t\t" + dead_time + "\t\t" + neighbor_address + "\t" + i)
+                if self.interfaces[i][area.INTERFACE_OBJECT].designated_router in [n, neighbor_address]:
+                    dr_bdr = "DR"
+                elif self.interfaces[i][area.INTERFACE_OBJECT].backup_designated_router in [n, neighbor_address]:
+                    dr_bdr = "BDR"
                 else:
-                    print(n + "\t\t" + neighbor_state + "\t\t" + dead_time + "\t\t" + str(neighbor_interface_id) +
-                          "\t\t" + i)
+                    dr_bdr = "DROTHER"
+
+                if self.ospf_version == conf.VERSION_IPV4:
+                    print(n + "\t\t" + neighbor_state + "\t\t" + dr_bdr + "\t\t" + dead_time + "\t\t" +
+                          neighbor_address + "\t" + i)
+                else:
+                    print(n + "\t\t" + neighbor_state + "\t\t" + dr_bdr + "\t\t" + dead_time + "\t\t" +
+                          str(neighbor_interface_id) + "\t\t" + i)
 
     #  Prints LSDB content
     def show_lsdb_content(self):
@@ -1180,6 +1206,63 @@ class Router:
             else:
                 for query_lsa in lsdb_content:
                     print(query_lsa)
+
+    #  Prints LSDB content summary
+    def show_lsdb_database_summary(self):
+        for a in self.areas:
+            query_area = self.areas[a]
+            if query_area.area_id == conf.BACKBONE_AREA:
+                print("Area BACKBONE")
+            else:
+                print("Area", query_area.area_id)
+            print("Type\tLink ID\t\tADV Router\tAge\tSeq#\t\tChecksum")
+            for query_lsa in query_area.database.get_lsdb([], None):
+                ls_type = header.Header.get_ls_type(query_lsa.header.ls_type)
+                ls_id = query_lsa.header.link_state_id
+                advertising_router = query_lsa.header.advertising_router
+                ls_age = query_lsa.header.ls_age
+                sequence_number = query_lsa.header.ls_sequence_number
+                checksum = query_lsa.header.ls_checksum
+                if len(ls_id) >= 8:
+                    variable_tab = '\t'
+                else:
+                    variable_tab = '\t\t'
+                print(str(ls_type) + '\t' + ls_id + variable_tab + advertising_router + '\t\t' + str(ls_age) + '\t' +
+                      str(hex(sequence_number)) + '\t' + str(hex(checksum)))
+            for i in query_area.interfaces:
+                query_interface = query_area.interfaces[i][area.INTERFACE_OBJECT]
+                for query_lsa in query_interface.link_local_lsa_list:
+                    ls_type = header.Header.get_ls_type(query_lsa.header.ls_type)
+                    ls_id = query_lsa.header.link_state_id
+                    advertising_router = query_lsa.header.advertising_router
+                    ls_age = query_lsa.header.ls_age
+                    sequence_number = query_lsa.header.ls_sequence_number
+                    checksum = query_lsa.header.ls_checksum
+                    if len(ls_id) >= 8:
+                        variable_tab = '\t'
+                    else:
+                        variable_tab = '\t\t'
+                    print(str(ls_type) + '\t' + ls_id + variable_tab + advertising_router + '\t\t' + str(ls_age) +
+                          '\t' + str(hex(sequence_number)) + '\t' + str(hex(checksum)))
+        if self.abr:
+            lsdb_content = self.extension_database.get_extension_lsdb(None)
+            print("Extension LSDB - OSPFv" + str(self.ospf_version))
+            if len(lsdb_content) == 0:
+                print("Router does not have extension LSAs")
+            else:
+                for query_lsa in lsdb_content:
+                    ls_type = header.Header.get_ls_type(query_lsa.header.ls_type)
+                    ls_id = query_lsa.header.link_state_id
+                    advertising_router = query_lsa.header.advertising_router
+                    ls_age = query_lsa.header.ls_age
+                    sequence_number = query_lsa.header.ls_sequence_number
+                    checksum = query_lsa.header.ls_checksum
+                    if len(ls_id) >= 8:
+                        variable_tab = '\t'
+                    else:
+                        variable_tab = '\t\t'
+                    print(str(ls_type) + '\t' + ls_id + variable_tab + advertising_router + '\t' + str(ls_age) +
+                          '\t\t' + str(hex(sequence_number)) + '\t' + str(hex(checksum)))
 
     #  Shows convergence time from router start to kernel routing table stabilization
     def show_convergence_time(self):
@@ -1232,31 +1315,7 @@ class Router:
         except RuntimeError:
             pass  # Lock was not acquired - Nothing to do
 
-        for query_lsa in self.extension_database.get_extension_lsdb(None):  # Soft shutdown - LSAs of router are flushed
-            if query_lsa.header.advertising_router == self.router_id:
-                for interface_id in self.interfaces:
-                    sending_interface = self.interfaces[interface_id][area.INTERFACE_OBJECT]
-                    ls_update_packet = packet.Packet()
-                    ls_update_packet.create_header_v2(
-                        conf.PACKET_TYPE_LS_UPDATE, self.router_id, sending_interface.area_id, 0, 0)
-                    ls_update_packet.create_ls_update_packet_body(conf.VERSION_IPV4)
-                    ls_update_packet.add_lsa(query_lsa)
-                    sending_interface.send_packet(ls_update_packet, conf.ALL_OSPF_ROUTERS_IPV4, '')
-                    time.sleep(0.1)
-                    sending_interface.send_packet(ls_update_packet, conf.ALL_OSPF_ROUTERS_IPV4, '')  # Redundancy
         for a in self.areas:
-            ls_update_packet = packet.Packet()
-            if self.ospf_version == conf.VERSION_IPV4:  # Soft shutdown - Flushing of own regular LSAs
-                ls_update_packet.create_header_v2(
-                    conf.PACKET_TYPE_LS_UPDATE, self.router_id, a, 0, 0)
-                ls_update_packet.create_ls_update_packet_body(conf.VERSION_IPV4)
-                for query_lsa in self.areas[a].database.get_lsdb([], None):
-                    if query_lsa.header.advertising_router == self.router_id:
-                        query_lsa.set_ls_age_max()
-                        ls_update_packet.add_lsa(query_lsa)
-                for interface_id in self.areas[a].interfaces:
-                    self.areas[a].interfaces[interface_id][area.INTERFACE_OBJECT].send_packet(
-                        ls_update_packet, conf.ALL_OSPF_ROUTERS_IPV4, '')
             try:
                 self.areas[a].database.release_all_locks()
             except RuntimeError:
@@ -1317,7 +1376,6 @@ class Router:
             else:
                 for area_id in lsdb_dict_copy:
                     for query_lsa in lsdb_dict_copy[area_id].intra_area_prefix_lsa_list:
-                        print(query_lsa)
                         if header.Header.get_ls_type(query_lsa.body.referenced_ls_type) == conf.LSA_TYPE_NETWORK:
                             for prefix_info in query_lsa.body.prefixes:
                                 prefix_list.append(prefix_info[3])
@@ -1352,7 +1410,8 @@ class Router:
 
     #  Returns True if provided router is connected to network - If it appears in any current Network-LSA
     #  Assumes router either has all interfaces connected or is fully disconnected/down - No partial shutdown supported
-    def is_router_connected(self, router_id, lsdb_dict_copy):
+    @staticmethod
+    def is_router_connected(router_id, lsdb_dict_copy, ospf_version):
         for area_id in lsdb_dict_copy:
             query_lsdb = lsdb_dict_copy[area_id]
 
@@ -1361,35 +1420,39 @@ class Router:
                 if router_id in network_lsa.body.attached_routers:
                     if network_lsa.header.advertising_router != router_id:
                         return True  # Router is in Network-LSA from another router
-                    router_in_network_lsa = True
+                    else:
+                        router_in_network_lsa = True
             if not router_in_network_lsa:
-                return False  # Router is not in any Network-LSA
+                continue  # Router is not in any Network-LSA of this area
 
             for network_lsa in query_lsdb.network_lsa_list:
                 if network_lsa.header.advertising_router == router_id:
+                    routers_accepting_this_as_dr = [router_id]
                     #  Routers that this router says are connected to same subnets
                     for query_router_id in network_lsa.body.attached_routers:
-                        recognizes_router_as_dr = False
                         router_lsa = query_lsdb.get_lsa(conf.LSA_TYPE_ROUTER, query_router_id, query_router_id, [])
                         for link_info in router_lsa.body.links:
-                            if self.ospf_version == conf.VERSION_IPV4:
-                                if link_info[0] == router_id:
-                                    recognizes_router_as_dr = True
+                            if ospf_version == conf.VERSION_IPV4:
+                                if link_info[0] == network_lsa.header.link_state_id:
+                                    routers_accepting_this_as_dr.append(router_lsa.header.advertising_router)
                             else:
                                 if link_info[4] == router_id:
-                                    recognizes_router_as_dr = True
-                        if not recognizes_router_as_dr:
-                            return False  # Other router does not recognize this router as DR - Discrepancy
+                                    routers_accepting_this_as_dr.append(router_lsa.header.advertising_router)
 
-        return True
+                    if Router.get_unique_values(routers_accepting_this_as_dr) == Router.get_unique_values(
+                            network_lsa.body.attached_routers):
+                        return True  # Every router in link recognizes router as DR - No discrepancies
+
+        return False
 
     #  Cleans LSDBs of LSAs from unconnected/down routers - Should only be run in LSDB copies
-    def clean_unconnected_routers(self, lsdb_dict_copy, extension_lsdb_copy):
+    @staticmethod
+    def clean_unconnected_routers(lsdb_dict_copy, extension_lsdb_copy, ospf_version):
         unconnected_routers = []
         for area_id in lsdb_dict_copy:
             query_lsdb = lsdb_dict_copy[area_id]
             for query_lsa in query_lsdb.router_lsa_list:
-                if not self.is_router_connected(query_lsa.header.advertising_router, lsdb_dict_copy):
+                if not Router.is_router_connected(query_lsa.header.advertising_router, lsdb_dict_copy, ospf_version):
                     unconnected_routers.append(query_lsa.header.advertising_router)
 
         lsa_list_to_delete = []
