@@ -16,24 +16,25 @@ KERNEL_UPDATE_INTERVAL = 0  # Implementation-specific - Minimum time between upd
 #  Only applicable if program is running inside provided GNS3 networks - Replaces default parameters
 
 ROUTER_IDS = ['1.1.1.1', '2.2.2.2', '3.3.3.3', '4.4.4.4', '5.5.5.5', '6.6.6.6']
-INTERFACES_R1 = [['eth0', 'eth1', 'eth2', 'eth3'], [], ['eth0', 'eth1']]  # First list for first GNS3 network, and so on
-INTERFACES_R2 = [['eth0', 'eth1', 'eth2'], [], ['eth0', 'eth1']]
-INTERFACES_R3 = [['eth0', 'eth1'], ['eth0', 'eth1'], ['eth0', 'eth1']]
-INTERFACES_R4 = [['eth0'], [], ['eth0', 'eth1']]
-INTERFACES_R5 = [['eth0'], ['eth0', 'eth1'], ['eth0', 'eth1', 'eth2']]
-INTERFACES_R6 = [['eth0'], [], []]
-AREAS_R1 = [['0.0.0.0', '0.0.0.0', '0.0.0.0', '0.0.0.0'], [], ['0.0.0.1', '0.0.0.2']]
-AREAS_R2 = [['0.0.0.0', '0.0.0.0', '0.0.0.0'], [], ['0.0.0.1', '0.0.0.3']]
-AREAS_R3 = [['0.0.0.0', '0.0.0.0'], ['0.0.0.1', '0.0.0.0'], ['0.0.0.1', '0.0.0.3']]
-AREAS_R4 = [['0.0.0.0'], [], ['0.0.0.2', '0.0.0.4']]
-AREAS_R5 = [['0.0.0.0'], ['0.0.0.0', '0.0.0.1'], ['0.0.0.3', '0.0.0.3', '0.0.0.4']]
-AREAS_R6 = [['0.0.0.0'], [], []]
-INTERFACE_COSTS_R1 = [[10, 10, 10, 10], [], [10, 10]]
-INTERFACE_COSTS_R2 = [[10, 10, 10], [], [10, 10]]
-INTERFACE_COSTS_R3 = [[10, 10], [10, 10], [10, 10]]
-INTERFACE_COSTS_R4 = [[10], [], [10, 10]]
-INTERFACE_COSTS_R5 = [[10], [10, 10], [10, 10, 10]]
-INTERFACE_COSTS_R6 = [[10], [], []]
+#  First sublist for first GNS3 network group, second sublist for second GNS3 network group
+INTERFACES_R1 = [['eth0', 'eth1', 'eth2', 'eth3'], ['eth0', 'eth1']]
+INTERFACES_R2 = [['eth0', 'eth1', 'eth2'], ['eth0', 'eth1']]
+INTERFACES_R3 = [['eth0', 'eth1'], ['eth0', 'eth1']]
+INTERFACES_R4 = [['eth0'], ['eth0', 'eth1']]
+INTERFACES_R5 = [['eth0'], ['eth0', 'eth1', 'eth2']]
+INTERFACES_R6 = [['eth0'], []]
+AREAS_R1 = [['0.0.0.0', '0.0.0.0', '0.0.0.0', '0.0.0.0'], ['0.0.0.1', '0.0.0.2']]
+AREAS_R2 = [['0.0.0.0', '0.0.0.0', '0.0.0.0'], ['0.0.0.1', '0.0.0.3']]
+AREAS_R3 = [['0.0.0.0', '0.0.0.0'], ['0.0.0.1', '0.0.0.3']]
+AREAS_R4 = [['0.0.0.0'], ['0.0.0.2', '0.0.0.4']]
+AREAS_R5 = [['0.0.0.0'], ['0.0.0.3', '0.0.0.3', '0.0.0.4']]
+AREAS_R6 = [['0.0.0.0'], []]
+INTERFACE_COSTS_R1 = [[10, 10, 10, 10], [10, 10]]
+INTERFACE_COSTS_R2 = [[10, 10, 10], [10, 10]]
+INTERFACE_COSTS_R3 = [[10, 10], [10, 10]]
+INTERFACE_COSTS_R4 = [[10], [10, 10]]
+INTERFACE_COSTS_R5 = [[10], [10, 10, 10]]
+INTERFACE_COSTS_R6 = [[10], []]
 
 #  OSPF-related constants
 

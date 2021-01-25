@@ -214,7 +214,7 @@ class Main(cmd.Cmd):
             network = int(os.environ['NETWORK'])
             rid = int(os.environ['ROUTER'])
             if (not (1 <= network <= 3)) | (not (1 <= rid <= 6)):
-                print("NETWORK must be an integer between 1 and 3, ROUTER must be an integer between 1 and 6")
+                print("NETWORK must be an integer between 1 and 2, ROUTER must be an integer between 1 and 6")
                 return [conf.ROUTER_ID, conf.INTERFACE_NAMES, conf.INTERFACE_AREAS, conf.INTERFACE_COSTS]  # Default
 
             if rid == 1:  # R1
@@ -236,7 +236,7 @@ class Main(cmd.Cmd):
                 return [conf.ROUTER_IDS[rid - 1], conf.INTERFACES_R6[network - 1], conf.AREAS_R6[network - 1],
                         conf.INTERFACE_COSTS_R6[network - 1]]
         except ValueError:
-            print("NETWORK must be an integer between 1 and 3, ROUTER must be an integer between 1 and 6")
+            print("NETWORK must be an integer between 1 and 2, ROUTER must be an integer between 1 and 6")
             return [conf.ROUTER_ID, conf.INTERFACE_NAMES, conf.INTERFACE_AREAS, conf.INTERFACE_COSTS]
         except KeyError:
             #  Program is running outside provided GNS3 networks - Fetch default data
