@@ -16,11 +16,11 @@
 
 4. Copy the /gns3 folder of this repository, containing 3 networks, to the host machine, and with GNS3 open one of the networks;
 
-5. Copy the /src folder of this repository to the directories /project-files/docker/<hexadecimal-id>/ospf inside the folder of the opened GNS3 network, where <hexadecimal-id> is the id of each Docker container of the network;
+5. Copy the /src folder of this repository to the directories /project-files/docker/_hexadecimal-id_/ospf inside the folder of the opened GNS3 network, where _hexadecimal-id_ is the id of each Docker container of the network;
 
 * It is possible that a non-root user does not have access to the /ospf directories. Change the permissions of the directory if desired;
 
-* To identify which hexadecimal ID corresponds to each Docker container of the network, right-click on the desired container in GNS3 and then click on _Show node information_. The field _Server ID_ contains the container hexadecimal ID;
+* To identify which hexadecimal ID corresponds to each Docker container of the network, right-click on the desired container in GNS3 and then click on _Show node information_. The field _Server ID_ contains the container hexadecimal ID.
 
 ### Configuration
 
